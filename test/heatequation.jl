@@ -1,22 +1,35 @@
 # Modified example from Ferrite.jl
-function setup_heatequation()
+function get_dh()
     grid = generate_grid(Quadrilateral, (20, 20));
+    dh = DofHandler(grid)
+    push!(dh, :u, 1)
+    close!(dh);
+    return dh
+end
+
+function get_mdh(ip)
+    grid = generate_grid(Quadrilateral, (20, 20));
+    dh = MixedDofHandler(grid)
+    push!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:getncells(grid)))))
+    close!(dh);
+    return dh
+end
+
+function setup_heatequation(mixeddof=false)
     dim = 2
     ip = Lagrange{dim, RefCube, 1}()
     qr = QuadratureRule{dim, RefCube}(2)
     cellvalues = CellScalarValues(qr, ip);
 
-    dh = DofHandler(grid)
-    push!(dh, :u, 1)
-    close!(dh);
+    dh = mixeddof ? get_mdh(ip) : get_dh()
 
     ch = ConstraintHandler(dh);
     
     ∂Ω = union(
-        getfaceset(grid, "left"),
-        getfaceset(grid, "right"),
-        getfaceset(grid, "top"),
-        getfaceset(grid, "bottom"),
+        getfaceset(dh.grid, "left"),
+        getfaceset(dh.grid, "right"),
+        getfaceset(dh.grid, "top"),
+        getfaceset(dh.grid, "bottom"),
     );
 
     dbc = Dirichlet(:u, ∂Ω, (x, t) -> 0)
@@ -98,7 +111,6 @@ end
 
     # Using FerriteAssembly:
     cv, K, dh = setup_heatequation()
-    
     states = [[nothing for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(dh.grid)]
     material = ThermalMaterial()
     a=zeros(ndofs(dh)); aold=copy(a);
@@ -109,4 +121,16 @@ end
 
     @test K_ref ≈ K 
     @test f_ref ≈ -r
+
+    cv, Km, mdh = setup_heatequation(true)
+    states = [[nothing for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(mdh.grid)]
+    material = (ThermalMaterial(),)
+    a=zeros(ndofs(mdh)); aold=copy(a);
+    Δt=1.0
+    rm = zeros(ndofs(mdh))
+    cache = tuple((CellCache(mdh, fh) for fh in mdh.fieldhandlers)...)
+    doassemble!(Km, rm, a, aold, (states,), mdh, (cv,), material, Δt, cache)
+
+    @test K ≈ Km
+    @test r ≈ rm
 end
