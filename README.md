@@ -17,5 +17,4 @@ Exports `doassemble!` and requires users to define `element_routine!` or `elemen
 * Scaling of unknowns and residuals
 
 ## Future plans
-* Support Neumann boundary conditions
 * Parallel assembly
