@@ -1,10 +1,16 @@
 """
-    scale_primary_global!(a::AbstractVector, m::AbstractMaterial, dofs_tuple::NamedTuple)
+    scale_primary_global!(a::AbstractVector, material, dofs_tuple::NamedTuple)
 
 Scale the global degrees of freedom `a` to normalize and make unitless 
 """
 @inline scale_primary_global!(a, args...) = a
 
+"""
+    unscale_primary_global!(a, material, dofs_tuple::NamedTuple)
+
+Unscale the global degrees of freedom `a` to get correct values for e.g. postprocessing. 
+"""
+@inline unscale_primary_global!(a, args...) = a
 
 """
     unscale_primary!(ae::AbstractVector, m::AbstractMaterial, dh_fh::Union{DofHandler, FieldHandler})
