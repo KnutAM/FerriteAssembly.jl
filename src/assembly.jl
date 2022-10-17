@@ -32,12 +32,13 @@ function doassemble!(
     end
 end
 
-""" doassemble!(
-    K::AbstractMatrix, r::AbstractVector, anew::AbstractVector, 
-    aold::AbstractVector, state::Tuple, dh::MixedDofHandler, 
-    cellvalues::Tuple, materials::Tuple, Δt::Number, caches::Tuple,
-    fullcellset=nothing
-    )
+""" 
+    doassemble!(
+        K::AbstractMatrix, r::AbstractVector, anew::AbstractVector, 
+        aold::AbstractVector, state::Tuple, dh::MixedDofHandler, 
+        cellvalues::Tuple, materials::Tuple, Δt::Number, caches::Tuple,
+        fullcellset=nothing
+        )
 
 Outer assembling loop using the MixedDofHandler `dh`
 """
