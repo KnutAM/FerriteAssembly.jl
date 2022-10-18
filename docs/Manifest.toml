@@ -100,12 +100,12 @@ version = "1.0.3"
 
 [[deps.Ferrite]]
 deps = ["EnumX", "LinearAlgebra", "NearestNeighbors", "Reexport", "SparseArrays", "Tensors", "WriteVTK"]
-path = "../../../../../../.julia/dev/Ferrite"
+git-tree-sha1 = "d8cfe9a84f94fdf6a06b1a0adf297f2617989372"
 uuid = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
 version = "0.3.8"
 
 [[deps.FerriteAssembly]]
-deps = ["Ferrite", "ForwardDiff", "Tensors"]
+deps = ["Ferrite", "ForwardDiff"]
 path = ".."
 uuid = "fd21fc07-c509-4fe1-9468-19963fd5935d"
 version = "0.1.0"
