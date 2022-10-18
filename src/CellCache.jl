@@ -5,6 +5,24 @@ struct CellCache{T,MC}
     Ke::Matrix{T}       # Element stiffness matrix
     materialcache::MC   # Material cache
 end
+
+"""
+    CellCache(n::Int, materialcache=nothing)
+
+Create a cell cache for an element with `n` degrees of freedom,
+as well as with `materialcache`
+
+    CellCache(dh::DofHandler, materialcache=nothing)
+
+Create a cell cache with the number of element degrees of freedom 
+according to the dof handler `dh`, as well as with `materialcache`
+
+    CellCache(dh::MixedDofHandler, fh::FieldHandler, materialcache=nothing)
+
+Create a cell cache with the number of element degrees of freedom 
+according to the mixed dof handler `dh` for its fieldhandler `fh`.
+Include also the `materialcache`
+"""
 function CellCache(n::Int, materialcache=nothing)
     return CellCache(zeros(n), zeros(n), zeros(n), zeros(n,n), materialcache)
 end
