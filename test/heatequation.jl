@@ -1,6 +1,7 @@
 # Modified example from Ferrite.jl
+get_grid() = generate_grid(Quadrilateral, (20, 20))
 function get_dh()
-    grid = generate_grid(Quadrilateral, (20, 20));
+    grid = get_grid();
     dh = DofHandler(grid)
     push!(dh, :u, 1)
     close!(dh);
@@ -8,7 +9,7 @@ function get_dh()
 end
 
 function get_mdh(ip)
-    grid = generate_grid(Quadrilateral, (20, 20));
+    grid = get_grid();
     dh = MixedDofHandler(grid)
     push!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:getncells(grid)))))
     close!(dh);
@@ -122,14 +123,15 @@ end
     @test K_ref ≈ K 
     @test f_ref ≈ -r
 
+    # Using FerriteAssembly and MixedDofHandler
     cv, Km, mdh = setup_heatequation(true)
     states = [[nothing for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(mdh.grid)]
-    material = (ThermalMaterial(),)
+    material = ThermalMaterial()
     a=zeros(ndofs(mdh)); aold=copy(a);
     Δt=1.0
     rm = zeros(ndofs(mdh))
-    cache = tuple((CellCache(mdh, fh) for fh in mdh.fieldhandlers)...)
-    doassemble!(Km, rm, a, aold, (states,), mdh, (cv,), material, Δt, cache)
+    cache = CellCache(mdh)
+    doassemble!(Km, rm, a, aold, (states,), mdh, (cv,), (material,), Δt, cache)
 
     @test K ≈ Km
     @test r ≈ rm

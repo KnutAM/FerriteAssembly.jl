@@ -111,8 +111,8 @@ function inner_doassemble!(
     end
 end
 
-# Make reinit! work for Tuple/NamedTuple of cellvalues
-Ferrite.reinit!(cvs::Union{Tuple,NamedTuple}, cell::CellIterator) = reinit!.(cvs, (cell,))
+# Make reinit! work for Tuple/NamedTuple of FEValues (cellvalues, facevalues)
+Ferrite.reinit!(fevalues::Union{Tuple,NamedTuple}, args...) = foreach(fevalue->reinit!(fevalue, args...), fevalues)
 
 """
     assemble_cell!(
@@ -129,11 +129,11 @@ function assemble_cell!(
     )
     reinit!(cellcache, cell, anew, aold)
     reinit!(cellvalues, cell)
-    ae_new, ae_old, re, Ke, materialcache = getcellcachevars(cellcache)
+    (;ae, ae_old, re, Ke, materialcache) = getcellcachevars(cellcache)
 
-    unscale_primary!.((ae_new, ae_old), (material,), (dh_fh,))
+    unscale_primary!.((ae, ae_old), (material,), (dh_fh,))
     element_routine!(
-        Ke, re, ae_new, ae_old, state, material, 
+        Ke, re, ae, ae_old, state, material, 
         cellvalues, dh_fh, Δt, materialcache
         )
     scale_residual!(Ke, re, material, dh_fh)
