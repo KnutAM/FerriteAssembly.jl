@@ -2,8 +2,7 @@
     doassemble!(
         K::AbstractMatrix, r::AbstractVector, a::AbstractVector, 
         aold::AbstractVector, s::AbstractVector, dh::DofHandler, 
-        cellvalues, material, Δt::Number, cache::CellCache, 
-        cellset=nothing
+        cellvalues, material, Δt::Number, cache::CellCache
         )
 
 Assemble all cells by using `dh::DofHandler`.
@@ -21,18 +20,14 @@ Assemble all cells by using `dh::DofHandler`.
 * The user-defined `material` and the time increment `Δt`
   are passed into the element routine. 
 * `cache` is described in [`CellCache`](@ref).
-* `cellset` can be used to only assemble parts of the 
-  cells, if e.g. we have different materials for different parts 
-  of the grid. `cellset=nothing` implies assembly of all cells. 
 """
 function doassemble!(
     K::AbstractMatrix, r::AbstractVector, a::AbstractVector, 
     aold::AbstractVector, s::AbstractVector, dh::DofHandler, 
-    cellvalues, material, Δt::Number, cache::CellCache, 
-    cellset=nothing
+    cellvalues, material, Δt::Number, cache::CellCache
     )
     assembler = start_assemble(K, r)
-    for cell in CellIterator(dh, cellset)
+    for cell in CellIterator(dh)
         assemble_cell!(
             assembler, cell, cellvalues, material, 
             s[cellid(cell)], a, aold, dh, Δt, cache)
@@ -43,8 +38,7 @@ end
     doassemble!(
         K::AbstractMatrix, r::AbstractVector, anew::AbstractVector, 
         aold::AbstractVector, state::Tuple, dh::MixedDofHandler, 
-        cellvalues::Tuple, materials::Tuple, Δt::Number, caches::Tuple,
-        fullcellset=nothing
+        cellvalues::Tuple, materials::Tuple, Δt::Number, caches::Tuple
         )
 
 Assemble all cells by using `dh::MixedDofHandler`. In this case, 
@@ -68,16 +62,15 @@ to the values in the specific `fieldhandler`.
   are passed into the element routine. Finally,
 * `caches` is a tuple with `CellCache`-elements, which are 
   described in [`CellCache`](@ref).
-* `fullcellset` can be used to only assemble part of the grid. 
 """
 function doassemble!(
     K::AbstractMatrix, r::AbstractVector, a::AbstractVector, 
     aold::AbstractVector, state::Tuple, dh::MixedDofHandler, 
-    cellvalues::Tuple, materials::Tuple, Δt::Number, caches::Tuple,
-    fullcellset=nothing)
+    cellvalues::Tuple, materials::Tuple, Δt::Number, caches::Tuple
+    )
     assembler = start_assemble(K, r)
     for (fh, cv, m, s, c) in zip(dh.fieldhandlers, cellvalues, materials, state, caches)
-        inner_doassemble!(assembler, fh, cv, m, s, dh, a, aold, Δt, c, fullcellset)
+        inner_doassemble!(assembler, fh, cv, m, s, dh, a, aold, Δt, c)
     end
 end
 
@@ -86,7 +79,7 @@ end
         assembler, fh::FieldHandler, cellvalues, material, 
         s::AbstractVector, dh::MixedDofHandler, 
         anew::AbstractVector, aold::AbstractVector, 
-        Δt::Number, cache::CellCache, fullcellset
+        Δt::Number, cache::CellCache
         )
 
 Inner assembling loop using the MixedDofHandler `dh` for a specific field `fh`.
@@ -97,14 +90,9 @@ function inner_doassemble!(
     assembler, fh::FieldHandler, cellvalues, material, 
     s::AbstractVector, dh::MixedDofHandler, 
     anew::AbstractVector, aold::AbstractVector, 
-    Δt::Number, cache::CellCache, fullcellset
+    Δt::Number, cache::CellCache
     )
-    if isnothing(fullcellset)
-        cellset = collect(fh.cellset)
-    else
-        cellset = collect(union(fh.cellset, fullcellset))
-    end
-    for cell in CellIterator(dh, cellset)
+    for cell in CellIterator(dh, collect(fh.cellset))
         assemble_cell!(
             assembler, cell, cellvalues, material, s[cellid(cell)], 
             anew, aold, fh, Δt, cache)
