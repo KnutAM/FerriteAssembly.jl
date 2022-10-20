@@ -1,11 +1,13 @@
 module FerriteAssembly
 using Ferrite, ForwardDiff
 
-include("CellCache.jl")
+include("ferrite_additions.jl")
+include("CellBuffer.jl")
 include("scaling.jl")
 include("assembly.jl")
 
-export doassemble!, CellCache
+export doassemble!, CellBuffer
+export create_threaded_CellBuffers, create_threaded_assemblers
 
 """
     element_routine!(

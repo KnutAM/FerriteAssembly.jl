@@ -96,7 +96,7 @@ struct ThermalMaterial end  # For dispatch only, material parameters hard coded 
 function FerriteAssembly.element_routine!(
     Ke::AbstractMatrix, re::AbstractVector, 
     ae_new::AbstractVector, ae_old::AbstractVector,
-    state::AbstractVector, material::ThermalMaterial, 
+    state, material::ThermalMaterial, 
     cellvalues::CellScalarValues, 
     dh_fh::Union{DofHandler,FieldHandler}, Δt, materialcache
     )
@@ -106,33 +106,69 @@ function FerriteAssembly.element_routine!(
 end
 
 @testset "heatequation" begin
-    # Following Ferrite.jl's example:
+    # Following Ferrite.jl's example get get reference solution
     cv_ref, K_ref, dh_ref = setup_heatequation()
     K_ref, f_ref = assemble_global(cv_ref, K_ref, dh_ref);
+    r_ref = -f_ref
 
-    # Using FerriteAssembly:
-    cv, K, dh = setup_heatequation()
-    states = [[nothing for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(dh.grid)]
-    material = ThermalMaterial()
-    a=zeros(ndofs(dh)); aold=copy(a);
+    # Common variables for all cases 
+    states = [[nothing for _ in 1:getnquadpoints(cv_ref)] for _ in 1:getncells(dh_ref.grid)]
+    a=zeros(ndofs(dh_ref));
+    aold=copy(a);
     Δt=1.0
-    r = zeros(ndofs(dh))
-    cache = CellCache(dh)
-    doassemble!(K, r, a, aold, states, dh, cv, material, Δt, cache)
 
-    @test K_ref ≈ K 
-    @test f_ref ≈ -r
+    @testset "DofHandler sequential" begin
+        cv, K, dh = setup_heatequation()
+        r = zeros(ndofs(dh))
+        cellbuffer = CellBuffer(dh, cv, ThermalMaterial())
+        assembler = start_assemble(K, r)
+        
+        doassemble!(assembler, cellbuffer, states, dh, a, aold, Δt)
 
-    # Using FerriteAssembly and MixedDofHandler
-    cv, Km, mdh = setup_heatequation(true)
-    states = [[nothing for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(mdh.grid)]
-    material = ThermalMaterial()
-    a=zeros(ndofs(mdh)); aold=copy(a);
-    Δt=1.0
-    rm = zeros(ndofs(mdh))
-    cache = CellCache(mdh)
-    doassemble!(Km, rm, a, aold, (states,), mdh, (cv,), (material,), Δt, cache)
+        @test K_ref ≈ K 
+        @test r_ref ≈ r
+    end
 
-    @test K ≈ Km
-    @test r ≈ rm
+    @testset "MixedDofHandler sequential" begin
+        cv, K, dh = setup_heatequation(true)
+        r = zeros(ndofs(dh))
+        cellbuffer = CellBuffer(dh, (cv,), ThermalMaterial())
+        assembler = start_assemble(K, r)
+        
+        doassemble!(assembler, cellbuffer, (states,), dh, a, aold, Δt)
+
+        @test K_ref ≈ K
+        @test r_ref ≈ r
+    end
+
+    @testset "DofHandler threaded" begin
+        cv, K, dh = setup_heatequation()
+        r = zeros(ndofs(dh))
+        
+        cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, cv, ThermalMaterial()))
+        assemblers = create_threaded_assemblers(K, r)
+        colors = create_coloring(dh.grid)
+        
+        doassemble!(assemblers, cellbuffers, states, colors, dh, a, aold, Δt)
+
+        @test K_ref ≈ K 
+        @test r_ref ≈ r
+    end
+
+    @testset "MixedDofHandler threaded" begin
+        cv, K, dh = setup_heatequation(true)
+        r = zeros(ndofs(dh))
+        
+        cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, (cv,), ThermalMaterial()))
+        assemblers = create_threaded_assemblers(K, r)
+        colors = create_coloring(dh.grid)
+        
+        doassemble!(assemblers, cellbuffers, (states,), colors, dh, a, aold, Δt)
+
+        @test K_ref ≈ K
+        @test r_ref ≈ r
+    end
+
+    
+
 end
