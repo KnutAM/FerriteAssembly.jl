@@ -18,26 +18,25 @@ Sequential assembly of cells with the `dh::DofHandler`.
 * `assembler` is obtained from `Ferrite.jl`'s `start_assemble(K,r)` function
 * `cellbuffer` contains buffers for the specific cell. 
   See  [`CellBuffer`](@ref) for more info. 
-* `s` is a vector of state variables, where each
-  element contains state variables for each `cellnr`. 
+* `s` is a collection (vector, dict, etc.) of state variables, where indexing 
+  by `cellnr` gives the state variables for that cell. 
 * `a` and `aold` are the current and old unknowns. 
 * `Δt` is the time increment passed into each element routine
 """
 function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, cellbuffer::CellBuffer, 
-    s::AbstractVector, dh::DofHandler, 
+    states, dh::DofHandler, 
     a::AbstractVector, aold::AbstractVector, Δt::Number
     )
     for cellnr in 1:Ferrite.getncells(dh)
-        assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, s[cellnr], Δt)
+        assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
     end
 end
 
 """ 
     doassemble!(
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-        cellbuffers::Vector{<:CellBuffer}, 
-        s::AbstractVector, 
+        cellbuffers::Vector{<:CellBuffer}, states, 
         colored_sets::Vector{Vector{Int}}, dh::DofHandler, 
         a::AbstractVector, aold::AbstractVector, Δt::Number
         )
@@ -48,14 +47,13 @@ Threaded assembly of cells with the `dh::DofHandler`.
 * `cellbuffers` contains buffers for the specific cell,
   for each thread. This can be created by [`create_threaded_CellBuffers`](@ref). 
   See also [`CellBuffer`](@ref) for more info.
-* `s`, `a`, `aold`, and `Δt` are the same as for the 
+* `states`, `a`, `aold`, and `Δt` are the same as for the 
   sequential `doassemble!`
 * `colored_sets` are cellsets for each color
 """
 function doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-    cellbuffers::Vector{<:CellBuffer}, 
-    s::AbstractVector, 
+    cellbuffers::Vector{<:CellBuffer}, states, 
     colored_sets::Vector{Vector{Int}}, dh::DofHandler, 
     a::AbstractVector, aold::AbstractVector, Δt::Number
     )
@@ -65,7 +63,7 @@ function doassemble!(
     for cellset in colored_sets
         Threads.@threads for cellnr in cellset
             id = Threads.threadid()
-            assemble_cell!(assemblers[id], cellbuffers[id], dh, cellnr, a, aold, s[cellnr], Δt)
+            assemble_cell!(assemblers[id], cellbuffers[id], dh, cellnr, a, aold, states[cellnr], Δt)
         end
     end
 end
@@ -81,13 +79,12 @@ end
 Sequential assembly of cells with the `dh::MixedDofHandler`.
 * `cellbuffers` contains buffers for the specific cell in each `FieldHandler`
   in `dh.fieldhandlers` See  [`CellBuffer`](@ref) for more info. 
-* `states` is a tuple which contains vectors of state variables, 
+* `states` is a tuple which contains a collection of state variables, 
   one vector for each `FieldHandler` in `dh.fieldhandlers`. 
-  Each vector element contains the state variables for one `Cell`. 
-  Note that the vector index corresponds to the cellnr in the grid, 
-  and not in the cellset of the `FieldHandler` 
-  (as this is a `Set` and the order is not guaranteed). Unless all cells
-  have the same type of the state, it might make sense to use a sparse vector. 
+  Each element in the collection, i.e. `states[cellnr]`, contains the 
+  state variables for one `Cell` with global number `cellnr`. 
+  Unless all cells have the same type of the state, it might make sense to use a 
+  Dict{Int,State} where the key refers to the global number. 
 * `assembler`, `a`, `aold`, and `Δt` are the same as for the `DofHandler` case. 
 """
 function doassemble!(
@@ -133,7 +130,7 @@ end
 
 """
     inner_doassemble!(
-        assembler, cellbuffer::CellBuffer, state, 
+        assembler, cellbuffer::CellBuffer, states, 
         dh::MixedDofHandler, fh::FieldHandler, a, aold, Δt
         )
 
@@ -144,19 +141,19 @@ of `doassemble!` for the `MixedDofHandler`
 """
 function inner_doassemble!(
     assembler, cellbuffer::CellBuffer, 
-    state, dh::MixedDofHandler, fh::FieldHandler, 
+    states, dh::MixedDofHandler, fh::FieldHandler, 
     a, aold, Δt
     )
     for cellnr in fh.cellset
-        assemble_cell!(assembler, cellbuffer, dh, fh, cellnr, a, aold, state[cellnr], Δt)
+        assemble_cell!(assembler, cellbuffer, dh, fh, cellnr, a, aold, states[cellnr], Δt)
     end
 end
 
 """
     inner_doassemble!(
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-        cellbuffers::Vector{<:CellBuffer}, 
-        states::AbstractVector, colored_sets::Vector{Vector{Int}}, 
+        cellbuffers::Vector{<:CellBuffer}, states, 
+        colored_sets::Vector{Vector{Int}}, 
         dh::MixedDofHandler, fh::FieldHandler, a, aold, Δt)
 
 Parallel assembly of cells corresponding to the given `fh` from 
@@ -166,8 +163,7 @@ Internal function that is called from the parallel version of
 """
 function inner_doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-    cellbuffers::Vector{<:CellBuffer}, 
-    states::AbstractVector, 
+    cellbuffers::Vector{<:CellBuffer}, states, 
     colored_sets::Vector{Vector{Int}}, dh::MixedDofHandler, fh::FieldHandler, 
     a, aold, Δt)
 

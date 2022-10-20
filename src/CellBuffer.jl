@@ -26,14 +26,16 @@ Use `dh` to get `numdofs`, `numnodes`, and `dim`, before calling the above metho
 Use `dh` and `fh` to get `numdofs`, `numnodes`, and `dim`, 
 before calling the first `CellBuffer` method definition. 
 
-    CellBuffer(dh::MixedDofHandler, cellvalues::Tuple, material, cache=nothing)
-    CellBuffer(dh::MixedDofHandler, cellvalues::Tuple, materials::Tuple, cache=nothing)
-    CellBuffer(dh::MixedDofHandler, cellvalues::Tuple, materials::Tuple, caches::Tuple)
+    CellBuffer(dh::MixedDofHandler, cellvalues, material, cache=nothing)
     
 Return a tuple of `CellBuffer`s for each `FieldHandler` in `dh.fieldhandlers`.
 `cellvalues[i]` corresponds to `dh.fieldhandlers[i]`, and so does 
-`materials[i]` and `caches[i]`. If only one material (not a tuple) is given, 
-the same is used for all `fieldhandlers`, and the same goes for `cache`. 
+`materials[i]` and `caches[i]`. If only one `CellValues`, `material` (not a tuple), and/or `cache`
+is given, the same is used for all `fieldhandlers`. If a tuple of `cellvalues` (or materials/caches) 
+should be used for each cell, 
+and the same tuple should be used for each fieldhandler, 
+then it must be given as a tuple of tuples. 
+(Alternatively, it is recommended to use a `NamedTuple`)
 """
 function CellBuffer(numdofs::Int, numnodes::Int, ::Val{dim}, cellvalues, material, cache=nothing) where dim
     return CellBuffer(
@@ -51,38 +53,12 @@ function CellBuffer(dh::MixedDofHandler{dim}, fh::FieldHandler, args...) where d
     return CellBuffer(ndofs_per_cell(dh, fh), Ferrite.nnodes_per_cell(dh, fh), Val{dim}(), args...)
 end
 
-function CellBuffer(dh::MixedDofHandler, cellvalues::Tuple, args...)
-    if length(cellvalues) != length(dh.fieldhandlers)
-        throw(DimensionMismatch("length(cellvalues) != length(dh.fieldhandlers)"))
-    end
-    return ntuple(i->CellBuffer(dh, dh.fieldhandlers[i], cellvalues[i], args...), length(dh.fieldhandlers))
-end
-function CellBuffer(dh::MixedDofHandler, cellvalues::Tuple, materials::Tuple, cache=nothing)
-    n = length(dh.fieldhandlers)
-    if n != length(cellvalues) != length(material) != length(cache)
-        throw(DimensionMismatch("dh.fieldhandlers, cellvalues, materials, cache"))
-    end
-    return ntuple(i->CellBuffer(dh, dh.fieldhandlers[i], cellvalues[i], materials[i], cache), n)
-end
-function CellBuffer(dh::MixedDofHandler, cellvalues::Tuple, materials::Tuple, caches::Tuple)
-    n = length(dh.fieldhandlers)
-    if n != length(cellvalues) != length(materials) != length(caches)
-        throw(DimensionMismatch("dh.fieldhandlers, cellvalues, materials, cache"))
-    end
-    return ntuple(i->CellBuffer(dh, dh.fieldhandlers[i], cellvalues[i], materials[i], caches[i]), n)
-end
-
-
-"""
-    _copyto!(dest::Vector, src::Vector, inds::Vector{Int})
-
-Internal function for faster copying of global values into the element values. 
-Equivalent to `dest .= src[inds]`
-"""
-function _copyto!(dest::Vector, src::Vector, inds::Vector{Int})
-    for (i,j) in enumerate(inds)
-        dest[i] = src[j]
-    end
+function CellBuffer(dh::MixedDofHandler, cellvalues::Union{Tuple,CellValues}, materials, caches=nothing)
+    numfh = length(dh.fieldhandlers)
+    cellvalues_ = _maketuple(cellvalues, numfh)
+    materials_ = _maketuple(materials, numfh)
+    caches_ = _maketuple(caches, numfh)
+    return ntuple(i->CellBuffer(dh, dh.fieldhandlers[i], cellvalues_[i], materials_[i], caches_[i]), numfh)
 end
 
 """

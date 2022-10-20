@@ -112,7 +112,6 @@ end
     r_ref = -f_ref
 
     # Common variables for all cases 
-    states = [[nothing for _ in 1:getnquadpoints(cv_ref)] for _ in 1:getncells(dh_ref.grid)]
     a=zeros(ndofs(dh_ref));
     aold=copy(a);
     Δt=1.0
@@ -120,6 +119,7 @@ end
     @testset "DofHandler sequential" begin
         cv, K, dh = setup_heatequation()
         r = zeros(ndofs(dh))
+        states = create_states(dh)
         cellbuffer = CellBuffer(dh, cv, ThermalMaterial())
         assembler = start_assemble(K, r)
         
@@ -132,10 +132,11 @@ end
     @testset "MixedDofHandler sequential" begin
         cv, K, dh = setup_heatequation(true)
         r = zeros(ndofs(dh))
+        states = create_states(dh)
         cellbuffer = CellBuffer(dh, (cv,), ThermalMaterial())
         assembler = start_assemble(K, r)
         
-        doassemble!(assembler, cellbuffer, (states,), dh, a, aold, Δt)
+        doassemble!(assembler, cellbuffer, states, dh, a, aold, Δt)
 
         @test K_ref ≈ K
         @test r_ref ≈ r
@@ -144,7 +145,7 @@ end
     @testset "DofHandler threaded" begin
         cv, K, dh = setup_heatequation()
         r = zeros(ndofs(dh))
-        
+        states = create_states(dh)
         cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, cv, ThermalMaterial()))
         assemblers = create_threaded_assemblers(K, r)
         colors = create_coloring(dh.grid)
@@ -158,12 +159,12 @@ end
     @testset "MixedDofHandler threaded" begin
         cv, K, dh = setup_heatequation(true)
         r = zeros(ndofs(dh))
-        
+        states = create_states(dh)
         cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, (cv,), ThermalMaterial()))
         assemblers = create_threaded_assemblers(K, r)
         colors = create_coloring(dh.grid)
         
-        doassemble!(assemblers, cellbuffers, (states,), colors, dh, a, aold, Δt)
+        doassemble!(assemblers, cellbuffers, states, colors, dh, a, aold, Δt)
 
         @test K_ref ≈ K
         @test r_ref ≈ r

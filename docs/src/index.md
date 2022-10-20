@@ -69,11 +69,13 @@ r = zeros(ndofs(dh))
 Δt=1.0
 ```
 In general, each integration point (or cell if desired by the user) can have a `state`.
-In this case, we have no such state variables, and just create a vector of `nothing`:
+In this case, we have no state variables, but the interface still requires them.
+We can then create states of `nothing` by 
 ```julia
-states = [[nothing for _ in 1:getnquadpoints(cellvalues)] for _ in 1:getncells(dh.grid)]
+states = create_states(dh)
 ```
-(For this case, `states = [nothing for _ in 1:getncells(dh.grid)]` would suffice). 
+See [`create_states`](@ref) for more detailed options of creating actual state variables. 
+
 The next step is gathering all variables that are modified for each cell, 
 but don't belong to each cell, in the `cellbuffer`:
 ```julia
