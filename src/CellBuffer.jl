@@ -12,22 +12,30 @@ struct CellBuffer{dim,T,CV,MT,CL,CT}
 end
 
 """
-    CellBuffer(numdofs::Int, numnodes::Int, ::Val{dim}, cellvalues, material, cell_load=nothing, cache=nothing)
+    CellBuffer(
+        numdofs::Int, numnodes::Int, ::Val{dim}, 
+        cellvalues, material, cell_load=nothing, cache=nothing)
 
 Create a cell cache for an element with `numdofs` degrees of freedom and
 `numnodes` nodes with dimension `dim`. Add the given `cellvalues`, `material`, 
 and `cache` to the `CellBuffer` as well. 
 
-    CellBuffer(dh::DofHandler, cellvalues, material, cell_load=nothing, cache=nothing)
+    CellBuffer(
+        dh::DofHandler, 
+        cellvalues, material, cell_load=nothing, cache=nothing)
 
 Use `dh` to get `numdofs`, `numnodes`, and `dim`, before calling the above method definition. 
 
-    CellBuffer(dh::MixedDofHandler, fh::FieldHandler, cellvalues, material, cell_load=nothing, cache=nothing)
+    CellBuffer(
+        dh::MixedDofHandler, fh::FieldHandler, 
+        cellvalues, material, cell_load=nothing, cache=nothing)
 
 Use `dh` and `fh` to get `numdofs`, `numnodes`, and `dim`, 
 before calling the first `CellBuffer` method definition. 
 
-    CellBuffer(dh::MixedDofHandler, cellvalues, material, cell_load=nothing, cache=nothing)
+    CellBuffer(
+        dh::MixedDofHandler, cellvalues, 
+        material, cell_load=nothing, cache=nothing)
     
 Return a tuple of `CellBuffer`s for each `FieldHandler` in `dh.fieldhandlers`.
 `cellvalues[i]` corresponds to `dh.fieldhandlers[i]`, and so does 

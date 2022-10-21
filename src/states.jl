@@ -18,7 +18,9 @@ end
 
 
 """
-    create_states(dh::DofHandler, statefun::Function=Returns(nothing), cellvalues::Union{CellValues,Nothing}=nothing)
+    create_states(dh::DofHandler, 
+        statefun::Function=Returns(nothing), 
+        cellvalues::Union{CellValues,Nothing}=nothing)
 
 Creates a `Vector` of states for each cell in `dh`, where a `state=statefun(x::Vec)` and `x` is 
 the coordinate in the grid. If `isnothing(cellvalues)`, then the `statefun` is called once for 
@@ -38,7 +40,8 @@ end
 Creates a `Tuple` of the output of the following function for each fieldhandler in `dh`.
 If `statefuns` and/or `cellvalues` are not tuples, the same value is used for each fieldhandler. 
 
-    create_states(dh::MixedDofHandler, fh::FieldHandler, statefun::Function, cellvalues::Union{Nothing,CellValues})
+    create_states(dh::MixedDofHandler, fh::FieldHandler, 
+        statefun::Function, cellvalues::Union{Nothing,CellValues})
 
 Returns a `Dict{Int}` with states for each cell in `fh`'s `cellset` and keys corresponding to the global `cellid`
 If `isnothing(cellvalues)`, then the `statefun(x::Vec)` is called once for the average nodal coordinate `x` of each cell. 
