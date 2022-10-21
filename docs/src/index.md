@@ -29,9 +29,8 @@ First we create the dofhandler and cellvalues as in
 dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh);
 cellvalues = CellScalarValues(QuadratureRule{dim, RefCube}(2), Lagrange{dim, RefCube, 1}());
 ```
-We start by defining the material
-(that normally contains material parameters
-but those are hard-coded in the example)
+We start by defining the material 
+(that normally contains material parameters but are hard-coded in the example)
 ```julia
 struct ThermalMaterial end
 ```
