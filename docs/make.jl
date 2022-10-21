@@ -1,10 +1,20 @@
 using FerriteAssembly
 using Documenter
 
+const is_ci = get(ENV, "CI", "false") == "true"
+
+include("generate.jl")
+examples = ["plasticity.jl",]
+GENERATEDEXAMPLES = [joinpath("examples", replace(f, ".jl"=>".md")) for f in examples]
+
+build_examples(examples)
+
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
 
-# Run examples to force CI failure if they don't work
+
+# Run example from `index.md` to force CI failure if it doesn't work
 include("src/firstexample_literate.jl")
+
 
 makedocs(;
     modules=[FerriteAssembly],
@@ -18,6 +28,7 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Examples" => GENERATEDEXAMPLES,
         "Internal API" => "internals.md",
     ],
 )

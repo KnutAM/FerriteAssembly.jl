@@ -22,9 +22,7 @@ State variables and current dof-values for the cell are directly available in th
 Old dof-values for the cell, user-defined `cache` and `cell_load` types, cell coordinates and more 
 are available through the `CellBuffer` type given as additional input. 
 
-```@contents
-```
-
+## A minimal example
 ```@eval
 # Include the example here, but modify the Literate output to suit being embedded
 using Literate, Markdown

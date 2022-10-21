@@ -2,7 +2,7 @@
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "d657b618e27540b2f358eb7ff57a768b759c2059"
+project_hash = "37c4cb3f1917a97eaf0930c4eed8900422bcda8b"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -220,6 +220,14 @@ version = "0.5.10"
 [[deps.Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
+
+[[deps.MaterialModelsBase]]
+deps = ["StaticArrays", "Tensors"]
+git-tree-sha1 = "521e0f70b85826ba90bedd1f9df16562938d2ab0"
+repo-rev = "main"
+repo-url = "git@github.com:KnutAM/MaterialModelsBase.jl.git"
+uuid = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
+version = "0.1.2"
 
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]

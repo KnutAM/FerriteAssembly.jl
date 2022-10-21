@@ -1,11 +1,10 @@
-# ## A minimal example
 # The full example can be downloaded [here](firstexample.jl).
 # 
 # First we create the dofhandler and cellvalues as in 
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
 using Ferrite, FerriteAssembly
-dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh);
-cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
+dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh)
+cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}())
 
 # We start by defining the material 
 # (that normally contains material parameters but are hard-coded in the example)
@@ -57,7 +56,7 @@ cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial())
 assembler = start_assemble(K,r)
 doassemble!(assembler, cellbuffer, states, dh)
 
-# ## Threaded assembly
+# ### Threaded assembly
 # To do the assembly in the example above threaded, 
 # we need to color the grid to avoid race conditions.
 # This can be done with `Ferrite.jl`'s `create_coloring` function:

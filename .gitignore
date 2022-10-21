@@ -4,3 +4,4 @@
 *.vscode
 /Manifest.toml
 /docs/build/
+/docs/examples/
