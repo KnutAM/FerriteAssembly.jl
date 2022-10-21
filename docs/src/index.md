@@ -41,7 +41,8 @@ Markdown.parse(replace(contents[header_end:end],
 ## Detailed API description
 ### Overloaded element routine
 One of the element methods should be overloaded for a given combination of `cellvalues`
-and `material`.
+and `material`. 
+Note that the `cellvalues` are already `reinit!`:ed when passed to the element routines. 
 ```@docs
 FerriteAssembly.element_routine!
 FerriteAssembly.element_residual!
