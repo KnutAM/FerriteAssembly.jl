@@ -3,6 +3,9 @@ using Documenter
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
 
+# Run examples to force CI failure if they don't work
+include("src/firstexample_literate.jl")
+
 makedocs(;
     modules=[FerriteAssembly],
     authors="Knut Andreas Meyer and contributors",
