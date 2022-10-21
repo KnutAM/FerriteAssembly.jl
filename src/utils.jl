@@ -27,3 +27,11 @@ function _maketuple(t::Tuple, n::Int)
     return t
 end
 _maketuple(t, n::Int) = ntuple(Returns(t), n)
+
+"""
+    intersect_nothing(a, b)
+
+A faster intersect if `cellset::Nothing`, otherwise calls Base.intersect
+"""
+@inline intersect_nothing(a, ::Nothing) = a
+@inline intersect_nothing(a, b) = intersect(a, b)

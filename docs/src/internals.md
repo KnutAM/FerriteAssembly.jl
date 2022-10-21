@@ -9,4 +9,5 @@ FerriteAssembly._copydofs!
 FerriteAssembly._maketuple
 FerriteAssembly.create_state
 FerriteAssembly.reinit!
+FerriteAssembly.intersect_nothing
 ```

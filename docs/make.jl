@@ -4,7 +4,7 @@ using Documenter
 const is_ci = get(ENV, "CI", "false") == "true"
 
 include("generate.jl")
-examples = ["plasticity.jl",]
+examples = ["plasticity.jl", "mixed_materials.jl"]
 GENERATEDEXAMPLES = [joinpath("examples", replace(f, ".jl"=>".md")) for f in examples]
 
 build_examples(examples)
@@ -31,6 +31,7 @@ makedocs(;
         "Examples" => GENERATEDEXAMPLES,
         "Internal API" => "internals.md",
     ],
+    strict=true,
 )
 
 deploydocs(;

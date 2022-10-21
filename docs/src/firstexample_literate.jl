@@ -46,11 +46,11 @@ r = zeros(ndofs(dh))
 states = create_states(dh)
 # See [`create_states`](@ref) for more detailed options of creating actual state variables. 
 
-# The next step is gathering all variables that are modified for each cell, 
-# but don't belong to each cell, in the `cellbuffer`:
+# The next step is gathering all variables that are shared for all elements,
+# but may be modified for or by each element in the `cellbuffer`:
 cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial())
-# Note that `cellvalues` can be a `Tuple` or `NamedTuple`, this is useful for coupled 
-# problems with multiple fields. 
+# Note that `cellvalues` can be a `Tuple` or `NamedTuple`, 
+# this is useful for coupled problems with multiple fields. 
 
 # We then define our `assembler` and do the assembly
 assembler = start_assemble(K,r)

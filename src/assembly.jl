@@ -25,9 +25,9 @@ Sequential assembly of cells with the `dh::DofHandler`.
 """
 function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, cellbuffer::CellBuffer, 
-    states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing
+    states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing; cellset=1:Ferrite.getncells(dh)
     )
-    for cellnr in 1:Ferrite.getncells(dh)
+    for cellnr in cellset
         assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
     end
 end
@@ -54,13 +54,13 @@ function doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:CellBuffer}, states, 
     colored_sets::Vector{Vector{Int}}, dh::DofHandler, 
-    a=nothing, aold=nothing, Δt=nothing
+    a=nothing, aold=nothing, Δt=nothing; cellset=nothing
     )
     if length(assemblers) != length(cellbuffers) != Threads.nthreads()
         throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
     end
-    for cellset in colored_sets
-        Threads.@threads for cellnr in cellset
+    for colorset in colored_sets
+        Threads.@threads for cellnr in intersect_nothing(colorset, cellset)
             id = Threads.threadid()
             assemble_cell!(assemblers[id], cellbuffers[id], dh, cellnr, a, aold, states[cellnr], Δt)
         end
@@ -90,10 +90,10 @@ function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, 
     cellbuffers::Tuple, states::Tuple, 
     dh::MixedDofHandler, 
-    a=nothing, aold=nothing, Δt=nothing
+    a=nothing, aold=nothing, Δt=nothing; kwargs...
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
-        inner_doassemble!(assembler, cellbuffer, state, dh, fh, a, aold, Δt)
+        inner_doassemble!(assembler, cellbuffer, state, dh, fh, a, aold, Δt; kwargs...)
     end
 end
 
@@ -120,10 +120,10 @@ function doassemble!(
     cellbuffers::Tuple, 
     states::Tuple, 
     colored_sets::Vector{Vector{Int}}, dh::MixedDofHandler, 
-    a=nothing, aold=nothing, Δt=nothing
+    a=nothing, aold=nothing, Δt=nothing; kwargs...
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
-        inner_doassemble!(assemblers, cellbuffer, state, colored_sets, dh, fh, a, aold, Δt)
+        inner_doassemble!(assemblers, cellbuffer, state, colored_sets, dh, fh, a, aold, Δt; kwargs...)
     end
 end
 
@@ -141,9 +141,9 @@ of `doassemble!` for the `MixedDofHandler`
 function inner_doassemble!(
     assembler, cellbuffer::CellBuffer, 
     states, dh::MixedDofHandler, fh::FieldHandler, 
-    a, aold, Δt
+    a, aold, Δt; cellset=nothing
     )
-    for cellnr in fh.cellset
+    for cellnr in intersect_nothing(fh.cellset, cellset)
         assemble_cell!(assembler, cellbuffer, dh, fh, cellnr, a, aold, states[cellnr], Δt)
     end
 end
@@ -164,13 +164,13 @@ function inner_doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:CellBuffer}, states, 
     colored_sets::Vector{Vector{Int}}, dh::MixedDofHandler, fh::FieldHandler, 
-    a, aold, Δt)
+    a, aold, Δt; cellset=nothing)
 
     if length(assemblers) != length(cellbuffers) != Threads.nthreads()
         throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
     end
-    for cellset in colored_sets
-        Threads.@threads for cellnr in intersect(cellset, fh.cellset)
+    for colorset in colored_sets
+        Threads.@threads for cellnr in intersect_nothing(intersect(colorset, fh.cellset), cellset)
             id = Threads.threadid()
             assemble_cell!(assemblers[id], cellbuffers[id], dh, fh, cellnr, a, aold, states[cellnr], Δt)
         end
