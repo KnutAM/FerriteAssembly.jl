@@ -56,7 +56,6 @@ cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial())
 # We then define our `assembler` and do the assembly
 assembler = start_assemble(K,r)
 doassemble!(assembler, cellbuffer, states, dh)
-print(undefined_variable)   # Introduce error
 
 # ## Threaded assembly
 # To do the assembly in the example above threaded, 
