@@ -1,6 +1,6 @@
 using Ferrite, FerriteAssembly
-dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh);
-cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
+dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh)
+cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}())
 
 struct ThermalMaterial end
 
