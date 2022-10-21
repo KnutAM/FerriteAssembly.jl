@@ -35,7 +35,8 @@ Return a tuple of `CellBuffer`s for each `FieldHandler` in `dh.fieldhandlers`.
 is given (not as a `::Tuple`), the same is used for all `fieldhandlers`. 
 If a tuple of `cellvalues` (or materials/cell_load/caches) should be used for each cell, 
 and the same tuple should be used for each fieldhandler, 
-then it must be given as a tuple of tuples. (Alternatively, it is possible to use a `NamedTuple`)
+then it must be given as a tuple of tuples. 
+(Often, it is better to give a `NamedTuple` of e.g. `CellValues` to be used for every fieldhandler)
 
 The `Ferrite.jl` functions `getcoordinates(::CellBuffer)` and `celldofs(::CellBuffer)` are defined and can 
 be used inside an element routine to get the current cell's coordinates and dof-numbers. 
