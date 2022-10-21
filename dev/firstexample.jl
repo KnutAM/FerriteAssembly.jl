@@ -37,7 +37,6 @@ cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial())
 
 assembler = start_assemble(K,r)
 doassemble!(assembler, cellbuffer, states, dh)
-print(undefined_variable)   # Introduce error
 
 colors = create_coloring(dh.grid)
 
