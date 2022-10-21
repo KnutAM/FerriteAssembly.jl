@@ -1,6 +1,6 @@
 using Ferrite, FerriteAssembly
 dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh);
-cellvalues = CellScalarValues(QuadratureRule{dim, RefCube}(2), Lagrange{dim, RefCube, 1}());
+cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
 
 struct ThermalMaterial end
 
@@ -36,7 +36,8 @@ states = create_states(dh)
 cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial())
 
 assembler = start_assemble(K,r)
-doassemble!(assembler, cellbuffer, states, dh, a, aold, Δt)
+doassemble!(assembler, cellbuffer, states, dh)
+print(undefined_variable)   # Introduce error
 
 colors = create_coloring(dh.grid)
 
