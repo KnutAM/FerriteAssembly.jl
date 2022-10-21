@@ -5,5 +5,8 @@ Note that the internal API may change without being considered a breaking change
 FerriteAssembly.assemble_cell!
 FerriteAssembly.inner_doassemble!
 FerriteAssembly.assemble_cell_reinited!
-FerriteAssembly._copyto!
+FerriteAssembly._copydofs!
+FerriteAssembly._maketuple
+FerriteAssembly.create_state
+FerriteAssembly.reinit!
 ```

@@ -9,8 +9,6 @@ Exports `doassemble!`, `CellBuffer`, `create_threaded_CellBuffers`, and `create_
 Requires users to define `element_routine!` or `element_residual!`
 
 ## Features
-* Less boilerplate code
+* Write only the element routines -> Less boilerplate code
 * Threaded assembly supported
 * Element stiffness can be calculated with autodiff
-* User-defined scaling of unknowns and residuals during assembly supported
-

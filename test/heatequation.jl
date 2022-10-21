@@ -21,24 +21,7 @@ function setup_heatequation(mixeddof=false)
     ip = Lagrange{dim, RefCube, 1}()
     qr = QuadratureRule{dim, RefCube}(2)
     cellvalues = CellScalarValues(qr, ip);
-
     dh = mixeddof ? get_mdh(ip) : get_dh()
-
-    ch = ConstraintHandler(dh);
-    
-    ∂Ω = union(
-        getfaceset(dh.grid, "left"),
-        getfaceset(dh.grid, "right"),
-        getfaceset(dh.grid, "top"),
-        getfaceset(dh.grid, "bottom"),
-    );
-
-    dbc = Dirichlet(:u, ∂Ω, (x, t) -> 0)
-    add!(ch, dbc);
-
-    close!(ch)
-    update!(ch, 0.0);
-
     K = create_sparsity_pattern(dh)
 
     return cellvalues, K, dh
@@ -93,12 +76,11 @@ end
 
 struct ThermalMaterial end  # For dispatch only, material parameters hard coded in original example
 
+
 function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector, 
-    ae_new::AbstractVector, ae_old::AbstractVector,
-    state, material::ThermalMaterial, 
-    cellvalues::CellScalarValues, 
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, materialcache
+    Ke::AbstractMatrix, re::AbstractVector, state,
+    ae::AbstractVector, material::ThermalMaterial, cellvalues, 
+    dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer::CellBuffer
     )
     assemble_element!(Ke, re, cellvalues)
     re .*= -1   # re = fint-fext
@@ -111,11 +93,6 @@ end
     K_ref, f_ref = assemble_global(cv_ref, K_ref, dh_ref);
     r_ref = -f_ref
 
-    # Common variables for all cases 
-    a=zeros(ndofs(dh_ref));
-    aold=copy(a);
-    Δt=1.0
-
     @testset "DofHandler sequential" begin
         cv, K, dh = setup_heatequation()
         r = zeros(ndofs(dh))
@@ -123,7 +100,7 @@ end
         cellbuffer = CellBuffer(dh, cv, ThermalMaterial())
         assembler = start_assemble(K, r)
         
-        doassemble!(assembler, cellbuffer, states, dh, a, aold, Δt)
+        doassemble!(assembler, cellbuffer, states, dh)
 
         @test K_ref ≈ K 
         @test r_ref ≈ r
@@ -136,7 +113,7 @@ end
         cellbuffer = CellBuffer(dh, (cv,), ThermalMaterial())
         assembler = start_assemble(K, r)
         
-        doassemble!(assembler, cellbuffer, states, dh, a, aold, Δt)
+        doassemble!(assembler, cellbuffer, states, dh)
 
         @test K_ref ≈ K
         @test r_ref ≈ r
@@ -150,7 +127,7 @@ end
         assemblers = create_threaded_assemblers(K, r)
         colors = create_coloring(dh.grid)
         
-        doassemble!(assemblers, cellbuffers, states, colors, dh, a, aold, Δt)
+        doassemble!(assemblers, cellbuffers, states, colors, dh)
 
         @test K_ref ≈ K 
         @test r_ref ≈ r
@@ -164,7 +141,7 @@ end
         assemblers = create_threaded_assemblers(K, r)
         colors = create_coloring(dh.grid)
         
-        doassemble!(assemblers, cellbuffers, states, colors, dh, a, aold, Δt)
+        doassemble!(assemblers, cellbuffers, states, colors, dh)
 
         @test K_ref ≈ K
         @test r_ref ≈ r

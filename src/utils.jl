@@ -1,16 +1,20 @@
 # Internal functions used for convenience
 
 """
-    _copyto!(dest::Vector, src::Vector, inds::Vector{Int})
+    _copydofs!(edofs::Vector, gdofs::Vector, inds::Vector{Int})
 
 Internal function for faster copying of global values into the element values. 
-Equivalent to `dest .= src[inds]`
+Equivalent to `edofs .= gdofs[inds]`
+    _copydofs!(edofs::Vector, gdofs::Nothing, inds::Vector{Int})
+
+Fill `edofs` with NaN
 """
-function _copyto!(dest::Vector, src::Vector, inds::Vector{Int})
+function _copydofs!(edofs::Vector, gdofs::Vector, inds::Vector{Int})
     for (i,j) in enumerate(inds)
-        dest[i] = src[j]
+        edofs[i] = gdofs[j]
     end
 end
+_copydofs!(edofs::Vector, ::Nothing, args...) = fill!(edofs, NaN)
 
 """
     _maketuple(t, n)

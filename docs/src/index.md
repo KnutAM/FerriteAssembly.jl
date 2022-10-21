@@ -22,25 +22,25 @@ An advanced option to scale the unknowns, residual, and jacobian exists
 ```@contents
 ```
 
-## A first example
-We take a slightly modified element routine from `Ferrite.jl`'s heat equation 
-[example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/).
-We assume that we already have defined `dh::DofHandler` and our 
-`cellvalues::CellScalarValues` according to that example. 
+## A minimal example
+First we create the dofhandler and cellvalues as in 
+[`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
+```julia
+dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh);
+cellvalues = CellScalarValues(qr = QuadratureRule{dim, RefCube}(2), Lagrange{dim, RefCube, 1}());
+```
 We start by defining the material
 (that normally contains material parameters
 but those are hard-coded in the example)
 ```julia
 struct ThermalMaterial end
 ```
-Then, we define our `element_routine!` for that material as 
+Then, we define our `element_routine!` for that material as
 ```julia
 function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector, 
-    ae_new::AbstractVector, ae_old::AbstractVector,
-    state, material::ThermalMaterial, 
-    cellvalues::CellScalarValues, 
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, materialcache
+    Ke::AbstractMatrix, re::AbstractVector, state, 
+    ae::AbstractVector, material::ThermalMaterial, cellvalues::CellScalarValues, 
+    dh_fh, Δt, buffer::CellBuffer
     )
     n_basefuncs = getnbasefunctions(cellvalues)
     # Loop over quadrature points
@@ -61,12 +61,12 @@ function FerriteAssembly.element_routine!(
     end
 end
 ```
-We can now create the global vectors and matrices, as well as the time step
+which is basically the same as in `Ferrite.jl`'s example. 
+
+We can now create the global vectors and matrices.
 ```julia
 K = create_sparsity_pattern(dh)
-a=zeros(ndofs(dh)); aold=copy(a);
 r = zeros(ndofs(dh))
-Δt=1.0
 ```
 In general, each integration point (or cell if desired by the user) can have a `state`.
 In this case, we have no state variables, but the interface still requires them.
@@ -104,7 +104,7 @@ assemblers = create_threaded_assemblers(K, r)
 
 And then we can call `doassemble!` as
 ```julia
-doassemble!(assemblers, cellbuffers, states, colors, dh, a, aold, Δt)
+doassemble!(assemblers, cellbuffers, states, colors, dh)
 ```
 
 ## Detailed API description
@@ -134,6 +134,13 @@ Similarily, we need a vector of assemblers that is convieniently
 created by calling 
 ```@docs
 create_threaded_assemblers
+```
+
+The initial state variables may vary depending on the position in the grid.
+Furthermore, the datastructure depends on the type of dof handler, so
+a convenience function exists that creates the correct variable
+```@docs
+create_states
 ```
 
 Once everything is set up, one can call the function which will actually 

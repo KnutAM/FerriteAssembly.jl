@@ -11,7 +11,7 @@ create_threaded_assemblers(K, r; nthreads=Threads.nthreads()) = [start_assemble(
     doassemble!(
         assembler::Ferrite.AbstractSparseAssembler, cellbuffer::CellBuffer, 
         s::AbstractVector, dh::DofHandler, 
-        a::AbstractVector, aold::AbstractVector, Δt::Number
+        a=nothing, aold=nothing, Δt=nothing
         )
 
 Sequential assembly of cells with the `dh::DofHandler`.
@@ -20,13 +20,12 @@ Sequential assembly of cells with the `dh::DofHandler`.
   See  [`CellBuffer`](@ref) for more info. 
 * `s` is a collection (vector, dict, etc.) of state variables, where indexing 
   by `cellnr` gives the state variables for that cell. 
-* `a` and `aold` are the current and old unknowns. 
+* `a` and `aold` are the current and old unknowns (can be set to `nothing` if not used)
 * `Δt` is the time increment passed into each element routine
 """
 function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, cellbuffer::CellBuffer, 
-    states, dh::DofHandler, 
-    a::AbstractVector, aold::AbstractVector, Δt::Number
+    states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing
     )
     for cellnr in 1:Ferrite.getncells(dh)
         assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
@@ -38,7 +37,7 @@ end
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
         cellbuffers::Vector{<:CellBuffer}, states, 
         colored_sets::Vector{Vector{Int}}, dh::DofHandler, 
-        a::AbstractVector, aold::AbstractVector, Δt::Number
+        a=nothing, aold=nothing, Δt=nothing
         )
 
 Threaded assembly of cells with the `dh::DofHandler`.
@@ -55,7 +54,7 @@ function doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:CellBuffer}, states, 
     colored_sets::Vector{Vector{Int}}, dh::DofHandler, 
-    a::AbstractVector, aold::AbstractVector, Δt::Number
+    a=nothing, aold=nothing, Δt=nothing
     )
     if length(assemblers) != length(cellbuffers) != Threads.nthreads()
         throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
@@ -73,7 +72,7 @@ end
         assembler::Ferrite.AbstractSparseAssembler, 
         cellbuffers::Tuple, states::Tuple, 
         dh::MixedDofHandler, 
-        a::AbstractVector, aold::AbstractVector, Δt::Number
+        a=nothing, aold=nothing, Δt=nothing
         )
 
 Sequential assembly of cells with the `dh::MixedDofHandler`.
@@ -91,7 +90,7 @@ function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, 
     cellbuffers::Tuple, states::Tuple, 
     dh::MixedDofHandler, 
-    a::AbstractVector, aold::AbstractVector, Δt::Number
+    a=nothing, aold=nothing, Δt=nothing
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
         inner_doassemble!(assembler, cellbuffer, state, dh, fh, a, aold, Δt)
@@ -121,7 +120,7 @@ function doassemble!(
     cellbuffers::Tuple, 
     states::Tuple, 
     colored_sets::Vector{Vector{Int}}, dh::MixedDofHandler, 
-    a::AbstractVector, aold::AbstractVector, Δt::Number
+    a=nothing, aold=nothing, Δt=nothing
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
         inner_doassemble!(assemblers, cellbuffer, state, colored_sets, dh, fh, a, aold, Δt)
@@ -196,21 +195,18 @@ end
 
 
 """
-    assemble_cell_reinited!(assembler, cellbuffer::CellBuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt)
+    assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt)
 
 Internal function that assembles the cell described by the reinitialized `cellbuffer`. This function is called 
 in all cases: Parallel or sequential and `DofHandler` or `MixedDofHandler`
 """
-function assemble_cell_reinited!(assembler, cellbuffer::CellBuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt)
-    (;Ke, re, ae, ae_old, material, cellvalues, cache, dofs) = cellbuffer
-
-    unscale_primary!.((ae, ae_old), (material,), (dh_fh,))
-    element_routine!(
-        Ke, re, ae, ae_old, state, material, 
-        cellvalues, dh_fh, Δt, cache
-        )
-    scale_residual!(Ke, re, material, dh_fh)
-
+function assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt)
+    Ke = get_Ke(cellbuffer)
+    re = get_re(cellbuffer)
+    ae = get_ae(cellbuffer)
+    material = get_material(cellbuffer)
+    cellvalues = get_cellvalues(cellbuffer)
+    element_routine!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, cellbuffer)
+    dofs = celldofs(cellbuffer)
     assemble!(assembler, dofs, Ke, re)
 end
-
