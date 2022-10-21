@@ -43,11 +43,7 @@ This function should modify the element stiffness matrix `Ke` and the residual `
   - `getcoordinates(buffer)::Vector{Vec}`: The cell's coordinates
   - `celldofs(buffer)::Vector{Int}`: The cell's global degrees of freedom numbers
 """
-function element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector, state,
-    ae::AbstractVector, material, cellvalues, 
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer
-    )
+function element_routine!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer)
     
     rf!(re_, ae_) = element_residual!(
         re_, state, ae_, material, cellvalues, 

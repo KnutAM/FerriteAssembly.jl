@@ -5,7 +5,7 @@
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
 using Ferrite, FerriteAssembly
 dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh);
-cellvalues = CellScalarValues(QuadratureRule{dim, RefCube}(2), Lagrange{dim, RefCube, 1}());
+cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
 
 # We start by defining the material 
 # (that normally contains material parameters but are hard-coded in the example)
@@ -55,7 +55,7 @@ cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial())
 
 # We then define our `assembler` and do the assembly
 assembler = start_assemble(K,r)
-doassemble!(assembler, cellbuffer, states, dh, a, aold, Δt)
+doassemble!(assembler, cellbuffer, states, dh)
 
 # ## Threaded assembly
 # To do the assembly in the example above threaded, 

@@ -26,7 +26,7 @@ An advanced option to scale the unknowns, residual, and jacobian exists
 # Include the example here, but modify the Literate output to suit being embedded
 using Literate, Markdown
 filename = "firstexample_literate"
-Literate.markdown(filename*".jl")
+Literate.markdown(filename*".jl"; execute=true)
 contents = read(filename*".md", String)
 Literate.script(filename*".jl"; name="firstexample")
 rm(filename*".jl")
