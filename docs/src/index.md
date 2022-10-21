@@ -27,7 +27,7 @@ First we create the dofhandler and cellvalues as in
 [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
 ```julia
 dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh);
-cellvalues = CellScalarValues(qr = QuadratureRule{dim, RefCube}(2), Lagrange{dim, RefCube, 1}());
+cellvalues = CellScalarValues(QuadratureRule{dim, RefCube}(2), Lagrange{dim, RefCube, 1}());
 ```
 We start by defining the material
 (that normally contains material parameters
