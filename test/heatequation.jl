@@ -1,5 +1,12 @@
 # Modified example from Ferrite.jl
-get_grid() = generate_grid(Quadrilateral, (20, 20))
+function get_grid()
+    grid = generate_grid(Quadrilateral, (20, 20))
+    # Add cellsets for testing different materials on the grid
+    addcellset!(grid, "A", x->x[1]<0)
+    addcellset!(grid, "B", setdiff(1:getncells(grid), getcellset(grid,"A")))
+    return grid
+end
+
 function get_dh()
     grid = get_grid();
     dh = DofHandler(grid)
@@ -16,12 +23,12 @@ function get_mdh(ip)
     return dh
 end
 
-function setup_heatequation(mixeddof=false)
+function setup_heatequation(DH=DofHandler)
     dim = 2
     ip = Lagrange{dim, RefCube, 1}()
     qr = QuadratureRule{dim, RefCube}(2)
     cellvalues = CellScalarValues(qr, ip);
-    dh = mixeddof ? get_mdh(ip) : get_dh()
+    dh = DH==MixedDofHandler ? get_mdh(ip) : get_dh()
     K = create_sparsity_pattern(dh)
 
     return cellvalues, K, dh
@@ -93,60 +100,41 @@ end
     K_ref, f_ref = assemble_global(cv_ref, K_ref, dh_ref);
     r_ref = -f_ref
 
-    @testset "DofHandler sequential" begin
-        cv, K, dh = setup_heatequation()
-        r = zeros(ndofs(dh))
-        states = create_states(dh)
-        cellbuffer = CellBuffer(dh, cv, ThermalMaterial())
-        assembler = start_assemble(K, r)
+    materials = (same=ThermalMaterial(), mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterial()))
+
+    for DH in (DofHandler, MixedDofHandler)
+        for mattype in (:same, :mixed)
+            material = materials[mattype]
+
+            cv, K, dh = setup_heatequation(DofHandler)
+            r = zeros(ndofs(dh))
+            if mattype==:same
+                states = create_states(dh)
+            else
+                states = create_states(dh, Dict(key=>Returns(nothing) for key in keys(material)))
+            end
+
+            @testset "$DH, $mattype, sequential" begin
+                cellbuffer = CellBuffer(dh, cv, material)
+                assembler = start_assemble(K, r)
+                doassemble!(assembler, cellbuffer, states, dh)
+
+                @test K_ref ≈ K 
+                @test r_ref ≈ r
+            end
+
+            @testset "$DH, $mattype, threaded" begin
+                cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, cv, material))
+                assemblers = create_threaded_assemblers(K, r)
+                colors = create_coloring(dh.grid)
+                
+                doassemble!(assemblers, cellbuffers, states, dh, colors)
         
-        doassemble!(assembler, cellbuffer, states, dh)
-
-        @test K_ref ≈ K 
-        @test r_ref ≈ r
+                @test K_ref ≈ K 
+                @test r_ref ≈ r
+                
+            end
+        end
     end
-
-    @testset "MixedDofHandler sequential" begin
-        cv, K, dh = setup_heatequation(true)
-        r = zeros(ndofs(dh))
-        states = create_states(dh)
-        cellbuffer = CellBuffer(dh, (cv,), ThermalMaterial())
-        assembler = start_assemble(K, r)
-        
-        doassemble!(assembler, cellbuffer, states, dh)
-
-        @test K_ref ≈ K
-        @test r_ref ≈ r
-    end
-
-    @testset "DofHandler threaded" begin
-        cv, K, dh = setup_heatequation()
-        r = zeros(ndofs(dh))
-        states = create_states(dh)
-        cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, cv, ThermalMaterial()))
-        assemblers = create_threaded_assemblers(K, r)
-        colors = create_coloring(dh.grid)
-        
-        doassemble!(assemblers, cellbuffers, states, dh, colors)
-
-        @test K_ref ≈ K 
-        @test r_ref ≈ r
-    end
-
-    @testset "MixedDofHandler threaded" begin
-        cv, K, dh = setup_heatequation(true)
-        r = zeros(ndofs(dh))
-        states = create_states(dh)
-        cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, (cv,), ThermalMaterial()))
-        assemblers = create_threaded_assemblers(K, r)
-        colors = create_coloring(dh.grid)
-        
-        doassemble!(assemblers, cellbuffers, states, dh, colors)
-
-        @test K_ref ≈ K
-        @test r_ref ≈ r
-    end
-
-    
 
 end

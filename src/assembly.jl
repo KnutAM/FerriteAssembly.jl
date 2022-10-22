@@ -31,7 +31,6 @@ function doassemble!(
         try
             assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
         catch e
-            foreach(key->println(key), keys(states))
             rethrow(e)
         end
         

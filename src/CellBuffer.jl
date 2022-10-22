@@ -137,6 +137,7 @@ end
 """
     create_threaded_CellBuffers(c::CellBuffer; nthreads=Threads.nthreads())
     create_threaded_CellBuffers(cs::Tuple; nthreads=Threads.nthreads())
+    create_threaded_CellBuffers(cs::Dict{String}; nthreads=Threads.nthreads())
 
 Convenience function for creating a vector with cell buffers for each thread. 
 The standard workflow is to first call `CellBuffer` with the 
@@ -145,8 +146,14 @@ and for `MixedDofHandler` this gives a tuple of `CellBuffer`s.
 In both cases, the output can be given to `create_threaded_CellBuffers`
 to produce the appropriate result required by the threaded versions
 of [`doassemble!`](@ref).
+Similarily for a grid with mixed materials created by a dictionary of materials, 
+just pass the created CellBuffer to this function, and the output is what 
+`doassemble!` expects. 
 """
 create_threaded_CellBuffers(c; nthreads=Threads.nthreads()) = [deepcopy(c) for _ in 1:nthreads]
 function create_threaded_CellBuffers(cs::Tuple; nthreads=Threads.nthreads())
     return map(c->create_threaded_CellBuffers(c;nthreads=nthreads), cs)
+end
+function create_threaded_CellBuffers(c::Dict{String}; nthreads=Threads.nthreads())
+    return Dict(key=>create_threaded_CellBuffers(val; nthreads) for (key,val) in c)
 end

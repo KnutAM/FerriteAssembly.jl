@@ -67,10 +67,10 @@ function create_states(dh::DofHandler, statefun::Function=Returns(nothing), cell
     return map(cell->create_state(statefun, cell, cellvalues), CellIterator(dh))
 end
 # Not documented as only used internally to avoid clottering documentation with implementation details. 
-function create_states(dh::DofHandler, statefun::Function, cellvalues::CellValues, cellset)
+function create_states(dh::DofHandler, statefun::Function, cellvalues, cellset)
     return Dict(cellid(cell)=>create_state(statefun, cell, cellvalues) for cell in CellIterator(dh, collect(cellset)))
 end
-function create_states(dh::Ferrite.AbstractDofHandler, statefun::Dict, cellvalues::CellValues=nothing)
+function create_states(dh::Ferrite.AbstractDofHandler, statefun::Dict, cellvalues=nothing)
     setnames = keys(statefun)
     _cellvalues = _makedict(cellvalues, setnames)
     return Dict(

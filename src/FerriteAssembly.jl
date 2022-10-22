@@ -56,6 +56,10 @@ function element_routine!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, b
             if e.f === element_residual!
                 println("Tried to do automatic differentiation to get Ke, but could")
                 println("not find a correctly defined `element_residual!` method")
+                showerror(Base.stdout, MethodError(element_routine!, 
+                    (Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer))
+                    )
+                println("Also throwing error for `element_residual!`")
             elseif e.f === convert    
                 println("If you get a conversion error, this is likely because")
                 println("the element routine is called with dual number inputs.")
