@@ -52,7 +52,7 @@ cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial())
 # Note that `cellvalues` can be a `Tuple` or `NamedTuple`, 
 # this is useful for coupled problems with multiple fields. 
 
-# We then define our `assembler` and do the assembly
+# We then define our `assembler` and do the assembly that will modify `K` and `r`
 assembler = start_assemble(K,r)
 doassemble!(assembler, cellbuffer, states, dh)
 

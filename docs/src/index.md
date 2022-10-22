@@ -17,10 +17,11 @@ In the latter case, `Ke` is calculated by
 [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)
 
 Dispatch is typically done on a user-defined `material` struct,
-and possible as well on `cellvalues` (potentially a `NamedTuple/Tuple`).
+and possible on `cellvalues` as well, which can also be a `NamedTuple/Tuple`.
 State variables and current dof-values for the cell are directly available in the `element_routine!`
-Old dof-values for the cell, user-defined `cache` and `cell_load` types, cell coordinates and more 
-are available through the `CellBuffer` type given as additional input. 
+Old dof-values for the cell, user-defined `cache` and `cell_load` types, 
+cell coordinates and more are available through the `CellBuffer` type 
+given as additional input. 
 
 ## A minimal example
 ```@eval
