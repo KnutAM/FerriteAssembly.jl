@@ -30,9 +30,10 @@ end;
 
 # The same `element_routine!` as before can be used, defined in 
 # [`MaterialModelsBaseElement.jl`](MaterialModelsBaseElement.jl).
-# Hence, we just need to define the materials, grid, cellvalues etc. 
-material_pl = J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9);
-material_el = ElasticMaterial(E=200.0e9, ν=0.3);
+# Hence, we just need to define the materials, grid, cellvalues etc.
+materials = Dict(
+    "elastic" => ElasticMaterial(E=200.0e9, ν=0.3),
+    "plastic" => J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9));
 grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)));
 cellvalues = CellVectorValues(
     QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}());
@@ -40,27 +41,24 @@ dh = DofHandler(grid); push!(dh, :u, 3); close!(dh); # Create dofhandler
 K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
-# We then define the cellsets where we have each material
+# We then define the cellsets where with the same key as each material in `materials`
 addcellset!(grid, "elastic", x -> x[1] <= 5.0+eps())
-set_el = getcellset(grid, "elastic");
-addcellset!(grid, "plastic", setdiff(1:getncells(grid), set_el));
-set_pl = getcellset(grid, "plastic");
+addcellset!(grid, "plastic", setdiff(1:getncells(grid), getcellset(grid,"elastic")));
 
 # The key to handling multiple materials, with different state variables,
 # using the regular DofHandler or a single FieldHandler (in the MixedDofHandler case)
 # is to create multiple state variables, and call `doassemble!` for each of them:
-states_el = create_states(dh, _->initial_material_state(material_el), cellvalues, set_el);
-states_pl = create_states(dh, _->initial_material_state(material_pl), cellvalues, set_pl);
+statefuns = Dict(key=>_->initial_material_state(mat) for (key,mat) in materials)
+states = create_states(dh, statefuns, cellvalues);
 
 # We also need buffers for each material
-buffer_el = CellBuffer(dh, cellvalues, material_el, nothing, get_cache(material_el));
-buffer_pl = CellBuffer(dh, cellvalues, material_pl, nothing, get_cache(material_pl));
+caches = Dict(key=>get_cache(mat) for (key,mat) in materials)
+buffers = CellBuffer(dh, cellvalues, materials, nothing, caches);
 
 # And then we define the displacements and the assembler, before assembling
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
-doassemble!(assembler, buffer_el, states_el, dh, a; cellset=set_el);
-doassemble!(assembler, buffer_pl, states_pl, dh, a; cellset=set_pl);
+doassemble!(assembler, buffers, states, dh, a);
 
 # Although the material behaviors are different, #src
 # there are no differences in the responses as the displacements are zero   #src
@@ -69,8 +67,8 @@ doassemble!(assembler, buffer_pl, states_pl, dh, a; cellset=set_pl);
 using Test #hide
 K_ref = create_sparsity_pattern(dh); #hide
 r_ref = zeros(ndofs(dh)); #hide
-states = create_states(dh, _->initial_material_state(material_el), cellvalues); #hide
+states_ref = create_states(dh, _->initial_material_state(materials["elastic"]), cellvalues); #hide
 a_ref = zeros(ndofs(dh)) #hide
 assembler_ref = start_assemble(K_ref,r_ref) #hide
-doassemble!(assembler_ref, buffer_el, states, dh, a_ref); #hide
+doassemble!(assembler_ref, buffers["elastic"], states_ref, dh, a_ref); #hide
 @test K ≈ K_ref; #hide

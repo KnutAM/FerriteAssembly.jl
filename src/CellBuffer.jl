@@ -14,7 +14,7 @@ end
 """
     CellBuffer(
         numdofs::Int, numnodes::Int, ::Val{dim}, 
-        cellvalues, material, cell_load=nothing, cache=nothing)
+        cellvalues, material, cell_load=nothing, cache=nothing) -> CellBuffer
 
 Create a cell cache for an element with `numdofs` degrees of freedom and
 `numnodes` nodes with dimension `dim`. Add the given `cellvalues`, `material`, 
@@ -22,20 +22,20 @@ and `cache` to the `CellBuffer` as well.
 
     CellBuffer(
         dh::DofHandler, 
-        cellvalues, material, cell_load=nothing, cache=nothing)
+        cellvalues, material, cell_load=nothing, cache=nothing) -> CellBuffer
 
 Use `dh` to get `numdofs`, `numnodes`, and `dim`, before calling the above method definition. 
 
     CellBuffer(
         dh::MixedDofHandler, fh::FieldHandler, 
-        cellvalues, material, cell_load=nothing, cache=nothing)
+        cellvalues, material, cell_load=nothing, cache=nothing) -> CellBuffer
 
 Use `dh` and `fh` to get `numdofs`, `numnodes`, and `dim`, 
 before calling the first `CellBuffer` method definition. 
 
     CellBuffer(
         dh::MixedDofHandler, cellvalues, 
-        material, cell_load=nothing, cache=nothing)
+        material, cell_load=nothing, cache=nothing) -> NTuple{N,<:CellBuffer}
     
 Return a tuple of `CellBuffer`s for each `FieldHandler` in `dh.fieldhandlers`.
 `cellvalues[i]` corresponds to `dh.fieldhandlers[i]`, and so does 
@@ -73,6 +73,20 @@ function CellBuffer(dh::MixedDofHandler, cellvalues::Union{Tuple,CellValues}, ma
     caches_ = _maketuple(caches, numfh)
     return ntuple(i->CellBuffer(dh, dh.fieldhandlers[i], cellvalues_[i], materials_[i], cell_load_[i], caches_[i]), numfh)
 end
+
+# Need special treatment due to type ambiguity
+CellBuffer(dh::DofHandler, cv, mtrls::Dict{String}, args...; kwargs...) = _dictCellBuffer(dh, cv, mtrls, args...; kwargs...)
+CellBuffer(dh::MixedDofHandler, cv, mtrls::Dict{String}, args...; kwargs...) = _dictCellBuffer(dh, cv, mtrls, args...; kwargs...)
+function _dictCellBuffer(dh::Union{DofHandler,MixedDofHandler}, cv, materials::Dict{String}, cell_load=nothing, caches=nothing)
+    setnames = keys(materials)
+    cv_ = _makedict(cv, setnames)
+    cell_load_ = _makedict(cell_load, setnames)
+    caches_ = _makedict(caches, setnames)
+    return Dict(setname=>
+        CellBuffer(dh, cv_[setname], materials[setname], cell_load_[setname], caches_[setname])
+        for setname in setnames)
+end
+
 
 # Convenience access functions to CellBuffer for use inside element routines
 # Currently only Ferrite overloads used, because I currently feel that the rest are only 
@@ -124,7 +138,7 @@ end
     create_threaded_CellBuffers(c::CellBuffer; nthreads=Threads.nthreads())
     create_threaded_CellBuffers(cs::Tuple; nthreads=Threads.nthreads())
 
-Convenience function for creating cell buffers for each thread. 
+Convenience function for creating a vector with cell buffers for each thread. 
 The standard workflow is to first call `CellBuffer` with the 
 dof handler. For `DofHandler` this will give a `CellBuffer`, 
 and for `MixedDofHandler` this gives a tuple of `CellBuffer`s. 

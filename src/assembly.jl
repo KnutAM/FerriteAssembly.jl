@@ -28,7 +28,13 @@ function doassemble!(
     states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing; cellset=1:Ferrite.getncells(dh)
     )
     for cellnr in cellset
-        assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
+        try
+            assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
+        catch e
+            foreach(key->println(key), keys(states))
+            rethrow(e)
+        end
+        
     end
 end
 
@@ -36,7 +42,7 @@ end
     doassemble!(
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
         cellbuffers::Vector{<:CellBuffer}, states, 
-        colored_sets::Vector{Vector{Int}}, dh::DofHandler, 
+        dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
         a=nothing, aold=nothing, Δt=nothing
         )
 
@@ -53,7 +59,7 @@ Threaded assembly of cells with the `dh::DofHandler`.
 function doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:CellBuffer}, states, 
-    colored_sets::Vector{Vector{Int}}, dh::DofHandler, 
+    dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
     a=nothing, aold=nothing, Δt=nothing; cellset=nothing
     )
     if length(assemblers) != length(cellbuffers) != Threads.nthreads()
@@ -102,7 +108,7 @@ end
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
         cellbuffers::Tuple, 
         states::Tuple, 
-        colored_sets::Vector{Vector{Int}}, dh::MixedDofHandler, 
+        dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
         a::AbstractVector, aold::AbstractVector, Δt::Number
         )
 
@@ -119,11 +125,22 @@ function doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Tuple, 
     states::Tuple, 
-    colored_sets::Vector{Vector{Int}}, dh::MixedDofHandler, 
+    dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
     a=nothing, aold=nothing, Δt=nothing; kwargs...
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
-        inner_doassemble!(assemblers, cellbuffer, state, colored_sets, dh, fh, a, aold, Δt; kwargs...)
+        inner_doassemble!(assemblers, cellbuffer, state, dh, fh, colored_sets, a, aold, Δt; kwargs...)
+    end
+end
+
+function doassemble!(
+    assemblers::Union{Vector{<:Ferrite.AbstractSparseAssembler}, Ferrite.AbstractSparseAssembler},
+    cellbuffers::Dict{String},
+    states::Dict{String},
+    dh::Ferrite.AbstractDofHandler,
+    args...)
+    for (key,cellbuffer) in cellbuffers
+        doassemble!(assemblers, cellbuffer, states[key], dh, args...; cellset=getcellset(dh, key))
     end
 end
 
@@ -152,8 +169,9 @@ end
     inner_doassemble!(
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
         cellbuffers::Vector{<:CellBuffer}, states, 
+        dh::MixedDofHandler, fh::FieldHandler, 
         colored_sets::Vector{Vector{Int}}, 
-        dh::MixedDofHandler, fh::FieldHandler, a, aold, Δt)
+        a, aold, Δt)
 
 Parallel assembly of cells corresponding to the given `fh` from 
 `dh.fieldhandlers`.
@@ -163,7 +181,7 @@ Internal function that is called from the parallel version of
 function inner_doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:CellBuffer}, states, 
-    colored_sets::Vector{Vector{Int}}, dh::MixedDofHandler, fh::FieldHandler, 
+    dh::MixedDofHandler, fh::FieldHandler, colored_sets::Vector{Vector{Int}}, 
     a, aold, Δt; cellset=nothing)
 
     if length(assemblers) != length(cellbuffers) != Threads.nthreads()

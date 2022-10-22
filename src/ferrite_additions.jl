@@ -2,12 +2,16 @@
 # but hasn't yet (either due to time or because it makes sense to 
 # test the usability a bit first)
 
+@inline _getgrid(dh::Union{DofHandler,MixedDofHandler}) = dh.grid
+
 Ferrite.ndofs_per_cell(dh::MixedDofHandler, fh::FieldHandler) = Ferrite.ndofs_per_cell(dh, first(fh.cellset))
 Ferrite.nnodes_per_cell(dh::MixedDofHandler, fh::FieldHandler) = Ferrite.nnodes_per_cell(dh, first(fh.cellset))
-Ferrite.nnodes_per_cell(dh::DofHandler) = Ferrite.nnodes_per_cell(dh.grid, 1)
+Ferrite.nnodes_per_cell(dh::DofHandler) = Ferrite.nnodes_per_cell(_getgrid(dh), 1)
 
 Ferrite.getdim(::Union{MixedDofHandler{dim}, DofHandler{dim}}) where dim = dim
-Ferrite.getncells(dh::Union{DofHandler,MixedDofHandler}) = getncells(dh.grid)
+Ferrite.getncells(dh::Union{DofHandler,MixedDofHandler}) = getncells(_getgrid(dh))
+
+Ferrite.getcellset(dh::Union{DofHandler,MixedDofHandler}, args...) = getcellset(_getgrid(dh), args...)
 
 # If a tuple or named tuple is given to reinit! - try to reinit each argument
 Ferrite.reinit!(vals::NTuple{N,Ferrite.Values}, args...) where N = foreach(v->reinit!(v, args...), vals) 

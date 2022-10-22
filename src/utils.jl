@@ -29,6 +29,18 @@ end
 _maketuple(t, n::Int) = ntuple(Returns(t), n)
 
 """
+    _makedict(d, d_keys)
+
+If `d::Dict` then check that it has all keys in `d_keys` (if not throw KeyError).
+Otherwise, return a `Dict` with keys `d_keys` and `d` as every element
+"""
+_makedict(d, d_keys) = Dict(key=>d for key in d_keys)
+function _makedict(d::Dict, d_keys)
+    all(key->in(key, keys(d)), d_keys) || throw(KeyError("d is missing keys"))
+    return d
+end
+
+"""
     intersect_nothing(a, b)
 
 A faster intersect if `cellset::Nothing`, otherwise calls Base.intersect

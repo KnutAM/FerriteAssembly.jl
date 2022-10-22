@@ -127,7 +127,7 @@ end
         assemblers = create_threaded_assemblers(K, r)
         colors = create_coloring(dh.grid)
         
-        doassemble!(assemblers, cellbuffers, states, colors, dh)
+        doassemble!(assemblers, cellbuffers, states, dh, colors)
 
         @test K_ref ≈ K 
         @test r_ref ≈ r
@@ -141,7 +141,7 @@ end
         assemblers = create_threaded_assemblers(K, r)
         colors = create_coloring(dh.grid)
         
-        doassemble!(assemblers, cellbuffers, states, colors, dh)
+        doassemble!(assemblers, cellbuffers, states, dh, colors)
 
         @test K_ref ≈ K
         @test r_ref ≈ r

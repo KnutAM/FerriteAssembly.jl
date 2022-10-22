@@ -67,4 +67,4 @@ cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, cellvalues, ThermalMate
 assemblers = create_threaded_assemblers(K, r)
 
 # And then we can call `doassemble!` as
-doassemble!(assemblers, cellbuffers, states, colors, dh)
+doassemble!(assemblers, cellbuffers, states, dh, colors)
