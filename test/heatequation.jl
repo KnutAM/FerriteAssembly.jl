@@ -106,7 +106,7 @@ end
         for mattype in (:same, :mixed)
             material = materials[mattype]
 
-            cv, K, dh = setup_heatequation(DofHandler)
+            cv, K, dh = setup_heatequation(DH)
             r = zeros(ndofs(dh))
             if mattype==:same
                 states = create_states(dh)

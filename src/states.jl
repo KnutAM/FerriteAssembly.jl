@@ -70,7 +70,9 @@ end
 function create_states(dh::DofHandler, statefun::Function, cellvalues, cellset)
     return Dict(cellid(cell)=>create_state(statefun, cell, cellvalues) for cell in CellIterator(dh, collect(cellset)))
 end
-function create_states(dh::Ferrite.AbstractDofHandler, statefun::Dict, cellvalues=nothing)
+create_states(dh::DofHandler, statefun::Dict, cellvalues=nothing) = _dict_create_states(dh, statefun, cellvalues)
+create_states(dh::MixedDofHandler, statefun::Dict, cellvalues=nothing) = _dict_create_states(dh, statefun, cellvalues)
+function _dict_create_states(dh::Ferrite.AbstractDofHandler, statefun::Dict, cellvalues)
     setnames = keys(statefun)
     _cellvalues = _makedict(cellvalues, setnames)
     return Dict(

@@ -65,7 +65,7 @@ function CellBuffer(dh::MixedDofHandler{dim}, fh::FieldHandler, args...) where d
     return CellBuffer(ndofs_per_cell(dh, fh), Ferrite.nnodes_per_cell(dh, fh), Val{dim}(), args...)
 end
 
-function CellBuffer(dh::MixedDofHandler, cellvalues::Union{Tuple,CellValues}, materials, cell_load=nothing, caches=nothing)
+function CellBuffer(dh::MixedDofHandler, cellvalues, materials, cell_load=nothing, caches=nothing)
     numfh = length(dh.fieldhandlers)
     cellvalues_ = _maketuple(cellvalues, numfh)
     materials_ = _maketuple(materials, numfh)
