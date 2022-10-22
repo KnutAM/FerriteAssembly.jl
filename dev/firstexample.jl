@@ -43,7 +43,7 @@ colors = create_coloring(dh.grid)
 cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, cellvalues, ThermalMaterial()))
 assemblers = create_threaded_assemblers(K, r)
 
-doassemble!(assemblers, cellbuffers, states, colors, dh)
+doassemble!(assemblers, cellbuffers, states, dh, colors)
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 
