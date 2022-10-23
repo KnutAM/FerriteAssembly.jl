@@ -21,15 +21,15 @@ function FerriteAssembly.element_routine!(
     for q_point in 1:getnquadpoints(cellvalues)
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs
-            δu  = shape_value(cellvalues, q_point, i)
-            ∇δu = shape_gradient(cellvalues, q_point, i)
+            δN  = shape_value(cellvalues, q_point, i)
+            ∇δN = shape_gradient(cellvalues, q_point, i)
             ## Add body load contribution to re
-            re[i] += -δu * dΩ
+            re[i] += -δN * dΩ
             ## Loop over trial shape functions
             for j in 1:n_basefuncs
-                ∇u = shape_gradient(cellvalues, q_point, j)
+                ∇N = shape_gradient(cellvalues, q_point, j)
                 ## Add contribution to Ke
-                Ke[i, j] += (∇δu ⋅ ∇u) * dΩ
+                Ke[i, j] += (∇δN ⋅ ∇N) * dΩ
             end
         end
     end
