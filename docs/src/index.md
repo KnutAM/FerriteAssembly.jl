@@ -5,23 +5,26 @@ CurrentModule = FerriteAssembly
 # FerriteAssembly
 
 The goal of [FerriteAssembly](https://github.com/KnutAM/FerriteAssembly.jl) 
-is to provide a simple structure to perform assembly in 
+is to provide a simple structure for assembling in 
 [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl/).
 
-Sequential and threaded assembly of both the `DofHandler` and `MixedDofHandler` are supported.
+Sequential and threaded assembly when using either the `DofHandler` or the `MixedDofHandler` is supported.
 
-The package works by exporting the `doassemble!` function, and require the 
+The package works by exporting the `doassemble!` function, and requiring the 
 user to define either `element_routine!` (calculate both `Ke` and `re`),
 or just `element_residual!` (calculate only `re`). 
 In the latter case, `Ke` is calculated by 
 [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)
 
-Dispatch is typically done on a user-defined `material` struct,
-and possible on `cellvalues` as well, which can also be a `NamedTuple/Tuple`.
-State variables and current dof-values for the cell are directly available in the `element_routine!`
+Dispatch `element_routine!`/`element_residual!` is typically based 
+on a user-defined `material` struct, and possibly also on `cellvalues`.
+For multiple fields, the latter can also be a `NamedTuple/Tuple`.
+State variables (to be mutated) and current dof-values for the cell 
+are directly available in the `element_routine!`
+
 Old dof-values for the cell, user-defined `cache` and `cell_load` types, 
-cell coordinates and more are available through the `CellBuffer` type 
-given as additional input. 
+cell coordinates and more are available through the `CellBuffer` type that
+given as an additional input.
 
 ## A minimal example
 ```@eval
