@@ -9,7 +9,7 @@ create_threaded_assemblers(K, r; nthreads=Threads.nthreads()) = [start_assemble(
 
 """ 
     doassemble!(
-        assembler::Ferrite.AbstractSparseAssembler, cellbuffer::CellBuffer, 
+        assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 
         s::AbstractVector, dh::DofHandler, 
         a=nothing, aold=nothing, Δt=nothing
         )
@@ -24,7 +24,7 @@ Sequential assembly of cells with the `dh::DofHandler`.
 * `Δt` is the time increment passed into each element routine
 """
 function doassemble!(
-    assembler::Ferrite.AbstractSparseAssembler, cellbuffer::CellBuffer, 
+    assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 
     states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing; cellset=1:Ferrite.getncells(dh)
     )
     for cellnr in cellset
@@ -40,7 +40,7 @@ end
 """ 
     doassemble!(
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-        cellbuffers::Vector{<:CellBuffer}, states, 
+        cellbuffers::Vector{<:AbstractCellBuffer}, states, 
         dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
         a=nothing, aold=nothing, Δt=nothing
         )
@@ -57,7 +57,7 @@ Threaded assembly of cells with the `dh::DofHandler`.
 """
 function doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-    cellbuffers::Vector{<:CellBuffer}, states, 
+    cellbuffers::Vector{<:AbstractCellBuffer}, states, 
     dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
     a=nothing, aold=nothing, Δt=nothing; cellset=nothing
     )
@@ -114,7 +114,7 @@ end
 Threaded assembly of cells with the `dh::MixedDofHandler`.
 * `assemblers` and `colored_sets` are the same as for the threaded `DofHandler` case.
 * `states` are the same as for the sequential `MixedDofHandler` case.
-* `cellbuffers` contains vectors `Vector{CellBuffer}` for the cell type in 
+* `cellbuffers` contains vectors `Vector{AbstractCellBuffer}` for the cell type in 
   each `FieldHandler` in `dh.fieldhandlers`. The vector element corresponds to each 
   thread. This can be created by [`create_threaded_CellBuffers`](@ref). 
   See also [`CellBuffer`](@ref) for more info.
@@ -145,7 +145,7 @@ end
 
 """
     inner_doassemble!(
-        assembler, cellbuffer::CellBuffer, states, 
+        assembler, cellbuffer::AbstractCellBuffer, states, 
         dh::MixedDofHandler, fh::FieldHandler, a, aold, Δt
         )
 
@@ -155,7 +155,7 @@ Internal function that is called from the sequential version
 of `doassemble!` for the `MixedDofHandler`
 """
 function inner_doassemble!(
-    assembler, cellbuffer::CellBuffer, 
+    assembler, cellbuffer::AbstractCellBuffer, 
     states, dh::MixedDofHandler, fh::FieldHandler, 
     a, aold, Δt; cellset=nothing
     )
@@ -167,7 +167,7 @@ end
 """
     inner_doassemble!(
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-        cellbuffers::Vector{<:CellBuffer}, states, 
+        cellbuffers::Vector{<:AbstractCellBuffer}, states, 
         dh::MixedDofHandler, fh::FieldHandler, 
         colored_sets::Vector{Vector{Int}}, 
         a, aold, Δt)
@@ -179,7 +179,7 @@ Internal function that is called from the parallel version of
 """
 function inner_doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-    cellbuffers::Vector{<:CellBuffer}, states, 
+    cellbuffers::Vector{<:AbstractCellBuffer}, states, 
     dh::MixedDofHandler, fh::FieldHandler, colored_sets::Vector{Vector{Int}}, 
     a, aold, Δt; cellset=nothing)
 

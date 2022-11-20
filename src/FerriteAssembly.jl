@@ -4,8 +4,10 @@ using Ferrite, ForwardDiff
 include("utils.jl")
 include("ferrite_additions.jl")
 include("CellBuffer.jl")
+include("autodiff.jl")
 include("assembly.jl")
 include("states.jl")
+
 
 export doassemble!, CellBuffer
 export create_threaded_CellBuffers, create_threaded_assemblers
@@ -43,35 +45,7 @@ This function should modify the element stiffness matrix `Ke` and the residual `
   - `getcoordinates(buffer)::Vector{Vec}`: The cell's coordinates
   - `celldofs(buffer)::Vector{Int}`: The cell's global degrees of freedom numbers
 """
-function element_routine!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer)
-    
-    rf!(re_, ae_) = element_residual!(
-        re_, state, ae_, material, cellvalues, 
-        dh_fh, Δt, buffer
-        )
-    try
-        ForwardDiff.jacobian!(Ke, rf!, re, ae)
-    catch e
-        if isa(e, MethodError)
-            if e.f === element_residual!
-                println("Tried to do automatic differentiation to get Ke, but could")
-                println("not find a correctly defined `element_residual!` method")
-                showerror(Base.stdout, MethodError(element_routine!, 
-                    (Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer))
-                    )
-                println("Also throwing error for `element_residual!`")
-            elseif e.f === convert    
-                println("If you get a conversion error, this is likely because")
-                println("the element routine is called with dual number inputs.")
-                println("If you try to mutate values (e.g. state variables),")
-                println("you must use ForwardDiff.value()")
-                println("NOTE: If you do this on some values that later affects")
-                println("      the output re, the stiffness will be wrong!")
-            end
-        end
-        rethrow(e)
-    end
-end
+element_routine!(args...) = element_routine_ad!(args...)    # If not defined, try to use automatic differentiation
 
 """
     element_residual!(
