@@ -38,4 +38,5 @@ makedocs(;
 deploydocs(;
     repo="github.com/KnutAM/FerriteAssembly.jl",
     devbranch="main",
+    push_preview=true,
 )

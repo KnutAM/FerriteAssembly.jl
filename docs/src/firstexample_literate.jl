@@ -2,8 +2,8 @@
 # 
 # First we create the dofhandler and cellvalues as in 
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
-using Ferrite, FerriteAssembly
-dh = DofHandler(generate_grid(Quadrilateral, (20, 20))); push!(dh, :u, 1); close!(dh)
+using Ferrite, FerriteAssembly, BenchmarkTools
+dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); push!(dh, :u, 1); close!(dh)
 cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}())
 
 # We start by defining the material 
@@ -68,3 +68,47 @@ assemblers = create_threaded_assemblers(K, r)
 
 # And then we can call `doassemble!` as
 doassemble!(assemblers, cellbuffers, states, dh, colors)
+
+# ### Automatic differentiation
+# For elements for nonlinear coupled behavior, it can be time-consuming 
+# to derive the analytical element stiffness. In these cases, it can be 
+# advantageous to use automatic differentiation instead. This can be done 
+# automatically by defining [`element_residual!`](@ref) instead of 
+# [`element_routine!`](@ref) for the given material.
+struct ThermalMaterialAD end 
+
+function FerriteAssembly.element_residual!(
+    re::AbstractVector, state,
+    ae::AbstractVector, material::ThermalMaterialAD, cellvalues, 
+    dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer
+    )
+    n_basefuncs = getnbasefunctions(cellvalues)
+    # Loop over quadrature points
+    for q_point in 1:getnquadpoints(cellvalues)
+        # Get the quadrature weight
+        dΩ = getdetJdV(cellvalues, q_point)
+        ∇u = function_gradient(cellvalues, q_point, ae)
+        # Loop over test shape functions
+        for i in 1:n_basefuncs
+            δN  = shape_value(cellvalues, q_point, i)
+            ∇δN = shape_gradient(cellvalues, q_point, i)
+            # re = fint - fext
+            re[i] += (∇δN ⋅ ∇u - δN) * dΩ
+        end
+    end
+end
+
+# In this case we need the `ae` input and must therefore define 
+a = zeros(ndofs(dh))
+cellbuffer2 = CellBuffer(dh, cellvalues, ThermalMaterialAD())
+assembler = start_assemble(K,r)
+doassemble!(assembler, cellbuffer2, states, dh, a)
+
+# However, explicitly defining the element stiffness was a lot faster and has less allocations
+@btime doassemble!(assembler, $cellbuffer, $states, $dh) setup=(assembler=start_assemble(K,r))
+@btime doassemble!(assembler, $cellbuffer2, $states, $dh) setup=(assembler=start_assemble(K,r))
+
+# But by defining a special cellbuffer that caches some variables for use with automatic differentiation,
+# we can get closer to the performance of explicitly defining the element stiffness
+cellbuffer3 = FerriteAssembly.AutoDiffCellBuffer(states, dh, cellvalues, ThermalMaterialAD())
+@btime doassemble!(assembler, $cellbuffer3, $states, $dh) setup=(assembler=start_assemble(K,r))
