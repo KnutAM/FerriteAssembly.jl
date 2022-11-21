@@ -31,6 +31,19 @@ using Test
         end
         cb_dualissue = AutoDiffCellBuffer(states_dualissue, dh, cv, _TestMaterial())
         @test_throws MethodError doassemble!(start_assemble(K,r), cb_dualissue, states_dualissue, dh, a) 
+
+        # Check that error thrown for mismatch between parallel buffer sizes and number of threads 
+        @test Threads.nthreads() > 1    # OK to fail locally, but for tests to be proper, we need to run CI multithreaded
+        if Threads.nthreads() > 1 # The following test will fail unless running more than one thread
+            cellbuffers = create_threaded_CellBuffers(cb)
+            assemblers = create_threaded_assemblers(K, r)
+            cellbuffers_n1 = create_threaded_CellBuffers(cb; nthreads=1)
+            assemblers_n1 = create_threaded_assemblers(K, r; nthreads=1)
+            colors = create_coloring(dh.grid)
+            for (as,cb) in ((assemblers_n1, cellbuffers_n1), (assemblers_n1, cellbuffers), (assemblers, cellbuffers_n1))
+                @test_throws DimensionMismatch doassemble!(as, cb, states, dh, colors, a)
+            end
+        end
     end
 
 end

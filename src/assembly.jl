@@ -61,9 +61,7 @@ function doassemble!(
     dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
     a=nothing, aold=nothing, Δt=nothing; cellset=nothing
     )
-    if length(assemblers) != length(cellbuffers) != Threads.nthreads()
-        throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
-    end
+    check_threaded_dimensions(assemblers, cellbuffers)
     for colorset in colored_sets
         Threads.@threads :static for cellnr in intersect_nothing(colorset, cellset)
             id = Threads.threadid()
@@ -181,11 +179,9 @@ function inner_doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:AbstractCellBuffer}, states, 
     dh::MixedDofHandler, fh::FieldHandler, colored_sets::Vector{Vector{Int}}, 
-    a, aold, Δt; cellset=nothing)
-
-    if length(assemblers) != length(cellbuffers) != Threads.nthreads()
-        throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
-    end
+    a, aold, Δt; cellset=nothing
+    )
+    check_threaded_dimensions(assemblers, cellbuffers)
     for colorset in colored_sets
         Threads.@threads :static for cellnr in intersect_nothing(intersect(colorset, fh.cellset), cellset)
             id = Threads.threadid()
@@ -226,4 +222,10 @@ function assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,
     element_routine!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, cellbuffer)
     dofs = celldofs(cellbuffer)
     assemble!(assembler, dofs, Ke, re)
+end
+
+function check_threaded_dimensions(assemblers, cellbuffers)    
+    if !(length(assemblers) == length(cellbuffers) == Threads.nthreads())
+        throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
+    end
 end
