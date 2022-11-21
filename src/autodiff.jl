@@ -128,20 +128,18 @@ end
 function ad_error(e, Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer)
     if isa(e, MethodError)
         if e.f === element_residual!
-            println("Tried to do automatic differentiation to get Ke, but could")
-            println("not find a correctly defined `element_residual!` method")
-            showerror(Base.stdout, MethodError(element_routine!, 
+            println("Could not find a correctly defined `element_residual!` method")
+            showerror(Base.stderr, MethodError(element_routine!, 
                 (Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer))
-                )
-            println("Also throwing error for `element_residual!`")
-        elseif e.f === convert    
-            println("If you get a conversion error, this is likely because")
-            println("the element routine is called with dual number inputs.")
-            println("If you try to mutate values (e.g. state variables),")
-            println("you must use ForwardDiff.value()")
-            println("NOTE: If you do this on some values that later affects")
-            println("      the output re, the stiffness will be wrong!")
+                ); println()
+            println("Tried to do automatic differentiation to get Ke,")
+            println("but could not find a correctly defined `element_residual!` either")
+            showerror(Base.stderr, e); println()
+            throw(ErrorException("Did not find correctly defined element_routine! or element_residual!"))
+        else
+            println("If the following error is related to converting objects with `ForwardDiff.Dual`s")
+            println("entries into objects with regular numbers, please consult the docs of `element_residual!`")
         end
     end
-    rethrow(e)
+    rethrow()
 end
