@@ -98,7 +98,7 @@ struct ThermalMaterialAD end
 function FerriteAssembly.element_residual!(
     re::AbstractVector, state,
     ae::AbstractVector, material::ThermalMaterialAD, cellvalues, 
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer
+    dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer::CellBuffer
     )
     n_basefuncs = getnbasefunctions(cellvalues)
     # Loop over quadrature points

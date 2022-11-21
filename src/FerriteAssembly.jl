@@ -9,7 +9,8 @@ include("assembly.jl")
 include("states.jl")
 
 
-export doassemble!, CellBuffer
+export doassemble!
+export CellBuffer, AutoDiffCellBuffer, getCellBuffer
 export create_threaded_CellBuffers, create_threaded_assemblers
 export create_states
 

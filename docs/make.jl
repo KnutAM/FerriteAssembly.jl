@@ -29,6 +29,7 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Examples" => GENERATEDEXAMPLES,
+        "API" => "api.md",
         "Datastructures" => "datastructures.md",
         "Internals" => "internals.md",
     ],

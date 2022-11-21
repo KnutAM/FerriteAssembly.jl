@@ -44,6 +44,20 @@ function AutoDiffCellBuffer(cb::CellBuffer, cellstates, dh_fh::Union{DofHandler,
     return AutoDiffCellBuffer(cb, er, cfg)
 end
 
+"""
+    AutoDiffCellBuffer(states, dh::AbstractDofHandler, args...)
+
+Create a special cell buffer that improves performance when using 
+automatic differentiation to calculate the element stiffness.
+An `AutoDiffCellBuffer` wraps a `CellBuffer` and behaves the same way 
+wrt defined functions. When used for automatic differentiation, only 
+the wrapped `CellBuffer` is passed to `element_residual!`. However, 
+if used for cases when `element_routine!` is called, the function 
+[`getCellBuffer`](@ref) can be used to ensure that a regular 
+`CellBuffer` is used. 
+"""
+function AutoDiffCellBuffer end
+
 # DofHandler
 function AutoDiffCellBuffer(states, dh::DofHandler, args...)
     AutoDiffCellBuffer(CellBuffer(dh, args...), states, dh)
@@ -67,6 +81,15 @@ function _dictAutoDiffCellBuffer(states::Dict{String}, dh, cv, mtrls::Dict{Strin
     return Dict(key=>AutoDiffCellBuffer(cbs[key], states[key], dh) for key in keys(states))
 end
 
+"""
+    getCellBuffer(b::Union{CellBuffer,AutoDiffCellBuffer})
+
+Return the `CellBuffer` if `isa(b,CellBuffer)`, else, return the `CellBuffer`
+wrapped by `b::AutoDiffCellBuffer`, i.e. `b.cb`
+"""
+@inline getCellBuffer(b::AutoDiffCellBuffer) = b.cb
+@inline getCellBuffer(b::CellBuffer) = b
+
 
 for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_cellvalues)
     eval(quote
@@ -80,7 +103,7 @@ for op = (:celldofs, :getcoordinates, :reinit!)
 end
 
 function element_routine_ad!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, ad_buffer::AutoDiffCellBuffer)
-    buffer = ad_buffer.cb
+    buffer = getCellBuffer(ad_buffer)
     element_residual = ad_buffer.er
     cfg = ad_buffer.cfg
     update_element_residual!(element_residual, state, material, cellvalues, dh_fh, Δt, buffer)
