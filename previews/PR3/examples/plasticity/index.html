@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Plasticity · FerriteAssembly.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://KnutAM.github.io/FerriteAssembly.jl/examples/plasticity/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteAssembly.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>Plasticity</a><ul class="internal"><li><a class="tocitem" href="#Material-model"><span>Material model</span></a></li><li><a class="tocitem" href="#Element-routine"><span>Element routine</span></a></li><li><a class="tocitem" href="#Assembly"><span>Assembly</span></a></li></ul></li><li><a class="tocitem" href="../mixed_materials/">Multiple materials</a></li></ul></li><li><a class="tocitem" href="../../datastructures/">Datastructures</a></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Plasticity</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Plasticity</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/KnutAM/FerriteAssembly.jl/blob/main/docs/src/literate/plasticity.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Plasticity"><a class="docs-heading-anchor" href="#Plasticity">Plasticity</a><a id="Plasticity-1"></a><a class="docs-heading-anchor-permalink" href="#Plasticity" title="Permalink"></a></h1><p>This example shows how any material following the <a href="https://github.com/KnutAM/MaterialModelsBase.jl"><code>MaterialModelsBase.jl</code></a> interface can be assembled with <code>FerriteAssembly.jl</code>. We start by the required packages</p><pre><code class="language-julia hljs">using Tensors, MaterialModelsBase, Ferrite, FerriteAssembly</code></pre><h2 id="Material-model"><a class="docs-heading-anchor" href="#Material-model">Material model</a><a id="Material-model-1"></a><a class="docs-heading-anchor-permalink" href="#Material-model" title="Permalink"></a></h2><p>We use the simple plasticity model from <code>Ferrite.jl</code>&#39;s <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/">example</a>. First, we define the required material struct</p><pre><code class="language-julia hljs">struct J2Plasticity{T, S &lt;: SymmetricTensor{4, 3, T}} &lt;: AbstractMaterial
+    G::T  # Shear modulus
+    K::T  # Bulk modulus
+    σ₀::T # Initial yield limit
+    H::T  # Hardening modulus
+    Dᵉ::S # Elastic stiffness tensor
+end
+function elastic_conversion(E, ν)
+    δ(i,j) = i == j ? 1.0 : 0.0 # helper function
+    G = E / 2(1 + ν)
+    K = E / 3(1 - 2ν)
+
+    Isymdev(i,j,k,l) = 0.5*(δ(i,k)*δ(j,l) + δ(i,l)*δ(j,k)) - 1.0/3.0*δ(i,j)*δ(k,l)
+    temp(i,j,k,l) = 2.0G *( 0.5*(δ(i,k)*δ(j,l) + δ(i,l)*δ(j,k)) + ν/(1.0-2.0ν)*δ(i,j)*δ(k,l))
+    Dᵉ = SymmetricTensor{4, 3}(temp)
+    return Dᵉ, G, K
+end
+function J2Plasticity(E, ν, σ₀, H)
+    Dᵉ, G, K = elastic_conversion(E, ν)
+    return J2Plasticity(G, K, σ₀, H, Dᵉ)
+end;</code></pre><p>And the state variable struct</p><pre><code class="language-julia hljs">struct MaterialState{T, S &lt;: SecondOrderTensor{3, T}} &lt;: AbstractMaterialState
+    ϵᵖ::S # plastic strain
+    σ::S # stress
+    k::T # hardening variable
+end;</code></pre><p>Then the initial material state function</p><pre><code class="language-julia hljs">function MaterialModelsBase.initial_material_state(::J2Plasticity)
+    return MaterialState(zero(SymmetricTensor{2,3}), zero(SymmetricTensor{2,3}), 0.0)
+end;</code></pre><p>And finally the <code>material_response</code> function</p><pre><code class="language-julia hljs">function MaterialModelsBase.material_response(
+    material::J2Plasticity, ϵ::SymmetricTensor{2,3}, state::MaterialState,
+    Δt, cache=get_cache(material), args...; kwargs...)
+    # unpack some material parameters
+    G = material.G
+    H = material.H
+
+    # We use (•)ᵗ to denote *trial*-values
+    σᵗ = material.Dᵉ ⊡ (ϵ - state.ϵᵖ) # trial-stress
+    sᵗ = dev(σᵗ)         # deviatoric part of trial-stress
+    J₂ = 0.5 * sᵗ ⊡ sᵗ  # second invariant of sᵗ
+    σᵗₑ = sqrt(3.0*J₂)   # effective trial-stress (von Mises stress)
+    σʸ = material.σ₀ + H * state.k # Previous yield limit
+
+    φᵗ  = σᵗₑ - σʸ # Trial-value of the yield surface
+
+    if φᵗ &lt; 0.0 # elastic loading
+        return σᵗ, material.Dᵉ, MaterialState(state.ϵᵖ, σᵗ, state.k)
+    else # plastic loading
+        h = H + 3G
+        μ =  φᵗ / h   # plastic multiplier
+
+        c1 = 1 - 3G * μ / σᵗₑ
+        s = c1 * sᵗ           # updated deviatoric stress
+        σ = s + vol(σᵗ)       # updated stress
+
+        # Compute algorithmic tangent stiffness ``D = \frac{\Delta \sigma }{\Delta \epsilon}``
+        κ = H * (state.k + μ) # drag stress
+        σₑ = material.σ₀ + κ  # updated yield surface
+
+        δ(i,j) = i == j ? 1.0 : 0.0
+        Isymdev(i,j,k,l)  = 0.5*(δ(i,k)*δ(j,l) + δ(i,l)*δ(j,k)) - 1.0/3.0*δ(i,j)*δ(k,l)
+        Q(i,j,k,l) = Isymdev(i,j,k,l) - 3.0 / (2.0*σₑ^2) * s[i,j]*s[k,l]
+        b = (3G*μ/σₑ) / (1.0 + 3G*μ/σₑ)
+
+        Dtemp(i,j,k,l) = -2G*b * Q(i,j,k,l) - 9G^2 / (h*σₑ^2) * s[i,j]*s[k,l]
+        D = material.Dᵉ + SymmetricTensor{4, 3}(Dtemp)
+
+        # Return new state
+        Δϵᵖ = 3/2 * μ / σₑ * s # plastic strain
+        ϵᵖ = state.ϵᵖ + Δϵᵖ    # plastic strain
+        k = state.k + μ        # hardening variable
+        return σ, D, MaterialState(ϵᵖ, σ, k)
+    end
+end;</code></pre><h2 id="Element-routine"><a class="docs-heading-anchor" href="#Element-routine">Element routine</a><a id="Element-routine-1"></a><a class="docs-heading-anchor-permalink" href="#Element-routine" title="Permalink"></a></h2><p>The element routine for any material that follows the <code>MaterialModelsBase.jl</code> interface can be coded as follows:</p><pre><code class="language-julia hljs">function FerriteAssembly.element_routine!(
+    Ke::AbstractMatrix, re::AbstractVector, state::Vector{&lt;:AbstractMaterialState},
+    ae::AbstractVector, material::AbstractMaterial, cellvalues::CellVectorValues, dh_fh, Δt, buffer::CellBuffer)
+    cache = buffer.cache
+    n_basefuncs = getnbasefunctions(cellvalues)
+    for q_point in 1:getnquadpoints(cellvalues)
+        # For each integration point, compute stress and material stiffness
+        ϵ = function_symmetric_gradient(cellvalues, q_point, ae) # Total strain
+        σ, D, state[q_point] = material_response(material, ϵ, state[q_point], Δt, cache)
+
+        dΩ = getdetJdV(cellvalues, q_point)
+        for i in 1:n_basefuncs
+            δϵ = shape_symmetric_gradient(cellvalues, q_point, i)
+            re[i] += (δϵ ⊡ σ) * dΩ ## add internal force to residual
+            for j in 1:n_basefuncs
+                Δϵ = shape_symmetric_gradient(cellvalues, q_point, j)
+                Ke[i, j] += δϵ ⊡ D ⊡ Δϵ * dΩ
+            end
+        end
+    end
+end;</code></pre><p>Note that the boundary traction was not included, as this can be handled separately with <a href="https://github.com/KnutAM/FerriteNeumann.jl">FerriteNeumann.jl</a></p><h2 id="Assembly"><a class="docs-heading-anchor" href="#Assembly">Assembly</a><a id="Assembly-1"></a><a class="docs-heading-anchor-permalink" href="#Assembly" title="Permalink"></a></h2><p>With all required functions defined, we can now setup and assemble the finite element problem</p><pre><code class="language-julia hljs">material = J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9);
+grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)));
+cellvalues = CellVectorValues(
+    QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}());
+dh = DofHandler(grid); push!(dh, :u, 3); close!(dh); # Create dofhandler
+K = create_sparsity_pattern(dh);
+r = zeros(ndofs(dh));</code></pre><p>Using the <code>create_states</code> function, we can easily create the storage of state variables suitable for the chosen dof handler</p><pre><code class="language-julia hljs">states = create_states(dh, _-&gt;initial_material_state(material), cellvalues);</code></pre><p>And then we create the buffer for saving cell-related variables</p><pre><code class="language-julia hljs">buffer = CellBuffer(dh, cellvalues, material, nothing, get_cache(material));</code></pre><p>Finally, with an initial guess of displacements, <code>a</code>, we can create the assembler and do the assembly</p><pre><code class="language-julia hljs">a = zeros(ndofs(dh))
+assembler = start_assemble(K,r)
+doassemble!(assembler, buffer, states, dh, a);</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../mixed_materials/">Multiple materials »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Monday 21 November 2022 08:43">Monday 21 November 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
