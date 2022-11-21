@@ -29,6 +29,7 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Examples" => GENERATEDEXAMPLES,
+        "API" => "api.md",
         "Datastructures" => "datastructures.md",
         "Internals" => "internals.md",
     ],
@@ -38,4 +39,5 @@ makedocs(;
 deploydocs(;
     repo="github.com/KnutAM/FerriteAssembly.jl",
     devbranch="main",
+    push_preview=true,
 )

@@ -1,4 +1,6 @@
-struct CellBuffer{dim,T,CV,MT,CL,CT}
+abstract type AbstractCellBuffer end
+
+struct CellBuffer{dim,T,CV,MT,CL,CT} <: AbstractCellBuffer
     ae_old::Vector{T}           # Old element dof values
     ae::Vector{T}               # New element dof values
     re::Vector{T}               # Residual/force vector 
