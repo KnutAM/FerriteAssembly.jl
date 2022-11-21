@@ -65,7 +65,7 @@ function doassemble!(
         throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
     end
     for colorset in colored_sets
-        Threads.@threads for cellnr in intersect_nothing(colorset, cellset)
+        Threads.@threads :static for cellnr in intersect_nothing(colorset, cellset)
             id = Threads.threadid()
             assemble_cell!(assemblers[id], cellbuffers[id], dh, cellnr, a, aold, states[cellnr], Δt)
         end
@@ -187,7 +187,7 @@ function inner_doassemble!(
         throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
     end
     for colorset in colored_sets
-        Threads.@threads for cellnr in intersect_nothing(intersect(colorset, fh.cellset), cellset)
+        Threads.@threads :static for cellnr in intersect_nothing(intersect(colorset, fh.cellset), cellset)
             id = Threads.threadid()
             assemble_cell!(assemblers[id], cellbuffers[id], dh, fh, cellnr, a, aold, states[cellnr], Δt)
         end
