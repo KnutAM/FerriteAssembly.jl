@@ -1,4 +1,3 @@
-
 """
     create_threaded_assemblers(K, r; nthreads=Threads.nthreads())
 
@@ -41,7 +40,7 @@ end
         cellbuffers::Vector{<:AbstractCellBuffer}, states, 
         dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
         a=nothing, aold=nothing, Δt=nothing, 
-        scalings::Vector=Vector{Nothing}(undef, length(assemblers));
+        scalings::Vector=create_threaded_scalings(nothing);
         cellset=nothing
         )
 
@@ -60,7 +59,7 @@ function doassemble!(
     cellbuffers::Vector{<:AbstractCellBuffer}, states, 
     dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
     a=nothing, aold=nothing, Δt=nothing, 
-    scalings::Vector=Vector{Nothing}(undef, length(assemblers)); 
+    scalings::Vector=create_threaded_scalings(nothing); 
     cellset=nothing
     )
     check_threaded_dimensions(assemblers, cellbuffers, scalings)
@@ -72,7 +71,7 @@ function doassemble!(
     end
 end
 
-""" 
+"""
     doassemble!(
         assembler::Ferrite.AbstractSparseAssembler, 
         cellbuffers::Tuple, states::Tuple, 
@@ -110,7 +109,7 @@ end
         states::Tuple, 
         dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
         a::AbstractVector, aold::AbstractVector, Δt::Number, 
-        scalings::Vector=Vector{Nothing}(undef, length(assemblers));
+        scalings::Vector=create_threaded_scalings(nothing);
         kwargs...)
 
 Threaded assembly of cells with the `dh::MixedDofHandler`.
@@ -128,7 +127,7 @@ function doassemble!(
     states::Tuple, 
     dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
     a=nothing, aold=nothing, Δt=nothing, 
-    scalings::Vector=Vector{Nothing}(undef, length(assemblers));
+    scalings::Vector=create_threaded_scalings(nothing);
     kwargs...
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
