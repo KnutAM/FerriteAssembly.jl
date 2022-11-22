@@ -3,6 +3,7 @@ using Ferrite, ForwardDiff
 
 include("utils.jl")
 include("ferrite_additions.jl")
+include("scaling.jl")
 include("CellBuffer.jl")
 include("autodiff.jl")
 include("assembly.jl")
@@ -11,14 +12,15 @@ include("states.jl")
 
 export doassemble!
 export CellBuffer, AutoDiffCellBuffer, getCellBuffer
-export create_threaded_CellBuffers, create_threaded_assemblers
 export create_states
+export ElementResidualScaling, reset_scaling!
+export create_threaded_CellBuffers, create_threaded_assemblers, create_threaded_scalings
 
 """
     element_routine!(
         Ke::AbstractMatrix, re::AbstractVector, state,
         ae::AbstractVector, material, cellvalues, 
-        dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer
+        dh_fh, Δt, buffer
         )
 
 The main function to be overloaded for the specific `material` and `cellvalues`.
@@ -34,7 +36,8 @@ This function should modify the element stiffness matrix `Ke` and the residual `
 * When the regular `DofHandler` is used, `dh_fh::DofHandler` is passed to the element 
   routine. However, if the `MixedDofHandler` is used, one of its fieldhandlers are passed 
   as `dh_fh::FieldHandler`. This gives the option to call `dof_range(dh_fh, field::Symbol)` 
-  for multi-field problems. 
+  for multi-field problems. **Note:** Please do not rely on `dh_fh` for anything but `dof_range`,
+  as `dh_fh` may be replaced with another type that only supports `dof_range`.
 * `Δt` is time increment given to `doassemble`
 * `buffer` is normally `CellBuffer` (if given to `doassemble`). Then, it can be used to get 
   - `buffer.ae_old`: The old values of the displacements (if `aold::Nothing` is passed to 
@@ -52,7 +55,7 @@ element_routine!(args...) = element_routine_ad!(args...)    # If not defined, tr
     element_residual!(
         re::AbstractVector, state, 
         ae::AbstractVector, material, cellvalues, 
-        dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer
+        dh_fh, Δt, buffer
         )
 
 To calculate the element tangent stiffness `Ke` automatically by using `ForwardDiff`,
