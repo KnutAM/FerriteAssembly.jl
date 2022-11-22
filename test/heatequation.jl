@@ -185,8 +185,8 @@
                             scalings = create_threaded_scalings(scaling)
                             doassemble!(assemblers, cellbuffers, states, dh, colors, a, nothing, nothing, scalings)
                             if isa(scaling, ElementResidualScaling)
-                                scalefac = sum(i->scalings[i].factors[:u], 1:length(scalings))
-                                @test scalefac ≈ sum(abs, r)
+                                scaling = sum(scalings)
+                                @test scaling.factors[:u] ≈ sum(abs, r)
                             end
                         end
                         @test K_ref ≈ K 

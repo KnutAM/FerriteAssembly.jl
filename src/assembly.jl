@@ -22,7 +22,8 @@ Sequential assembly of cells with the `dh::DofHandler`.
   by `cellnr` gives the state variables for that cell. 
 * `a` and `aold` are the current and old unknowns (can be set to `nothing` if not used)
 * `Δt` is the time increment passed into each element routine
-* `scaling` allows including element data in order to scale the residuals
+* `scaling` allows including element data in order to scale the residuals, 
+  see [Residual scaling](@ref)
 """
 function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 

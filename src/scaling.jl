@@ -1,19 +1,42 @@
+"""
+    update_scaling!(scaling, re, dh_fh, cellbuffer)
+
+This function should add the contribution from the element residual vector `re` to the
+scaling factors in `scaling`. 
+The cellbuffer is included, which contains extra information if needed. 
+"""
+function update_scaling! end
+
+"""
+    reset_scaling!(scaling)
+
+This function should reset the scaling factors, such that the values don't accumulate if used 
+in multiple iterations/time steps. 
+"""
+function reset_scaling! end
+
+"""
+    create_threaded_scalings(scaling; nthreads=Threads.nthreads()) -> Vector
+
+Makes `nthreads` deepcopies of `scaling`, such that it can be used for threaded assembly.
+Note: If creating your own scaling, it might make sense to define 
+`Base.sum(::Vector{<:MyScalingType})` to sum scalings after threaded assembly. 
+"""
 create_threaded_scalings(scaling; nthreads=Threads.nthreads()) = [deepcopy(scaling) for _ in 1:nthreads]
 
-# Default, no scaling at all
+# Default: nothing = no scaling 
 update_scaling!(::Nothing, args...) = nothing
 reset_scaling!(::Nothing, args...) = nothing 
 
 """
-    ElementResidualScaling(dh::AbstractDofHandler, p, T=Float64)
+    ElementResidualScaling(dh::AbstractDofHandler, p=2, T=Float64)
 
-Create tolerance scaling based on the sum of each cell's norm(re, p), for each field separately.
-I.e. 
+Create tolerance scaling based on the sum of the p-norm of each cell's residual vector, 
+separately for each field. I.e. pseudo-code for field `:u` the scaling `factor::T` is
 ```
-factor[fieldname] = 0.0
 for each cell
-    calculate re 
-    factor[fieldname] += outerfun(sum(innerfun.(re[dof_range(dh, fieldname)])))
+    element_routine!(Ke, re, args...) # Calculate re
+    factor += sum(abs.(re[dof_range(dh, :u)]).^p)^(1/p)
 ```
 """
 struct ElementResidualScaling{T,P}
@@ -36,4 +59,11 @@ function reset_scaling!(s::ElementResidualScaling{T}, args...) where T
     for fieldname in keys(s.factors)
         s.factors[fieldname] = zero(T)
     end
+end
+
+function Base.sum(scalings::Vector{<:ElementResidualScaling})
+    _getfactor(s::ElementResidualScaling, fieldname) = s.factors[fieldname]
+
+    factors = Dict(key=>sum(s->_getfactor(s,key), scalings) for key in keys(first(scalings).factors))
+    return ElementResidualScaling(factors, first(scalings).p)
 end

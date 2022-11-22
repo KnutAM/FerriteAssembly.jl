@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = FerriteAssembly
+```
+
 # API
 Methods that should be overloaded and exported functions are described on this page.
 It may also be useful to checkout the [Data structures](@ref).
@@ -49,4 +53,33 @@ create_threaded_CellBuffers
 A vector of assemblers that is convieniently created by calling 
 ```@docs
 create_threaded_assemblers
+```
+
+## Residual scaling
+There are many options for how to scale the residual in finite element simulations.
+This package does not intend to implement many different options, but does give the 
+user the option to calculate scaling contributions from each cell, which may be useful.
+By defining a `scaling` that is passed to [`doassemble!`](@ref), this can be updated in each cell. 
+One type of scaling, [`ElementResidualScaling`](@ref), is included as described below.
+Its code can be used as a template 
+for how to include custom scaling that works on the element level. 
+
+In general, a scaling must support the [`update_scaling!`](@ref) function.
+For consistency it is also nice, but not required,
+to support [`reset_scaling!`](@ref). This function must, however, be called by the user
+before assembly (to allow consistent separated assembly using different cellsets). 
+```@docs
+FerriteAssembly.update_scaling!
+reset_scaling!
+```
+
+Additionally, [`create_threaded_scalings`](@ref) can be used to copy one scaling to each thread
+when using with parallel assembly. 
+```@docs
+create_threaded_scalings
+```
+
+### ElementResidualScaling
+```@docs
+ElementResidualScaling
 ```
