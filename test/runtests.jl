@@ -6,6 +6,7 @@ using Test
     include("heatequation.jl")
 
     @testset "Errors" begin
+        @info("Start of expected error messages. These are expected and ok if tests pass!")
         grid = generate_grid(Quadrilateral, (2,2))
         dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
         cv = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
@@ -14,7 +15,6 @@ using Test
         r = zeros(ndofs(dh))
         a = zeros(ndofs(dh))
         # Check error when element_residual! is not defined. 
-        # Note: Not optimal as we should actually check the printed message
         cb = CellBuffer(dh, cv, nothing)    # material=nothing not supported
         cb_ad = AutoDiffCellBuffer(states, dh, cv, nothing)
         exception = ErrorException("Did not find correctly defined element_routine! or element_residual!")
@@ -33,7 +33,6 @@ using Test
         @test_throws MethodError doassemble!(start_assemble(K,r), cb_dualissue, states_dualissue, dh, a) 
 
         # Check that error thrown for mismatch between parallel buffer sizes and number of threads 
-        @test Threads.nthreads() > 1    # OK to fail locally, but for tests to be proper, we need to run CI multithreaded
         if Threads.nthreads() > 1 # The following test will fail unless running more than one thread
             cellbuffers = create_threaded_CellBuffers(cb)
             assemblers = create_threaded_assemblers(K, r)
@@ -44,6 +43,11 @@ using Test
                 @test_throws DimensionMismatch doassemble!(as, cb, states, dh, colors, a)
             end
         end
+        @info("End of expected error messages")
     end
 
 end
+
+# Print show warning at the end if running tests single-threaded. 
+# During unit testing, exclude tests that must be multithreaded to pass.
+Threads.nthreads() == 1 && @warn("Threads.nthreads() == 1: Run multithreaded for full test coverage")
