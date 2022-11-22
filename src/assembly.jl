@@ -11,7 +11,7 @@ create_threaded_assemblers(K, r; nthreads=Threads.nthreads()) = [start_assemble(
     doassemble!(
         assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 
         s::AbstractVector, dh::DofHandler, 
-        a=nothing, aold=nothing, Δt=nothing
+        a=nothing, aold=nothing, Δt=nothing, scaling=nothing; cellset=1:ncells
         )
 
 Sequential assembly of cells with the `dh::DofHandler`.
@@ -22,13 +22,15 @@ Sequential assembly of cells with the `dh::DofHandler`.
   by `cellnr` gives the state variables for that cell. 
 * `a` and `aold` are the current and old unknowns (can be set to `nothing` if not used)
 * `Δt` is the time increment passed into each element routine
+* `scaling` allows including element data in order to scale the residuals
 """
 function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 
-    states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing; cellset=1:Ferrite.getncells(dh)
+    states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing, scaling=nothing; 
+    cellset=1:Ferrite.getncells(dh)
     )
     for cellnr in cellset
-        assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
+        assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt, scaling)
     end
 end
 
@@ -37,7 +39,9 @@ end
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
         cellbuffers::Vector{<:AbstractCellBuffer}, states, 
         dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
-        a=nothing, aold=nothing, Δt=nothing
+        a=nothing, aold=nothing, Δt=nothing, 
+        scalings::Vector=Vector{Nothing}(undef, length(assemblers));
+        cellset=nothing
         )
 
 Threaded assembly of cells with the `dh::DofHandler`.
@@ -54,13 +58,15 @@ function doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:AbstractCellBuffer}, states, 
     dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
-    a=nothing, aold=nothing, Δt=nothing; cellset=nothing
+    a=nothing, aold=nothing, Δt=nothing, 
+    scalings::Vector=Vector{Nothing}(undef, length(assemblers)); 
+    cellset=nothing
     )
-    check_threaded_dimensions(assemblers, cellbuffers)
+    check_threaded_dimensions(assemblers, cellbuffers, scalings)
     for colorset in colored_sets
         Threads.@threads :static for cellnr in intersect_nothing(colorset, cellset)
             id = Threads.threadid()
-            assemble_cell!(assemblers[id], cellbuffers[id], dh, cellnr, a, aold, states[cellnr], Δt)
+            assemble_cell!(assemblers[id], cellbuffers[id], dh, cellnr, a, aold, states[cellnr], Δt, scalings[id])
         end
     end
 end
@@ -70,7 +76,8 @@ end
         assembler::Ferrite.AbstractSparseAssembler, 
         cellbuffers::Tuple, states::Tuple, 
         dh::MixedDofHandler, 
-        a=nothing, aold=nothing, Δt=nothing
+        a=nothing, aold=nothing, Δt=nothing, scaling=nothing;
+        kwargs...
         )
 
 Sequential assembly of cells with the `dh::MixedDofHandler`.
@@ -88,10 +95,10 @@ function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, 
     cellbuffers::Tuple, states::Tuple, 
     dh::MixedDofHandler, 
-    a=nothing, aold=nothing, Δt=nothing; kwargs...
+    a=nothing, aold=nothing, Δt=nothing, scaling=nothing; kwargs...
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
-        inner_doassemble!(assembler, cellbuffer, state, dh, fh, a, aold, Δt; kwargs...)
+        inner_doassemble!(assembler, cellbuffer, state, dh, fh, a, aold, Δt, scaling; kwargs...)
     end
 end
 
@@ -101,8 +108,9 @@ end
         cellbuffers::Tuple, 
         states::Tuple, 
         dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
-        a::AbstractVector, aold::AbstractVector, Δt::Number
-        )
+        a::AbstractVector, aold::AbstractVector, Δt::Number, 
+        scalings::Vector=Vector{Nothing}(undef, length(assemblers));
+        kwargs...)
 
 Threaded assembly of cells with the `dh::MixedDofHandler`.
 * `assemblers` and `colored_sets` are the same as for the threaded `DofHandler` case.
@@ -118,10 +126,12 @@ function doassemble!(
     cellbuffers::Tuple, 
     states::Tuple, 
     dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
-    a=nothing, aold=nothing, Δt=nothing; kwargs...
+    a=nothing, aold=nothing, Δt=nothing, 
+    scalings::Vector=Vector{Nothing}(undef, length(assemblers));
+    kwargs...
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
-        inner_doassemble!(assemblers, cellbuffer, state, dh, fh, colored_sets, a, aold, Δt; kwargs...)
+        inner_doassemble!(assemblers, cellbuffer, state, dh, fh, colored_sets, a, aold, Δt, scalings; kwargs...)
     end
 end
 
@@ -150,10 +160,10 @@ of `doassemble!` for the `MixedDofHandler`
 function inner_doassemble!(
     assembler, cellbuffer::AbstractCellBuffer, 
     states, dh::MixedDofHandler, fh::FieldHandler, 
-    a, aold, Δt; cellset=nothing
+    a, aold, Δt, scaling; cellset=nothing
     )
     for cellnr in intersect_nothing(fh.cellset, cellset)
-        assemble_cell!(assembler, cellbuffer, dh, fh, cellnr, a, aold, states[cellnr], Δt)
+        assemble_cell!(assembler, cellbuffer, dh, fh, cellnr, a, aold, states[cellnr], Δt, scaling)
     end
 end
 
@@ -163,7 +173,8 @@ end
         cellbuffers::Vector{<:AbstractCellBuffer}, states, 
         dh::MixedDofHandler, fh::FieldHandler, 
         colored_sets::Vector{Vector{Int}}, 
-        a, aold, Δt)
+        a, aold, Δt, scalings::Vector;
+        )
 
 Parallel assembly of cells corresponding to the given `fh` from 
 `dh.fieldhandlers`.
@@ -174,13 +185,14 @@ function inner_doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:AbstractCellBuffer}, states, 
     dh::MixedDofHandler, fh::FieldHandler, colored_sets::Vector{Vector{Int}}, 
-    a, aold, Δt; cellset=nothing
+    a, aold, Δt, scalings::Vector; 
+    cellset=nothing
     )
-    check_threaded_dimensions(assemblers, cellbuffers)
+    check_threaded_dimensions(assemblers, cellbuffers, scalings)
     for colorset in colored_sets
         Threads.@threads :static for cellnr in intersect_nothing(intersect(colorset, fh.cellset), cellset)
             id = Threads.threadid()
-            assemble_cell!(assemblers[id], cellbuffers[id], dh, fh, cellnr, a, aold, states[cellnr], Δt)
+            assemble_cell!(assemblers[id], cellbuffers[id], dh, fh, cellnr, a, aold, states[cellnr], Δt, scalings[id])
         end
     end
 end
@@ -191,36 +203,36 @@ end
 
 Internal function to that reinitializes the `cellbuffer` and calls [`assemble_cell_reinited!`](@ref).
 """
-function assemble_cell!(assembler, cellbuffer, dh::DofHandler, cellnr, a, aold, state, Δt)
+function assemble_cell!(assembler, cellbuffer, dh::DofHandler, cellnr, a, aold, state, Δt, scaling)
     reinit!(cellbuffer, dh, cellnr, a, aold)
-    assemble_cell_reinited!(assembler, cellbuffer, dh, state, Δt)
+    assemble_cell_reinited!(assembler, cellbuffer, dh, state, Δt, scaling)
 end
 
-function assemble_cell!(assembler, cellbuffer, dh::MixedDofHandler, fh::FieldHandler, cellnr, a, aold, state, Δt)
+function assemble_cell!(assembler, cellbuffer, dh::MixedDofHandler, fh::FieldHandler, cellnr, a, aold, state, Δt, scaling)
     reinit!(cellbuffer, dh, cellnr, a, aold)
-    assemble_cell_reinited!(assembler, cellbuffer, fh, state, Δt)
+    assemble_cell_reinited!(assembler, cellbuffer, fh, state, Δt, scaling)
 end 
 
-
 """
-    assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt)
+    assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt, scaling)
 
 Internal function that assembles the cell described by the reinitialized `cellbuffer`. This function is called 
 in all cases: Parallel or sequential and `DofHandler` or `MixedDofHandler`
 """
-function assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt)
+function assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt, scaling)
     Ke = get_Ke(cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
     material = get_material(cellbuffer)
     cellvalues = get_cellvalues(cellbuffer)
     element_routine!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, cellbuffer)
+    update_scaling!(scaling, re, dh_fh, cellbuffer)
     dofs = celldofs(cellbuffer)
     assemble!(assembler, dofs, Ke, re)
 end
 
-function check_threaded_dimensions(assemblers, cellbuffers)    
-    if !(length(assemblers) == length(cellbuffers) == Threads.nthreads())
-        throw(DimensionMismatch("assemblers and cellbuffers must have as many elements as there are threads"))
+function check_threaded_dimensions(assemblers, cellbuffers, scalings)
+    if !(length(assemblers) == length(cellbuffers) == length(scalings) == Threads.nthreads())
+        throw(DimensionMismatch("assemblers, cellbuffers, and scalings must have as many elements as there are threads"))
     end
 end

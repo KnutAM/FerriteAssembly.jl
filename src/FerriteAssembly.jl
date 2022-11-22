@@ -3,6 +3,7 @@ using Ferrite, ForwardDiff
 
 include("utils.jl")
 include("ferrite_additions.jl")
+include("scaling.jl")
 include("CellBuffer.jl")
 include("autodiff.jl")
 include("assembly.jl")
