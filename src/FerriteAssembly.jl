@@ -12,8 +12,9 @@ include("states.jl")
 
 export doassemble!
 export CellBuffer, AutoDiffCellBuffer, getCellBuffer
-export create_threaded_CellBuffers, create_threaded_assemblers
 export create_states
+export ElementResidualScaling, reset_scaling!
+export create_threaded_CellBuffers, create_threaded_assemblers, create_threaded_scalings
 
 """
     element_routine!(

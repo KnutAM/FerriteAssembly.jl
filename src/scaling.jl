@@ -5,25 +5,30 @@ update_scaling!(::Nothing, args...) = nothing
 reset_scaling!(::Nothing, args...) = nothing 
 
 """
-    ElementResidualScaling(dh::AbstractDofHandler, T=Float64)
+    ElementResidualScaling(dh::AbstractDofHandler, p, T=Float64)
 
-Create tolerance scaling based on the sum of each cell's norm(re), for each field separately.
+Create tolerance scaling based on the sum of each cell's norm(re, p), for each field separately.
 I.e. 
 ```
 factor[fieldname] = 0.0
 for each cell
     calculate re 
-    factor[fieldname] += norm(re[dof_range(dh, fieldname)])
+    factor[fieldname] += outerfun(sum(innerfun.(re[dof_range(dh, fieldname)])))
 ```
 """
-struct ElementResidualScaling{T}
+struct ElementResidualScaling{T,P}
     factors::Dict{Symbol,T}
+    p::P
 end
-ElementResidualScaling(dh, T=Float64) = ElementResidualScaling(Dict(key=>zero(T) for key in Ferrite.getfieldnames(dh)))
+function ElementResidualScaling(dh, p=2, T=Float64)
+    return ElementResidualScaling(Dict(key=>zero(T) for key in Ferrite.getfieldnames(dh)), p)
+end
 
 function update_scaling!(s::ElementResidualScaling, re, dh_fh, args...)
+    p = s.p
+    pinv = 1/p 
     for fieldname in keys(s.factors)
-        s.factors[fieldname] += sqrt(sum(i->re[i]^2, dof_range(dh_fh, fieldname)))
+        s.factors[fieldname] += (sum(i->abs(re[i])^p, dof_range(dh_fh, fieldname)))^pinv
     end
 end
 

@@ -141,44 +141,57 @@
         @test re ≈ -fe_ref # as ae=0
     end
     materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
-
     for DH in (DofHandler, MixedDofHandler)
         for mattype in (:same, :ad, :mixed)
             material = materials[mattype]
             
             cv, K, dh = setup_heatequation(DH)
-            r = zeros(ndofs(dh))
-            a = mattype==:same ? nothing : copy(r)
-            if isa(material, Dict)
-                states = create_states(dh, Dict(key=>Returns(nothing) for key in keys(material)))
-            else
-                states = create_states(dh)
-            end
-
-            @testset "$DH, $mattype, sequential" begin
-                cellbuffer = CellBuffer(dh, cv, material)
-                cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,FerriteAssembly.AutoDiffCellBuffer(states,dh,cv,material))
-                for cb in cbs    
-                    assembler = start_assemble(K, r)
-                    doassemble!(assembler, cb, states, dh, a)
-
-                    @test K_ref ≈ K 
-                    @test r_ref ≈ r
+            for scaling in (nothing, ElementResidualScaling(dh, 1))
+                r = zeros(ndofs(dh))
+                a = mattype==:same ? nothing : copy(r)
+                if isa(material, Dict)
+                    states = create_states(dh, Dict(key=>Returns(nothing) for key in keys(material)))
+                else
+                    states = create_states(dh)
                 end
-            end
 
-            @testset "$DH, $mattype, threaded" begin
-                cellbuffer = CellBuffer(dh, cv, material)
-                cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,FerriteAssembly.AutoDiffCellBuffer(states,dh,cv,material))
-                for cb in cbs
-                    cellbuffers = create_threaded_CellBuffers(cb)
-                    assemblers = create_threaded_assemblers(K, r)
-                    colors = create_coloring(dh.grid)
-                    
-                    doassemble!(assemblers, cellbuffers, states, dh, colors, a)
-            
-                    @test K_ref ≈ K 
-                    @test r_ref ≈ r
+                @testset "$DH, $mattype, sequential" begin
+                    cellbuffer = CellBuffer(dh, cv, material)
+                    cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,FerriteAssembly.AutoDiffCellBuffer(states,dh,cv,material))
+                    for cb in cbs
+                        reset_scaling!(scaling)
+                        assembler = start_assemble(K, r)
+                        if isnothing(scaling)
+                            doassemble!(assembler, cb, states, dh, a)
+                        else
+                            doassemble!(assembler, cb, states, dh, a, nothing, nothing, scaling)
+                        end
+                        isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign
+                        @test K_ref ≈ K 
+                        @test r_ref ≈ r
+                    end
+                end
+                @testset "$DH, $mattype, threaded" begin
+                    cellbuffer = CellBuffer(dh, cv, material)
+                    cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,FerriteAssembly.AutoDiffCellBuffer(states,dh,cv,material))
+                    for cb in cbs
+                        reset_scaling!(scaling)
+                        cellbuffers = create_threaded_CellBuffers(cb)
+                        assemblers = create_threaded_assemblers(K, r)
+                        colors = create_coloring(dh.grid)
+                        if isnothing(scaling)
+                            doassemble!(assemblers, cellbuffers, states, dh, colors, a)
+                        else
+                            scalings = create_threaded_scalings(scaling)
+                            doassemble!(assemblers, cellbuffers, states, dh, colors, a, nothing, nothing, scalings)
+                            if isa(scaling, ElementResidualScaling)
+                                scalefac = sum(i->scalings[i].factors[:u], 1:length(scalings))
+                                @test scalefac ≈ sum(abs, r)
+                            end
+                        end
+                        @test K_ref ≈ K 
+                        @test r_ref ≈ r
+                    end
                 end
             end
         end
