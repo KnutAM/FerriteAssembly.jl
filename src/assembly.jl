@@ -28,12 +28,7 @@ function doassemble!(
     states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing; cellset=1:Ferrite.getncells(dh)
     )
     for cellnr in cellset
-        try
-            assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
-        catch e
-            rethrow(e)
-        end
-        
+        assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt)
     end
 end
 
