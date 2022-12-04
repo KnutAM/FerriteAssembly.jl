@@ -61,6 +61,7 @@ function reset_scaling!(s::ElementResidualScaling{T}, args...) where T
     end
 end
 
+Base.sum(scaling::ElementResidualScaling) = scaling     # ok as Base.sum(v::Number)=v is defined...
 function Base.sum(scalings::Vector{<:ElementResidualScaling})
     _getfactor(s::ElementResidualScaling, fieldname) = s.factors[fieldname]
 
