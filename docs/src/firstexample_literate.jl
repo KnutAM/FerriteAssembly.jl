@@ -48,7 +48,7 @@ states = create_states(dh);
 
 # The next step is gathering all variables that are shared for all elements,
 # but may be modified for or by each element in the `cellbuffer`:
-cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial());
+cellbuffer = setup_cellbuffer(dh, cellvalues, ThermalMaterial());
 # Note that `cellvalues` can be a `Tuple` or `NamedTuple`, 
 # this is useful for coupled problems with multiple fields. 
 
@@ -63,7 +63,7 @@ doassemble!(assembler, cellbuffer, states, dh);
 colors = create_coloring(dh.grid);
 
 # We must also create threaded versions of the `cellbuffer` and `assembler`,
-cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, cellvalues, ThermalMaterial()))
+cellbuffers = create_threaded_CellBuffers(cellbuffer)
 assemblers = create_threaded_assemblers(K, r);
 
 # And then we can call `doassemble!` as
@@ -100,7 +100,7 @@ end;
 
 # In this case we need the `ae` input and must therefore define `a`:
 a = zeros(ndofs(dh))
-cellbuffer2 = CellBuffer(dh, cellvalues, ThermalMaterialAD())
+cellbuffer2 = setup_cellbuffer(dh, cellvalues, ThermalMaterialAD())
 assembler = start_assemble(K,r)
 doassemble!(assembler, cellbuffer2, states, dh, a);
 
@@ -110,5 +110,5 @@ doassemble!(assembler, cellbuffer2, states, dh, a);
 
 # By using the special [`AutoDiffCellBuffer`](@ref) that caches some variables for automatic differentiation,
 # we can significantly improve performance when using automatic differentiation. 
-cellbuffer3 = AutoDiffCellBuffer(states, dh, cellvalues, ThermalMaterialAD())
+cellbuffer3 = setup_ad_cellbuffer(states, dh, cellvalues, ThermalMaterialAD())
 @btime doassemble!(assembler, $cellbuffer3, $states, $dh) setup=(assembler=start_assemble(K,r));

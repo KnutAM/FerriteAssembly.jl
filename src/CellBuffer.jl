@@ -20,24 +20,32 @@ end
 
 Create a cell cache for an element with `numdofs` degrees of freedom and
 `numnodes` nodes with dimension `dim`. Add the given `cellvalues`, `material`, 
-and `cache` to the `CellBuffer` as well. 
+and `cache` to the `CellBuffer` as well. Note that this constructor is normally 
+not used, and is instead called from [`setup_cellbuffer`](@ref). 
+"""
+function CellBuffer(numdofs::Int, numnodes::Int, ::Val{dim}, cellvalues, material, cell_load=nothing, cache=nothing) where dim
+    return CellBuffer(
+        zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
+        zeros(Int, numdofs), zeros(Vec{dim}, numnodes), 
+        cellvalues, material, cell_load, cache
+        )
+end
 
-    CellBuffer(
-        dh::DofHandler, 
-        cellvalues, material, cell_load=nothing, cache=nothing) -> CellBuffer
 
-Use `dh` to get `numdofs`, `numnodes`, and `dim`, before calling the above method definition. 
+"""
+    setup_cellbuffer(
+        dh::DofHandler, cellvalues, material, 
+        cell_load=nothing, cache=nothing)
 
-    CellBuffer(
-        dh::MixedDofHandler, fh::FieldHandler, 
-        cellvalues, material, cell_load=nothing, cache=nothing) -> CellBuffer
-
-Use `dh` and `fh` to get `numdofs`, `numnodes`, and `dim`, 
-before calling the first `CellBuffer` method definition. 
-
-    CellBuffer(
-        dh::MixedDofHandler, cellvalues, 
-        material, cell_load=nothing, cache=nothing) -> NTuple{N,<:CellBuffer}
+Creates a single `CellBuffer` for use with the standard `DofHandler` and a single material.
+"""
+function setup_cellbuffer(dh::DofHandler{dim}, args...) where dim
+    return CellBuffer(ndofs_per_cell(dh), Ferrite.nnodes_per_cell(dh), Val{dim}(), args...)
+end
+"""
+    setup_cellbuffer(
+        dh::MixedDofHandler, cellvalues, material, 
+        cell_load=nothing, cache=nothing)
     
 Return a tuple of `CellBuffer`s for each `FieldHandler` in `dh.fieldhandlers`.
 `cellvalues[i]` corresponds to `dh.fieldhandlers[i]`, and so does 
@@ -51,44 +59,49 @@ then it must be given as a tuple of tuples.
 The `Ferrite.jl` functions `getcoordinates(::CellBuffer)` and `celldofs(::CellBuffer)` are defined and can 
 be used inside an element routine to get the current cell's coordinates and dof-numbers. 
 """
-function CellBuffer(numdofs::Int, numnodes::Int, ::Val{dim}, cellvalues, material, cell_load=nothing, cache=nothing) where dim
-    return CellBuffer(
-        zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
-        zeros(Int, numdofs), zeros(Vec{dim}, numnodes), 
-        cellvalues, material, cell_load, cache
-        )
-end
-
-function CellBuffer(dh::DofHandler{dim}, args...) where dim
-    return CellBuffer(ndofs_per_cell(dh), Ferrite.nnodes_per_cell(dh), Val{dim}(), args...)
-end
-
-function CellBuffer(dh::MixedDofHandler{dim}, fh::FieldHandler, args...) where dim
-    return CellBuffer(ndofs_per_cell(dh, fh), Ferrite.nnodes_per_cell(dh, fh), Val{dim}(), args...)
-end
-
-function CellBuffer(dh::MixedDofHandler, cellvalues, materials, cell_load=nothing, caches=nothing)
+function setup_cellbuffer(dh::MixedDofHandler, cellvalues, materials, 
+        cell_load=nothing, caches=nothing)
     numfh = length(dh.fieldhandlers)
     cellvalues_ = _maketuple(cellvalues, numfh)
     materials_ = _maketuple(materials, numfh)
     cell_load_ = _maketuple(cell_load, numfh)
     caches_ = _maketuple(caches, numfh)
-    return ntuple(i->CellBuffer(dh, dh.fieldhandlers[i], cellvalues_[i], materials_[i], cell_load_[i], caches_[i]), numfh)
+    return ntuple(i->setup_cellbuffer(dh, dh.fieldhandlers[i], cellvalues_[i], materials_[i], cell_load_[i], caches_[i]), numfh)
 end
 
+function setup_cellbuffer(dh::MixedDofHandler{dim}, fh::FieldHandler, args...) where dim
+    return CellBuffer(ndofs_per_cell(dh, fh), Ferrite.nnodes_per_cell(dh, fh), Val{dim}(), args...)
+end
+
+"""
+    setup_cellbuffer(dh::AbstractDofHandler, cv, materials::Dict, 
+        cell_load=nothing, cache=nothing)
+
+Return a `Dict{String}` for each `material` in `materials`.
+If any of `cv`, `cell_load`, or `cache` is not a `Dict`, the same value 
+is used for each `CellBuffer`. If `Dict`s are used, the keys must match 
+those in `materials`. The return type depends on the `dh`:
+
+* `dh::DofHandler`: `Dict{String,<:CellBuffer}`
+* `dh::MixedDofHandler`: `Dict{String,NTuple{N,CellBuffer}`
+"""
+function setup_cellbuffer(dh::DofHandler, cv, mtrls::Dict{String}, args...; kwargs...)
+    return _setup_dict_cellbuffer(dh, cv, mtrls, args...; kwargs...)
+end
+function setup_cellbuffer(dh::MixedDofHandler, cv, mtrls::Dict{String}, args...; kwargs...)
+    return _setup_dict_cellbuffer(dh, cv, mtrls, args...; kwargs...)
+end
 # Need special treatment due to type ambiguity
-CellBuffer(dh::DofHandler, cv, mtrls::Dict{String}, args...; kwargs...) = _dictCellBuffer(dh, cv, mtrls, args...; kwargs...)
-CellBuffer(dh::MixedDofHandler, cv, mtrls::Dict{String}, args...; kwargs...) = _dictCellBuffer(dh, cv, mtrls, args...; kwargs...)
-function _dictCellBuffer(dh::Union{DofHandler,MixedDofHandler}, cv, materials::Dict{String}, cell_load=nothing, caches=nothing)
-    setnames = keys(materials)
-    cv_ = _makedict(cv, setnames)
-    cell_load_ = _makedict(cell_load, setnames)
-    caches_ = _makedict(caches, setnames)
-    return Dict(setname=>
-        CellBuffer(dh, cv_[setname], materials[setname], cell_load_[setname], caches_[setname])
-        for setname in setnames)
+function _setup_dict_cellbuffer(dh::Union{DofHandler,MixedDofHandler}, cv, 
+        materials::Dict{String}, cell_load=nothing, caches=nothing)
+    setkeys = keys(materials)
+    cv_ = _makedict(cv, setkeys)
+    cell_load_ = _makedict(cell_load, setkeys)
+    caches_ = _makedict(caches, setkeys)
+    return Dict(k=>
+        setup_cellbuffer(dh, cv_[k], materials[k], cell_load_[k], caches_[k])
+        for k in setkeys)
 end
-
 
 # Required functions for a custom CellBuffer (only required internally)
 @inline get_Ke(c::CellBuffer) = c.Ke

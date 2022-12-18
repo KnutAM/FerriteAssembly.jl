@@ -53,7 +53,7 @@ states = create_states(dh, statefuns, cellvalues);
 
 # We also need buffers for each material
 caches = Dict(key=>get_cache(mat) for (key,mat) in materials)
-buffers = CellBuffer(dh, cellvalues, materials, nothing, caches);
+buffers = setup_cellbuffer(dh, cellvalues, materials, nothing, caches);
 
 # And then we define the displacements and the assembler, before assembling
 a = zeros(ndofs(dh))

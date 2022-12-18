@@ -34,6 +34,22 @@ end
 extract_first_cellstate(s) = first(s)
 extract_first_cellstate(s::Dict) = s[first(keys(s))]    # first(s) returns Pair(key,val)
 
+"""
+    AutoDiffCellBuffer(cb::CellBuffer, cellstates, dh_fh::Union{DofHandler,FieldHandler})
+
+`cellstates` should be the states for the relevant cells in `dh_fh`. 
+An `AutoDiffCellBuffer` wraps a `CellBuffer` and behaves the same way 
+wrt defined functions, i.e. all `get*` functions defined for `CellBuffer`
+are also defined for `AutoDiffCellBuffer`. 
+When used for automatic differentiation, only the wrapped `CellBuffer` 
+is passed to `element_residual!`. 
+As a backup solution if direct field access is used, the function 
+[`getCellBuffer`](@ref) returns the `CellBuffer` for both a `CellBuffer` 
+and an `AutoDiffCellBuffer`. 
+
+Note that this constructor is normally not used, 
+but called from the [`setup_ad_cellbuffer`](@ref) function.
+"""
 function AutoDiffCellBuffer(cb::CellBuffer, cellstates, dh_fh::Union{DofHandler,FieldHandler})
     cellstate = extract_first_cellstate(cellstates)
     Δt=zero(Float64)
@@ -45,40 +61,44 @@ function AutoDiffCellBuffer(cb::CellBuffer, cellstates, dh_fh::Union{DofHandler,
 end
 
 """
-    AutoDiffCellBuffer(states, dh::AbstractDofHandler, args...)
+    setup_ad_cellbuffer(states, dh::AbstractDofHandler, args...)
 
 Create a special cell buffer that improves performance when using 
-automatic differentiation to calculate the element stiffness.
-An `AutoDiffCellBuffer` wraps a `CellBuffer` and behaves the same way 
-wrt defined functions. When used for automatic differentiation, only 
-the wrapped `CellBuffer` is passed to `element_residual!`. However, 
-if used for cases when `element_routine!` is called, the function 
-[`getCellBuffer`](@ref) can be used to ensure that a regular 
-`CellBuffer` is used. 
+automatic differentiation to calculate the element stiffness. The exact same 
+inputs as for [`setup_cellbuffer`](@ref) should be used, except that the 
+`states` variable that is passed to `doassemble!` should be prepended to the 
+argument list.  
 """
-function AutoDiffCellBuffer end
+function setup_ad_cellbuffer end
+
+# General 
+setup_ad_cellbuffer(cb::CellBuffer, args...) = AutoDiffCellBuffer(cb, args...)
 
 # DofHandler
-function AutoDiffCellBuffer(states, dh::DofHandler, args...)
-    AutoDiffCellBuffer(CellBuffer(dh, args...), states, dh)
+function setup_ad_cellbuffer(states, dh::DofHandler, args...)
+    AutoDiffCellBuffer(setup_cellbuffer(dh, args...), states, dh)
 end
 # MixedDofHandler
-function AutoDiffCellBuffer(states::Tuple, dh::MixedDofHandler, args...)
-    return AutoDiffCellBuffer(CellBuffer(dh, args...), states, dh)
+function setup_ad_cellbuffer(states::Tuple, dh::MixedDofHandler, args...)
+    return setup_ad_cellbuffer(setup_cellbuffer(dh, args...), states, dh)
 end
-function AutoDiffCellBuffer(cbs::Tuple, states::Tuple, dh::MixedDofHandler)
+function setup_ad_cellbuffer(cbs::Tuple, states::Tuple, dh::MixedDofHandler)
     numfh = length(dh.fieldhandlers)
     numfh==length(states) || error("length(states)=$(length(states))!=$numfh=length(fieldhandlers)")
     return ntuple(i->AutoDiffCellBuffer(cbs[i], states[i], dh.fieldhandlers[i]), numfh)
 end
 # [Mixed]DofHandler + mixed materials
+function setup_ad_cellbuffer(states::Dict{String}, dh::DofHandler, args...)
+    return _setup_dict_ad_cellbuffer(states, dh, args...)
+end
+function setup_ad_cellbuffer(states::Dict{String}, dh::MixedDofHandler, args...)
+    return _setup_dict_ad_cellbuffer(states, dh, args...)
+end
 # Need special case to avoid type ambiguity
-AutoDiffCellBuffer(states::Dict{String}, dh::DofHandler, args...) = _dictAutoDiffCellBuffer(states, dh, args...)
-AutoDiffCellBuffer(states::Dict{String}, dh::MixedDofHandler, args...) = _dictAutoDiffCellBuffer(states, dh, args...)
-function _dictAutoDiffCellBuffer(states::Dict{String}, dh, cv, mtrls::Dict{String}, args...)
-    keys(states) == keys(mtrls) || error("Dicts states and mtrls must have the same keys")
-    cbs = CellBuffer(dh, cv, mtrls, args...)
-    return Dict(key=>AutoDiffCellBuffer(cbs[key], states[key], dh) for key in keys(states))
+function _setup_dict_ad_cellbuffer(states::Dict{String}, dh, cv, mtrls::Dict{String}, args...)
+    keys(states) == keys(mtrls) || error("states::Dict and mtrls::Dict must have the same keys")
+    cbs = setup_cellbuffer(dh, cv, mtrls, args...)
+    return Dict(key=>setup_ad_cellbuffer(cbs[key], states[key], dh) for key in keys(states))
 end
 
 """

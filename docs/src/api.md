@@ -20,7 +20,9 @@ Variables that are used and modified for each cell of a certain type,
 but that don't belong to a specific cell, are collected in a `CellBuffer`.
 ```@docs
 CellBuffer
+setup_cellbuffer
 AutoDiffCellBuffer
+setup_ad_cellbuffer
 getCellBuffer
 ```
 
