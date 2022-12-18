@@ -24,6 +24,16 @@ AutoDiffCellBuffer
 getCellBuffer
 ```
 
+### Access functions
+The following access functions can be used to extract information from the 
+`CellBuffer`
+```@docs
+Ferrite.getcoordinates
+FerriteAssembly.get_aeold
+FerriteAssembly.get_load
+FerriteAssembly.get_cache
+```
+
 ## State variables
 The initial state variables may vary depending on the position in the grid.
 Furthermore, the datastructure depends on the type of dof handler, so

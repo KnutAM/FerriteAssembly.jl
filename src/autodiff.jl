@@ -90,8 +90,7 @@ wrapped by `b::AutoDiffCellBuffer`, i.e. `b.cb`
 @inline getCellBuffer(b::AutoDiffCellBuffer) = b.cb
 @inline getCellBuffer(b::CellBuffer) = b
 
-
-for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_cellvalues)
+for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_cellvalues, :get_aeold, :get_load, :get_cache)
     eval(quote
         $op(cb::AutoDiffCellBuffer) = $op(cb.cb)
     end)

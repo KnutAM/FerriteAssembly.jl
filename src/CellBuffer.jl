@@ -90,29 +90,43 @@ function _dictCellBuffer(dh::Union{DofHandler,MixedDofHandler}, cv, materials::D
 end
 
 
-# Convenience access functions to CellBuffer for use inside element routines
-# Currently only Ferrite overloads used, because I currently feel that the rest are only 
-# convenient if exported, and in that case it clotters namespace more than the convenience motivates
-
-@inline Ferrite.getcoordinates(c::CellBuffer) = c.coords
-#=
-@inline get_ae(c::CellBuffer) = c.ae
-@inline get_aeold(c::CellBuffer) = c.ae_old
-@inline get_load(c::CellBuffer) = c.cell_load
-@inline get_cache(c::CellBuffer) = c.cache
-
-get_ae_view(c, dh_fh::Union{DofHandler,FieldHandler}, field::Symbol) = view(get_ae(c), dof_range(dh_fh, field))
-get_aeold_view(c, dh_fh::Union{DofHandler,FieldHandler}, field::Symbol) = view(get_aeold(c), dof_range(dh_fh, field))
-get_re_view(c, dh_fh::Union{DofHandler,FieldHandler}, field::Symbol) = view(get_re(c), dof_range(dh_fh, field))
-=#
-
-# Required functions for a custom CellBuffer
+# Required functions for a custom CellBuffer (only required internally)
 @inline get_Ke(c::CellBuffer) = c.Ke
 @inline get_re(c::CellBuffer) = c.re
 @inline get_ae(c::CellBuffer) = c.ae
 @inline get_material(c::CellBuffer) = c.material
 @inline get_cellvalues(c::CellBuffer) = c.cellvalues
 @inline Ferrite.celldofs(c::CellBuffer) = c.dofs
+
+# Convenience access functions to CellBuffer for use inside element routines
+"""
+    Ferrite.getcoordinates(c::CellBuffer)
+
+`Ferrite.jl`'s `getcoordinates` function is overloaded on the `CellBuffer` to return 
+the current cell's nodal coordinates. 
+"""
+@inline Ferrite.getcoordinates(c::CellBuffer) = c.coords
+
+"""
+    FerriteAssembly.get_aeold(c::CellBuffer)
+
+Get the old element dof-values for the current cell
+"""
+@inline get_aeold(c::CellBuffer) = c.ae_old
+
+"""
+    FerriteAssembly.get_load(c::CellBuffer)
+
+Get the user specified body load given to `CellBuffer`
+"""
+@inline get_load(c::CellBuffer) = c.cell_load
+
+"""
+    FerriteAssembly.get_cache(c::CellBuffer)
+
+Get the user-specified `cache` given to the `CellBuffer`
+"""
+@inline get_cache(c::CellBuffer) = c.cache
 
 """
     Ferrite.reinit!(c::CellBuffer, dh::AbstractDofHandler, cellnum::Int, anew, aold)
