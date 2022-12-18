@@ -40,15 +40,15 @@ This function should modify the element stiffness matrix `Ke` and the residual `
   for multi-field problems. **Note:** Please do not rely on `dh_fh` for anything but `dof_range`,
   as `dh_fh` may be replaced with another type that only supports `dof_range`.
 * `Δt` is time increment given to `doassemble`
-* `buffer` is normally `CellBuffer` (if given to `doassemble`). Then, it can be used to get 
-  - `buffer.ae_old`: The old values of the displacements (if `aold::Nothing` is passed to 
-    `doassemble`, `buffer.ae_old` will be `NaN`s)
-  - `buffer.cell_load`: The `cell_load` passed to `CellBuffer`, typically used for 
-    body loads or source terms. 
-  - `buffer.cache`: The `cache` passed to `CellBuffer`, typically used to gather all 
-    preallocations if such are necessary
+* `buffer::Union{CellBuffer, AutoDiffCellBuffer}` can be used to get 
   - `getcoordinates(buffer)::Vector{Vec}`: The cell's coordinates
   - `celldofs(buffer)::Vector{Int}`: The cell's global degrees of freedom numbers
+  - `FerriteAssembly.get_aeold(buffer)`: `aold[celldofs]` (if `aold::Nothing` is passed to 
+    `doassemble`, a vector, `[NaN for d in celldofs]` is returned)
+  - `FerriteAssembly.get_load(buffer)`: The `cell_load` in the buffer, typically used for 
+     body loads or source terms. 
+  - `FerriteAssembly.get_cache(buffer)`: The `cache` in the buffer - typically used to gather all 
+     preallocations if such are necessary
 """
 element_routine!(args...) = element_routine_ad!(args...)    # If not defined, try to use automatic differentiation
 
