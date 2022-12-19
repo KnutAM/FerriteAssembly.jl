@@ -4,7 +4,7 @@
 function FerriteAssembly.element_routine!(
     Ke::AbstractMatrix, re::AbstractVector, state::Vector{<:AbstractMaterialState}, 
     ae::AbstractVector, material::AbstractMaterial, cellvalues::CellVectorValues, dh_fh, Δt, buffer::CellBuffer)
-    cache = buffer.cache
+    cache = FerriteAssembly.get_cache(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
         ## For each integration point, compute stress and material stiffness

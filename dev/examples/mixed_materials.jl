@@ -34,7 +34,7 @@ statefuns = Dict(key=>_->initial_material_state(mat) for (key,mat) in materials)
 states = create_states(dh, statefuns, cellvalues);
 
 caches = Dict(key=>get_cache(mat) for (key,mat) in materials)
-buffers = CellBuffer(dh, cellvalues, materials, nothing, caches);
+buffers = setup_cellbuffer(dh, cellvalues, materials, nothing, caches);
 
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)

@@ -14,7 +14,7 @@ r = zeros(ndofs(dh));
 
 states = create_states(dh, _->initial_material_state(material), cellvalues);
 
-buffer = CellBuffer(dh, cellvalues, material, nothing, get_cache(material));
+buffer = setup_cellbuffer(dh, cellvalues, material, nothing, get_cache(material));
 
 a = zeros(ndofs(dh))
 assembler = start_assemble(K,r)

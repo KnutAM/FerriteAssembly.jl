@@ -33,14 +33,14 @@ r = zeros(ndofs(dh));
 
 states = create_states(dh);
 
-cellbuffer = CellBuffer(dh, cellvalues, ThermalMaterial());
+cellbuffer = setup_cellbuffer(dh, cellvalues, ThermalMaterial());
 
 assembler = start_assemble(K,r)
 doassemble!(assembler, cellbuffer, states, dh);
 
 colors = create_coloring(dh.grid);
 
-cellbuffers = create_threaded_CellBuffers(CellBuffer(dh, cellvalues, ThermalMaterial()))
+cellbuffers = create_threaded_CellBuffers(cellbuffer)
 assemblers = create_threaded_assemblers(K, r);
 
 doassemble!(assemblers, cellbuffers, states, dh, colors);
@@ -69,14 +69,14 @@ function FerriteAssembly.element_residual!(
 end;
 
 a = zeros(ndofs(dh))
-cellbuffer2 = CellBuffer(dh, cellvalues, ThermalMaterialAD())
+cellbuffer2 = setup_cellbuffer(dh, cellvalues, ThermalMaterialAD())
 assembler = start_assemble(K,r)
 doassemble!(assembler, cellbuffer2, states, dh, a);
 
 @btime doassemble!(assembler, $cellbuffer, $states, $dh) setup=(assembler=start_assemble(K,r));
 @btime doassemble!(assembler, $cellbuffer2, $states, $dh) setup=(assembler=start_assemble(K,r));
 
-cellbuffer3 = AutoDiffCellBuffer(states, dh, cellvalues, ThermalMaterialAD())
+cellbuffer3 = setup_ad_cellbuffer(states, dh, cellvalues, ThermalMaterialAD())
 @btime doassemble!(assembler, $cellbuffer3, $states, $dh) setup=(assembler=start_assemble(K,r));
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
