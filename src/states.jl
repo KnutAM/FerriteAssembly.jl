@@ -25,17 +25,48 @@ function _create_cell_state(cell, material, cellvalues, a, ae)
     return create_cell_state(material, cellvalues, x, ae)
 end
 
+
+"""
+    create_states(dh::DofHandler, material=nothing, cellvalues=nothing, a=nothing)
+
+Create the state variables for the given `dh`, `material`, `cellvalues`, and global 
+dof vector `a`. `material` and `cellvalues` can be a Dict{String}, in which case they 
+should have the same keys, corresponding to cellsets in the grid. 
+This follows the same structure as for creating a `CellBuffer`.
+The function `create_cell_state` is called for each cell. 
+"""
 function create_states(dh::DofHandler, material=nothing, cellvalues=nothing, a=nothing)
     ae = zeros(length(celldofs(dh, 1)))
     return map(cell->_create_cell_state(cell, material, cellvalues, a, ae), CellIterator(dh))
 end
 
+"""
+    create_states(dh::MixedDofHandler, material=nothing, cellvalues=nothing, a=nothing)
+
+Create the state variables for the given `dh`, `material`, `cellvalues`, and global dof vector `a`. 
+
+`material` and `cellvalues` follow the same input structure as to `setup_cellbuffer`. 
+I.e., they can be tuples with the same length as `fh.fieldhandlers`. 
+Note that if `cellvalues::Tuple` is desired to be passed into the `create_cell_state`
+function, it must be wrapped in an outer ntuple with the same length as `fh.fieldhandlers`.
+(But using a `NamedTuple` is recommended to avoid this problem). 
+
+For multiple materials, `material::Dict{String}`, and `cellvalues` can optionally be that as well, 
+but then they must have the same keys. This follows the same structure as for creating a `CellBuffer`.
+The function `create_cell_state` is called for each cell. 
+"""
 function create_states(dh::MixedDofHandler, materials=nothing, cellvalues=nothing, a=nothing, cellset=nothing)
     return create_states_for_set(dh::MixedDofHandler, materials, cellvalues, a, cellset)
 end
 
-create_states(dh::DofHandler, materials::Dict{String}, cellvalues=nothing, a=nothing) = _dict_create_states(dh, materials, cellvalues, a)
-create_states(dh::MixedDofHandler, materials::Dict{String}, cellvalues=nothing, a=nothing) = _dict_create_states(dh, materials, cellvalues, a)
+# Special dispatches for multiple materials in each DofHandler/FieldHandler
+# Returns Dict{String,Dict{Int}} with cellsets as "outer" keys and cellid as "inner" keys
+function create_states(dh::DofHandler, materials::Dict{String}, cellvalues=nothing, a=nothing)
+    return _dict_create_states(dh, materials, cellvalues, a)
+end
+function create_states(dh::MixedDofHandler, materials::Dict{String}, cellvalues=nothing, a=nothing)
+    return _dict_create_states(dh, materials, cellvalues, a)
+end
 function _dict_create_states(dh, materials, cellvalues, a)
     setnames = keys(materials)
     _cellvalues = _makedict(cellvalues, setnames)
@@ -44,11 +75,11 @@ function _dict_create_states(dh, materials, cellvalues, a)
         for setname in setnames)
 end
 
+# Functions that return a Dict{Int,State}
 function create_states_for_set(dh::DofHandler, material, cellvalues, a, cellset)
     ae = zeros(length(celldofs(dh, first(cellset))))    # Here also ok to use (dh, 1), could use Ferrite.ndofs_per_cell
     return Dict(cellid(cell)=>_create_cell_state(cell, material, cellvalues, a, ae) for cell in CellIterator(dh, collect(cellset)))
 end
-
 function create_states_for_set(dh::MixedDofHandler, materials, cellvalues, a, cellset)
     num_fh = length(dh.fieldhandlers)
     materials_ = _maketuple(materials, num_fh)
@@ -60,39 +91,6 @@ function create_states_fh(dh::MixedDofHandler, fh::FieldHandler, material, cellv
     set = collect(intersect_nothing(fh.cellset, cellset))
     ae = zeros(length(celldofs(dh, first(set))))    # Could use Ferrite.ndofs_per_cell, but not documented
     return Dict(cellid(cell)=>_create_cell_state(cell, material, cellvalues, a, ae) for cell in CellIterator(dh, set))
-end
-
-
-#=
-"""
-    create_state(statefun, cell, cv::Nothing)
-    create_state(statefun, cell, cv::CellValues)
-
-Internal functions for calling `statefun(x)` for the cell center 
-if cv::Nothing or for each quadrature point if cv::CellValues.
-"""
-function create_state(statefun, cell, ::Nothing)
-    x = getcoordinates(cell)
-    xc = sum(x)/length(x)
-    return statefun(xc)
-end
-function create_state(statefun, cell, cv::CellValues)
-    x = getcoordinates(cell)
-    reinit!(cv, x)
-    return [statefun(spatial_coordinate(cv, i, x)) for i in 1:getnquadpoints(cv)]
-end
-
-"""
-    create_state(statefun, cell, cv, a, ae)
-
-Internal function for calling `statefun(cv, coords, ae)` to create 
-the state vector. Here, `coords` are the cell's nodal coordinates
-"""
-function create_state(statefun, cell, cv, a, ae)
-    x = getcoordinates(cell)
-    reinit!(cv, x)
-    _copydofs!(ae, a, celldofs(cell))
-    return statefun(cv, x, ae)
 end
 
 """
@@ -141,6 +139,41 @@ If `isnothing(cellvalues)`, then the `statefun(x::Vec)` is called once for the a
 Otherwise, it is called once for each quadrature point location `x` given by `cellvalues` for that cell. 
 If a `cellset!=nothing` is given, states are only created for the intersection of that `cellset` and the fieldhandlers `cellset` 
 """
+
+
+
+#=
+"""
+    create_state(statefun, cell, cv::Nothing)
+    create_state(statefun, cell, cv::CellValues)
+
+Internal functions for calling `statefun(x)` for the cell center 
+if cv::Nothing or for each quadrature point if cv::CellValues.
+"""
+function create_state(statefun, cell, ::Nothing)
+    x = getcoordinates(cell)
+    xc = sum(x)/length(x)
+    return statefun(xc)
+end
+function create_state(statefun, cell, cv::CellValues)
+    x = getcoordinates(cell)
+    reinit!(cv, x)
+    return [statefun(spatial_coordinate(cv, i, x)) for i in 1:getnquadpoints(cv)]
+end
+
+"""
+    create_state(statefun, cell, cv, a, ae)
+
+Internal function for calling `statefun(cv, coords, ae)` to create 
+the state vector. Here, `coords` are the cell's nodal coordinates
+"""
+function create_state(statefun, cell, cv, a, ae)
+    x = getcoordinates(cell)
+    reinit!(cv, x)
+    _copydofs!(ae, a, celldofs(cell))
+    return statefun(cv, x, ae)
+end
+
 function create_states(dh::DofHandler, statefun::Function=Returns(nothing), cellvalues=nothing, a=nothing)
     ci = CellIterator(dh)
     ae = zeros(length(celldofs(ci)))
