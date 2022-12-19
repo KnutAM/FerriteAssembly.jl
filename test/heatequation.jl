@@ -127,8 +127,8 @@
     cv, _, dh = setup_heatequation(DofHandler)
     reinit!(cv, getcoordinates(dh.grid,1))
     mtrl = ThermalMaterialAD()
-    cellbuffer = CellBuffer(dh, cv, mtrl)
-    cellbuffer_ad = FerriteAssembly.AutoDiffCellBuffer([nothing,],dh,cv,mtrl)
+    cellbuffer = setup_cellbuffer(dh, cv, mtrl)
+    cellbuffer_ad = FA.setup_ad_cellbuffer([nothing,],dh,cv,mtrl)
     ae = FerriteAssembly.get_ae(cellbuffer)
     re = FerriteAssembly.get_re(cellbuffer)
     Ke = FerriteAssembly.get_Ke(cellbuffer)
@@ -156,8 +156,8 @@
                 end
 
                 @testset "$DH, $mattype, sequential" begin
-                    cellbuffer = CellBuffer(dh, cv, material)
-                    cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,FerriteAssembly.AutoDiffCellBuffer(states,dh,cv,material))
+                    cellbuffer = setup_cellbuffer(dh, cv, material)
+                    cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,setup_ad_cellbuffer(states,dh,cv,material))
                     for cb in cbs
                         reset_scaling!(scaling)
                         assembler = start_assemble(K, r)
@@ -172,8 +172,8 @@
                     end
                 end
                 @testset "$DH, $mattype, threaded" begin
-                    cellbuffer = CellBuffer(dh, cv, material)
-                    cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,FerriteAssembly.AutoDiffCellBuffer(states,dh,cv,material))
+                    cellbuffer = setup_cellbuffer(dh, cv, material)
+                    cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,setup_ad_cellbuffer(states,dh,cv,material))
                     for cb in cbs
                         reset_scaling!(scaling)
                         cellbuffers = create_threaded_CellBuffers(cb)

@@ -1,6 +1,7 @@
 using Ferrite, FerriteAssembly
 using SparseArrays
 using Test
+import FerriteAssembly as FA
 
 @testset "FerriteAssembly.jl" begin
     include("heatequation.jl")
@@ -15,8 +16,8 @@ using Test
         r = zeros(ndofs(dh))
         a = zeros(ndofs(dh))
         # Check error when element_residual! is not defined. 
-        cb = CellBuffer(dh, cv, nothing)    # material=nothing not supported
-        cb_ad = AutoDiffCellBuffer(states, dh, cv, nothing)
+        cb = setup_cellbuffer(dh, cv, nothing)    # material=nothing not supported
+        cb_ad = setup_ad_cellbuffer(states, dh, cv, nothing)
         exception = ErrorException("Did not find correctly defined element_routine! or element_residual!")
         @test_throws exception doassemble!(start_assemble(K,r), cb, states, dh, a)
         @test_throws exception doassemble!(start_assemble(K,r), cb_ad, states, dh, a)
@@ -29,7 +30,7 @@ using Test
         function FerriteAssembly.element_residual!(re, state, ae, m::_TestMaterial, args...)
             state[1] = first(ae) # Not allowed, must be state[1] = ForwardDiff.value(first(ae))
         end
-        cb_dualissue = AutoDiffCellBuffer(states_dualissue, dh, cv, _TestMaterial())
+        cb_dualissue = setup_ad_cellbuffer(states_dualissue, dh, cv, _TestMaterial())
         @test_throws MethodError doassemble!(start_assemble(K,r), cb_dualissue, states_dualissue, dh, a) 
 
         # Check that error thrown for mismatch between parallel buffer sizes and number of threads 

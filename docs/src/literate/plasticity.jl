@@ -24,7 +24,7 @@ r = zeros(ndofs(dh));
 states = create_states(dh, _->initial_material_state(material), cellvalues);
 
 # And then we create the buffer for saving cell-related variables
-buffer = CellBuffer(dh, cellvalues, material, nothing, get_cache(material));
+buffer = setup_cellbuffer(dh, cellvalues, material, nothing, get_cache(material));
 
 # Finally, with an initial guess of displacements, `a`, 
 # we can create the assembler and do the assembly
