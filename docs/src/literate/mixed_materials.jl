@@ -45,14 +45,15 @@ r = zeros(ndofs(dh));
 addcellset!(grid, "elastic", x -> x[1] <= 5.0+eps())
 addcellset!(grid, "plastic", setdiff(1:getncells(grid), getcellset(grid,"elastic")));
 
-# The key to handling multiple materials, with different state variables,
-# using the regular DofHandler or a single FieldHandler (in the MixedDofHandler case)
-# is to create multiple state variables, and call `doassemble!` for each of them:
-statefuns = Dict(key=>_->initial_material_state(mat) for (key,mat) in materials)
-states = create_states(dh, statefuns, cellvalues);
+# The `create_states` function will then create the correct datastructure for the 
+# states, (one Dict{Int} for each `material`)
+states = create_states(dh, materials, cellvalues);
 
-# We also need buffers for each material
+# If desired, we can create a cache based on `MaterialModelsBase`, even though not used in this 
+# example (we could also skip passing this to `setup_cellbuffer`)
 caches = Dict(key=>get_cache(mat) for (key,mat) in materials)
+
+# Then we create the cell buffers
 buffers = setup_cellbuffer(dh, cellvalues, materials, nothing, caches);
 
 # And then we define the displacements and the assembler, before assembling
@@ -67,7 +68,7 @@ doassemble!(assembler, buffers, states, dh, a);
 using Test #hide
 K_ref = create_sparsity_pattern(dh); #hide
 r_ref = zeros(ndofs(dh)); #hide
-states_ref = create_states(dh, _->initial_material_state(materials["elastic"]), cellvalues); #hide
+states_ref = create_states(dh, materials["elastic"], cellvalues); #hide
 a_ref = zeros(ndofs(dh)) #hide
 assembler_ref = start_assemble(K_ref,r_ref) #hide
 doassemble!(assembler_ref, buffers["elastic"], states_ref, dh, a_ref); #hide
