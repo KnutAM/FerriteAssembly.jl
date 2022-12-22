@@ -32,7 +32,7 @@ addcellset!(grid, "plastic", setdiff(1:getncells(grid), getcellset(grid,"elastic
 
 states = create_states(dh, materials, cellvalues);
 
-caches = Dict(key=>get_cache(mat) for (key,mat) in materials)
+caches = Dict(key=>get_cache(mat) for (key,mat) in materials);
 
 buffers = setup_cellbuffer(dh, cellvalues, materials, nothing, caches);
 

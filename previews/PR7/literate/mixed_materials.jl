@@ -51,7 +51,7 @@ states = create_states(dh, materials, cellvalues);
 
 # If desired, we can create a cache based on `MaterialModelsBase`, even though not used in this 
 # example (we could also skip passing this to `setup_cellbuffer`)
-caches = Dict(key=>get_cache(mat) for (key,mat) in materials)
+caches = Dict(key=>get_cache(mat) for (key,mat) in materials);
 
 # Then we create the cell buffers
 buffers = setup_cellbuffer(dh, cellvalues, materials, nothing, caches);
