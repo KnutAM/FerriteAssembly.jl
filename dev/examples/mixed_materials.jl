@@ -30,10 +30,10 @@ r = zeros(ndofs(dh));
 addcellset!(grid, "elastic", x -> x[1] <= 5.0+eps())
 addcellset!(grid, "plastic", setdiff(1:getncells(grid), getcellset(grid,"elastic")));
 
-statefuns = Dict(key=>_->initial_material_state(mat) for (key,mat) in materials)
-states = create_states(dh, statefuns, cellvalues);
+states = create_states(dh, materials, cellvalues);
 
-caches = Dict(key=>get_cache(mat) for (key,mat) in materials)
+caches = Dict(key=>get_cache(mat) for (key,mat) in materials);
+
 buffers = setup_cellbuffer(dh, cellvalues, materials, nothing, caches);
 
 a = zeros(ndofs(dh))
@@ -43,7 +43,7 @@ doassemble!(assembler, buffers, states, dh, a);
 using Test #hide
 K_ref = create_sparsity_pattern(dh); #hide
 r_ref = zeros(ndofs(dh)); #hide
-states_ref = create_states(dh, _->initial_material_state(materials["elastic"]), cellvalues); #hide
+states_ref = create_states(dh, materials["elastic"], cellvalues); #hide
 a_ref = zeros(ndofs(dh)) #hide
 assembler_ref = start_assemble(K_ref,r_ref) #hide
 doassemble!(assembler_ref, buffers["elastic"], states_ref, dh, a_ref); #hide

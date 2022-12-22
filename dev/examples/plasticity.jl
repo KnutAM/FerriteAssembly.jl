@@ -12,7 +12,7 @@ dh = DofHandler(grid); push!(dh, :u, 3); close!(dh); # Create dofhandler
 K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
-states = create_states(dh, _->initial_material_state(material), cellvalues);
+states = create_states(dh, material, cellvalues);
 
 buffer = setup_cellbuffer(dh, cellvalues, material, nothing, get_cache(material));
 
