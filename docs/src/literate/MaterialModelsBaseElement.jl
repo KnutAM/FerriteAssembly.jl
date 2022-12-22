@@ -24,3 +24,9 @@ function FerriteAssembly.element_routine!(
 end;
 # Note that the boundary traction was not included, as this can be handled separately
 # with [FerriteNeumann.jl](https://github.com/KnutAM/FerriteNeumann.jl)
+
+# ## Initial states
+# The initial states are created by overloading the `create_cell_state` function 
+function FerriteAssembly.create_cell_state(material::AbstractMaterial, cellvalues, x, ae)
+    return [initial_material_state(material) for _ in 1:getnquadpoints(cellvalues)]
+end

@@ -148,12 +148,8 @@
             cv, K, dh = setup_heatequation(DH)
             for scaling in (nothing, ElementResidualScaling(dh, 1))
                 r = zeros(ndofs(dh))
-                a = mattype==:same ? nothing : copy(r)
-                if isa(material, Dict)
-                    states = create_states(dh, Dict(key=>Returns(nothing) for key in keys(material)))
-                else
-                    states = create_states(dh)
-                end
+                a = mattype==:same ? nothing : copy(r)  # If AD, dofs required
+                states = create_states(dh, material)
 
                 @testset "$DH, $mattype, sequential" begin
                     cellbuffer = setup_cellbuffer(dh, cv, material)

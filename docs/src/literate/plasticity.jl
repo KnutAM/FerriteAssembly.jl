@@ -20,8 +20,9 @@ K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
 # Using the `create_states` function, we can easily create the storage of state variables 
-# suitable for the chosen dof handler 
-states = create_states(dh, _->initial_material_state(material), cellvalues);
+# suitable for the chosen dof handler and the given material (via the `create_cell_state`
+# function that we defined earlier)
+states = create_states(dh, material, cellvalues);
 
 # And then we create the buffer for saving cell-related variables
 buffer = setup_cellbuffer(dh, cellvalues, material, nothing, get_cache(material));
