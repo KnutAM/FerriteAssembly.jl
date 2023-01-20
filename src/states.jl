@@ -55,6 +55,10 @@ function, it must be wrapped in an outer ntuple with the same length as `fh.fiel
 For multiple materials, `material::Dict{String}`, and `cellvalues` can optionally be that as well, 
 but then they must have the same keys. This follows the same structure as for creating a `CellBuffer`.
 The function `create_cell_state` is called for each cell. 
+
+The order of each call to `create_cell_state` is fixed for a given input, i.e. the loops are only 
+over sorted `Set`s and `Dict` keys. (Useful if using `StableRNGs.jl` for random variations to obtain
+reproducible results)
 """
 function create_states(dh::MixedDofHandler, materials=nothing, cellvalues=nothing, a=nothing, cellset=nothing)
     return create_states_for_set(dh::MixedDofHandler, materials, cellvalues, a, cellset)
@@ -73,13 +77,13 @@ function _dict_create_states(dh, materials, cellvalues, a)
     _cellvalues = _makedict(cellvalues, setnames)
     return Dict(
         setname=>create_states_for_set(dh, materials[setname], _cellvalues[setname], a, getcellset(dh,setname))
-        for setname in setnames)
+        for setname in sort(collect(setnames)))
 end
 
 # Functions that return a Dict{Int,State}
 function create_states_for_set(dh::DofHandler, material, cellvalues, a, cellset)
     ae = zeros(length(celldofs(dh, first(cellset))))    # Here also ok to use (dh, 1), could use Ferrite.ndofs_per_cell
-    return Dict(cellid(cell)=>_create_cell_state(cell, material, cellvalues, a, ae) for cell in CellIterator(dh, collect(cellset)))
+    return Dict(cellid(cell)=>_create_cell_state(cell, material, cellvalues, a, ae) for cell in CellIterator(dh, sort(collect(cellset))))
 end
 function create_states_for_set(dh::MixedDofHandler, materials, cellvalues, a, cellset)
     num_fh = length(dh.fieldhandlers)
@@ -89,7 +93,7 @@ function create_states_for_set(dh::MixedDofHandler, materials, cellvalues, a, ce
 end
 
 function create_states_fh(dh::MixedDofHandler, fh::FieldHandler, material, cellvalues, a, cellset)
-    set = collect(intersect_nothing(fh.cellset, cellset))
+    set = sort(collect(intersect_nothing(fh.cellset, cellset)))
     ae = zeros(length(celldofs(dh, first(set))))    # Could use Ferrite.ndofs_per_cell, but not documented
     return Dict(cellid(cell)=>_create_cell_state(cell, material, cellvalues, a, ae) for cell in CellIterator(dh, set))
 end
