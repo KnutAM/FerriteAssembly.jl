@@ -50,8 +50,8 @@ end
 function update_scaling!(s::ElementResidualScaling, re, dh_fh, args...)
     p = s.p
     pinv = 1/p 
-    for fieldname in Ferrite.getfieldnames(dh_fh)
-        if fieldname in keys(s.factors)
+    for fieldname in keys(s.factors)
+        if _hasfieldname(dh_fh, fieldname)
             s.factors[fieldname] += (sum(i->abs(re[i])^p, dof_range(dh_fh, fieldname)))^pinv
         end
     end
