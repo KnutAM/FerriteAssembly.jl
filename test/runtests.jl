@@ -8,7 +8,7 @@ include("heatequation.jl")
 
 
 @testset "Errors" begin
-    @info("Start of expected error messages. These are expected and ok if tests pass!")
+    printstyled("=== Testing will give expected error messages, ok if tests pass! ===\n"; color=:green, bold=true)
     grid = generate_grid(Quadrilateral, (2,2))
     dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
     cv = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
@@ -45,7 +45,7 @@ include("heatequation.jl")
             @test_throws DimensionMismatch doassemble!(as, cb, states, dh, colors, a)
         end
     end
-    @info("End of expected error messages")
+    printstyled("================== End of expected error messages ==================\n"; color=:green, bold=true)
 end
 
 # Print show warning at the end if running tests single-threaded. 

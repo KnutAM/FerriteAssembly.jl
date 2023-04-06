@@ -150,17 +150,17 @@ end
 function ad_error(e, Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer)
     if isa(e, MethodError)
         if e.f === element_residual!
-            println("Could not find a correctly defined `element_residual!` method")
-            showerror(Base.stderr, MethodError(element_routine!, 
+            println(stderr, "Could not find a correctly defined `element_residual!` method")
+            showerror(stderr, MethodError(element_routine!, 
                 (Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer))
                 ); println()
-            println("Tried to do automatic differentiation to get Ke,")
-            println("but could not find a correctly defined `element_residual!` either")
-            showerror(Base.stderr, e); println()
+            println(stderr, "Tried to do automatic differentiation to get Ke,")
+            println(stderr, "but could not find a correctly defined `element_residual!` either")
+            showerror(stderr, e); println()
             throw(ErrorException("Did not find correctly defined element_routine! or element_residual!"))
         else
-            println("If the following error is related to converting objects with `ForwardDiff.Dual`s")
-            println("entries into objects with regular numbers, please consult the docs of `element_residual!`")
+            println(stderr, "If the following error is related to converting objects with `ForwardDiff.Dual`s")
+            println(stderr, "entries into objects with regular numbers, please consult the docs of `element_residual!`")
         end
     end
     rethrow()
