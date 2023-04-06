@@ -1,5 +1,5 @@
 using Ferrite, FerriteAssembly, BenchmarkTools
-dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); push!(dh, :u, 1); close!(dh)
+dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); add!(dh, :u, 1); close!(dh)
 cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
 
 struct ThermalMaterial end;
