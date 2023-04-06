@@ -11,7 +11,7 @@
     function get_dh()
         grid = get_grid();
         dh = DofHandler(grid)
-        push!(dh, :u, 1)
+        add!(dh, :u, 1)
         close!(dh);
         return dh
     end
@@ -19,7 +19,7 @@
     function get_mdh(ip)
         grid = get_grid();
         dh = MixedDofHandler(grid)
-        push!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:getncells(grid)))))
+        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:getncells(grid)))))
         close!(dh);
         return dh
     end
