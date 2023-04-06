@@ -3,7 +3,7 @@
 # First we create the dofhandler and cellvalues as in 
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
 using Ferrite, FerriteAssembly, BenchmarkTools
-dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); push!(dh, :u, 1); close!(dh)
+dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); add!(dh, :u, 1); close!(dh)
 cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
 
 # We start by defining the material 

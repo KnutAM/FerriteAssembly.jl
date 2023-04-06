@@ -10,7 +10,7 @@ include("heatequation.jl")
 @testset "Errors" begin
     @info("Start of expected error messages. These are expected and ok if tests pass!")
     grid = generate_grid(Quadrilateral, (2,2))
-    dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
+    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
     cv = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
     states = create_states(dh)
     K = create_sparsity_pattern(dh)
