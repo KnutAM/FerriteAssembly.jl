@@ -43,16 +43,16 @@ is the intersection of the thread's cellset and the `FieldHandler`'s
 cellset. 
 
 
-| Type of analysis  | Top level      | Each `MAT`   | Each thread  | Each `FH`    | Each cell    | 
+| Type of analysis  | Top level      | Each `MAT`   | Each `FH`    | Each thread  | Each cell    | 
 | :---------------- | -------------- | ------------ | ------------ | ------------ | ------------ |
 | DH                | `CellBuffer`   | -            | -            | -            | `CellBuffer` |
-| MDH               | `Tuple`        | -            | -            | `CellBuffer` | `CellBuffer` |
-| Threaded, DH      | `Vector`       | -            | `CellBuffer` | -            | `CellBuffer` |
-| Threaded, MDH     | `Vector`       | -            | `Tuple`      | `CellBuffer` | `CellBuffer` |
+| MDH               | `Tuple`        | -            | `CellBuffer` | -            | `CellBuffer` |
+| Threaded, DH      | `Vector`       | -            | -            | `CellBuffer` | `CellBuffer` |
+| Threaded, MDH     | `Tuple`        | -            | `Vector`     | `CellBuffer` | `CellBuffer` |
 | MM, DH            | `Dict{String}` | `CellBuffer` | -            | -            | `CellBuffer` |
-| MM, MDH           | `Dict{String}` | `Tuple`      | -            | `CellBuffer` | `CellBuffer` |
-| MM, Threaded, DH  | `Dict{String}` | `Vector`     | `CellBuffer` | -            | `CellBuffer` |
-| MM, Threaded, MDH | `Dict{String}` | `Vector`     | `Tuple`      | `CellBuffer` | `CellBuffer` |
+| MM, MDH           | `Dict{String}` | `Tuple`      | `CellBuffer` | -            | `CellBuffer` |
+| MM, Threaded, DH  | `Dict{String}` | `Vector`     | -            | `CellBuffer` | `CellBuffer` |
+| MM, Threaded, MDH | `Dict{String}` | `Tuple`      | `Vector`     | `CellBuffer` | `CellBuffer` |
 
 Note that the lowest level above *Each cell*, is always also the `CellBuffer`,
 because one `CellBuffer` is shared between the cells that are being looped 
