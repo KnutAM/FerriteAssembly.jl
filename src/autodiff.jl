@@ -21,7 +21,8 @@ end
 function create_jacobian_config(er::ElementResidual)
     re = get_re(er.buffer)
     ae = get_ae(er.buffer)
-    return ForwardDiff.JacobianConfig(er, re, ae)
+    # Setting Chunk explicitly to solve https://github.com/KnutAM/FerriteAssembly.jl/issues/9
+    return ForwardDiff.JacobianConfig(er, re, ae, ForwardDiff.Chunk{length(ae)}())
 end
 
 struct AutoDiffCellBuffer{CB<:CellBuffer,ER<:ElementResidual,JC} <: AbstractCellBuffer
@@ -138,7 +139,9 @@ end
 function element_routine_ad!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer::CellBuffer)
     rf!(re_, ae_) = element_residual!(re_, state, ae_, material, cellvalues, dh_fh, Δt, buffer)
     try
-        ForwardDiff.jacobian!(Ke, rf!, re, ae)
+        # Setting Chunk explicitly to solve https://github.com/KnutAM/FerriteAssembly.jl/issues/9
+        cfg = ForwardDiff.JacobianConfig(rf!, re, ae, ForwardDiff.Chunk{length(ae)}())
+        ForwardDiff.jacobian!(Ke, rf!, re, ae, cfg)
     catch e
         ad_error(e, Ke, re, state, ae, material, cellvalues, dh_fh, Δt, buffer)
     end

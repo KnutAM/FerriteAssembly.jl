@@ -28,7 +28,9 @@
         cellbuffer = FA.setup_cellbuffer(dh, cv, mat);
         assembler = start_assemble(K,r)
         FA.doassemble!(assembler, cellbuffer, states, dh, a);
-        @show ndpc
         @test first(first(states)).c == 1
+        cellbuffer_ad = FA.setup_ad_cellbuffer(states, dh, cv, mat)
+        FA.doassemble!(assembler, cellbuffer_ad, states, dh, a);
+        @test first(first(states)).c == 2
     end
 end
