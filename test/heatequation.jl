@@ -140,9 +140,9 @@
         @test Ke ≈ Ke_ref 
         @test re ≈ -fe_ref # as ae=0
     end
-    materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
+    materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), example=EE.FourierMaterial(1.0), mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
     for DH in (DofHandler, MixedDofHandler)
-        for mattype in (:same, :ad, :mixed)
+        for mattype in (:same, :ad, :mixed, :example)
             material = materials[mattype]
             
             cv, K, dh = setup_heatequation(DH)
@@ -164,7 +164,7 @@
                         end
                         isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign
                         @test K_ref ≈ K 
-                        @test r_ref ≈ r
+                        mattype != :example && @test r_ref ≈ r # f not included in example material
                     end
                 end
                 @testset "$DH, $mattype, threaded" begin
@@ -186,7 +186,7 @@
                             end
                         end
                         @test K_ref ≈ K 
-                        @test r_ref ≈ r
+                        mattype != :example && @test r_ref ≈ r # f not included in example material
                     end
                 end
             end

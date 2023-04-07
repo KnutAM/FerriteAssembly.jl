@@ -2,6 +2,7 @@ using Ferrite, FerriteAssembly
 using SparseArrays
 using Test
 import FerriteAssembly as FA
+import FerriteAssembly.ExampleElements as EE
 
 include("states.jl")
 include("heatequation.jl")
