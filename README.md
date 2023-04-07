@@ -5,10 +5,12 @@
 [![Coverage](https://codecov.io/gh/KnutAM/FerriteAssembly.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/KnutAM/FerriteAssembly.jl)
 
 General assembly system for [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl/).
-Exports `doassemble!`, `CellBuffer`, `create_threaded_CellBuffers`, and `create_threaded_assemblers`.
-Requires users to define `element_routine!` or `element_residual!`
+1. Define your material struct
+2. Overload either `element_routine!` or `element_residual!` for your material
+3. Assemble with `doassemble!`
 
-## Features
-* Write only the element routines -> Less boilerplate code
-* Threaded assembly supported
-* Element stiffness can be calculated with autodiff
+## Selected features
+* Threaded assembly
+* Efficient autodiff for tangent stiffness
+* Multiple materials and fields on subdomains
+* State variables
