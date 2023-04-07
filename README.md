@@ -15,5 +15,5 @@ General assembly system for [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.
 * Multiple materials and fields on subdomains
 * State variables
 
-## `Ferrite#master`
-Also tested towards `Ferrite#master`: [![Ferrite#master](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/FerriteMasterCI.yml/badge.svg?branch=main)](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/FerriteMasterCI.yml?query=branch%3Amain)
+## Using with `Ferrite.jl`'s master branch
+`Ferrite#master`: [![Ferrite#master](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/FerriteMasterCI.yml/badge.svg?branch=main)](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/FerriteMasterCI.yml?query=branch%3Amain)
