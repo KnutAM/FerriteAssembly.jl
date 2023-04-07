@@ -1,4 +1,4 @@
-# Example Elements
+# Example elements
 The package includes a set of example elements inside the submodule `FerriteAssembly.ExampleElements`:
 
 ```@docs
