@@ -59,7 +59,7 @@ jobs:
               PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
               PackageSpec(path=pwd())
               ]
-            Pkg.add(packages)
+            Pkg.develop(packages)
             Pkg.instantiate()'
         shell: bash
       - uses: julia-actions/julia-docdeploy@v1
