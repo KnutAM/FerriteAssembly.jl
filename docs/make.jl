@@ -1,4 +1,5 @@
 using FerriteAssembly
+import FerriteAssembly: ExampleElements
 using Documenter
 
 const is_ci = get(ENV, "CI", "false") == "true"

@@ -1,25 +1,36 @@
-"""
-    FourierMaterial(k)
+@doc raw"""
+    StationaryFourier(k)
 
-For solving the linear heat equation (which uses Fourier's law) according to the strong form,
+For solving stationary linear heat conduction (which uses Fourier's law) with conductivity `k`, 
+such that the heat flux is ``\boldsymbol{q}=-k \nabla T``, where ``T`` is the temperature field. 
+
+The strong form is,
 ```math
- -\\nabla \\cdot (k \\nabla T) = f  \\quad \\textbf{x} \\in \\Omega,
+ \nabla \cdot \boldsymbol{q} = h  \quad \textbf{x} \in \Omega,
 ```
-where ``T`` is the temperature field, ``k`` the thermal conductivity, and ``f`` a volume source term.
-``f`` is not included in the element assembly, and can be applied using `FerriteNeumann.jl` 
-Only the stiffness contribution is assembled.
+and the corresponding weak form is 
+```math
+   \int_\Omega [\nabla \delta T] \cdot \boldsymbol{q} \mathrm{d}\Omega 
+   = \int_\Gamma \delta T\ q_\mathrm{n} \mathrm{d}\Gamma 
+   - \int_\Omega \delta T\ h \mathrm{d}\Omega
+```
+where, on the right hand side, ``q_\mathrm{n}`` is a heat flux normal to the boundary ``\Gamma``,
+and ``h`` is a volumetric heat supply. 
+These contributions are not included in the element, and should be added with `FerriteNeumann.jl`
 """
-struct FourierMaterial{T}
+struct StationaryFourier{T}
     k::T # Thermal conductivity
 end
 
-function FA.element_routine!(Ke, re, state, ae, m::FourierMaterial, cv, args...)
+function FA.element_routine!(Ke, re, state, ae, m::StationaryFourier, cv, args...)
     n_basefuncs = getnbasefunctions(cv)
     # Loop over quadrature points
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
+        q = -m.k*function_gradient(cv, q_point, ae)
         for i in 1:n_basefuncs
             ∇δN = shape_gradient(cv, q_point, i)
+            re[i] += (∇δN ⋅ q) * dΩ
             for j in 1:n_basefuncs
                 ∇N = shape_gradient(cv, q_point, j)
                 Ke[i, j] += m.k*(∇δN ⋅ ∇N) * dΩ
@@ -28,25 +39,35 @@ function FA.element_routine!(Ke, re, state, ae, m::FourierMaterial, cv, args...)
     end
 end
 
-"""
-    TransientFourierMaterial(k, c)
+@doc raw"""
+    TransientFourier(k)
 
-For solving transient heat flow, assuming flux according to Fourier's law
-with conductivity, `k`, and heat capacity, `c`, according to 
+For solving the transient linear heat equation (which uses Fourier's law) with conductivity `k`, 
+such that the heat flux is ``\boldsymbol{q}=-k \nabla T``, where ``T`` is the temperature field. 
+
+The strong form is,
 ```math
-  c\\frac{\\partial T}{\\partial t}-\\nabla \\cdot (k \\nabla T) = f  \\quad x \\in \\Omega,
+    c\ \dot{T} + \nabla \cdot \boldsymbol{q} = h  \quad \textbf{x} \in \Omega,
 ```
-where ``T`` is the temperature field and ``f`` is a volume source term. 
-``f`` is not included in the element assembly, but can be included with `FerriteNeumann.jl`.
-Both the stiffness matrix, ``K=\\mathrm{d}f_{int}/\\partial T`` 
-and the residual vector, ``r=f_{int}-f_{ext}`` are assembled. 
+and the corresponding time-discretized weak form is 
+```math
+    \int_\Omega \delta T\ c\ \frac{T - {}^\mathrm{n}T}{\Delta t}\ \mathrm{d}\Omega
+    + \int_\Omega [\nabla \delta T] \cdot \boldsymbol{q}\ \mathrm{d}\Omega 
+   = \int_\Gamma \delta T\ q_\mathrm{n}\ \mathrm{d}\Gamma 
+   - \int_\Omega \delta T\ h\ \mathrm{d}\Omega
+```
+where ``{}^\mathrm{n}T`` is the old temperature (in the previous timestep) and ``\Delta t`` is the timestep. 
+On the right hand side, ``q_\mathrm{n}`` is a heat flux normal to the boundary ``\Gamma``,
+and ``h`` is a volumetric heat supply. 
+These external contributions on the right hand side are not included in the element, 
+and should be added with `FerriteNeumann.jl`
 """
-struct TransientFourierMaterial{T}
+struct TransientFourier{T}
     k::T # Thermal conductivity
     c::T # Heat capacity
 end
 
-function FA.element_routine!(Ke, re, state, ae, m::TransientFourierMaterial, cv, dh_fh, Δt, buffer)
+function FA.element_routine!(Ke, re, state, ae, m::TransientFourier, cv, dh_fh, Δt, buffer)
     n_basefuncs = getnbasefunctions(cv)
     ae_old = FA.get_aeold(buffer)
     for q_point in 1:getnquadpoints(cv)
@@ -60,11 +81,11 @@ function FA.element_routine!(Ke, re, state, ae, m::TransientFourierMaterial, cv,
         for i in 1:n_basefuncs
             δNi = shape_value(cv, q_point, i)
             ∇δNi = shape_gradient(cv, q_point, i)
-            re[i] += (m.k*(∇δNi ⋅ ∇T) + δNi*m.c*Tdot)*dΩ
+            re[i] += (δNi*m.c*Tdot + m.k*(∇δNi ⋅ ∇T))*dΩ
             for j in 1:n_basefuncs
                 ∇Nj = shape_gradient(cv, q_point, j)
                 Nj = shape_value(cv, q_point, j)
-                Ke[i, j] += (m.k*(∇δNi ⋅ ∇Nj) + m.c*δNi*Nj ) * dΩ
+                Ke[i, j] += (m.c*δNi*Nj/Δt + m.k*(∇δNi ⋅ ∇Nj)) * dΩ
             end
         end
     end
