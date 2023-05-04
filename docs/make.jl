@@ -29,6 +29,7 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Elements" => "Elements.md",
         "Example elements" => "ExampleElements.md",
         "Examples" => GENERATEDEXAMPLES,
         "API" => "api.md",

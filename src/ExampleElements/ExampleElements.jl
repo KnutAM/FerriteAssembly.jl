@@ -1,7 +1,7 @@
 module ExampleElements
 
 using Ferrite    
-import ..FerriteAssembly as FA
+import ..FerriteAssembly
     
 include("HeatEquation.jl")
 include("LinearElasticity.jl")

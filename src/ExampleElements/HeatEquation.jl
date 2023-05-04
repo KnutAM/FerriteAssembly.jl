@@ -22,7 +22,7 @@ struct StationaryFourier{T}
     k::T # Thermal conductivity
 end
 
-function FA.element_routine!(Ke, re, state, ae, m::StationaryFourier, cv, args...)
+function FerriteAssembly.element_routine!(Ke, re, state, ae, m::StationaryFourier, cv, args...)
     n_basefuncs = getnbasefunctions(cv)
     # Loop over quadrature points
     for q_point in 1:getnquadpoints(cv)
@@ -40,7 +40,7 @@ function FA.element_routine!(Ke, re, state, ae, m::StationaryFourier, cv, args..
 end
 
 @doc raw"""
-    TransientFourier(k)
+    TransientFourier(k, c)
 
 For solving the transient linear heat equation (which uses Fourier's law) with conductivity `k`, 
 such that the heat flux is ``\boldsymbol{q}=-k \nabla T``, where ``T`` is the temperature field. 
@@ -67,7 +67,7 @@ struct TransientFourier{T}
     c::T # Heat capacity
 end
 
-function FA.element_routine!(Ke, re, state, ae, m::TransientFourier, cv, dh_fh, Δt, buffer)
+function FerriteAssembly.element_routine!(Ke, re, state, ae, m::TransientFourier, cv, dh_fh, Δt, buffer)
     n_basefuncs = getnbasefunctions(cv)
     ae_old = FA.get_aeold(buffer)
     for q_point in 1:getnquadpoints(cv)
