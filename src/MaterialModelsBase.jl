@@ -23,7 +23,7 @@ function FerriteAssembly.element_routine!(
     for q_point in 1:getnquadpoints(cellvalues)
         # For each integration point, compute stress and material stiffness
         ϵ = function_symmetric_gradient(cellvalues, q_point, ae) # Total strain
-        σ, D, state[q_point] = material_response(material, ϵ, state[q_point], Δt, cache)
+        σ, D, state[q_point] = MMB.material_response(material, ϵ, state[q_point], Δt, cache)
 
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs
@@ -42,4 +42,8 @@ function FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVect
     return [MMB.initial_material_state(m) for _ in 1:getnquadpoints(cv)]
 end
 
-
+function FerriteAssembly.element_routine!(Ke, re, state::Nothing, ae, ::MMB.AbstractMaterial, args...; kwargs...)
+    msg = "When using MaterialModelsBase materials, state::Vector{<:AbstractMaterialState} is required.\n"*
+          "Perhaps you forgot to add material and cellvalues when calling create_states?"
+    throw(ArgumentError(msg))
+end

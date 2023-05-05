@@ -22,7 +22,7 @@ where the function `f` is given to the weak form, and `h` and `b` are given with
 ```julia
 c = 1.0; k = 1.0; # heat capacity and heat conductivity (material parameters)
 qn = 1.0; b=1.0;  # Normal boundary flux and internal heat source (external loading)
-material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> δu*c*u_dot + k*(∇δu ⋅ ∇u))
+material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> δu*c*u_dot - k*(∇δu ⋅ ∇u))
 nh = NeumannHandler(dh)
 add!(nh, Neumann(:u, 2, getfaceset(dh.grid, "right"), (x,t,n)->qn))
 add!(nh, BodyLoad(:c, 1, (x,t)->b))
@@ -39,7 +39,7 @@ add!(nh, BodyLoad(:c, 1, (x,t)->b))
 ```julia
 G = 80e3; K = 160e3; # Shear and bulk modulus (material parameters)
 tn = 1.0, b=Vec((0.0, 0.0, -1.0)); # Normal traction and body force (external loading)
-material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> (∇δu ⊡ (2*G*dev(symmetric(∇u)) + 3*K*vol(∇u)) )
+material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> (∇δu ⊡ (2*G*dev(symmetric(∇u)) + 3*K*vol(∇u))))
 nh = NeumannHandler(dh)
 add!(nh, Neumann(:u, 2, getfaceset(dh.grid, "right"), (x,t,n)->tn*n))
 add!(nh, BodyLoad(:c, 2, (x,t)->b))
