@@ -15,20 +15,24 @@ where the function `f` is given to the weak form, and `h` and `b` are given with
 ## Transient heat flow
 *Weak form*
 ```math
-    \int_\Omega \delta u\ c\ \dot{u} - k\ [\nabla \delta u] \cdot [\nabla u]\ \mathrm{d}\Omega 
-   - \int_\Gamma \delta u\ q_\mathrm{n}\ \mathrm{d}\Gamma + \int_\Omega \delta u\ b\ \mathrm{d}\Omega = 0
+    \int_\Omega \delta u\ c\ \dot{u} + k\ [\nabla \delta u] \cdot [\nabla u]\ \mathrm{d}\Omega 
+   + \int_\Gamma \delta u\ q_\mathrm{n}\ \mathrm{d}\Gamma - \int_\Omega \delta u\ b\ \mathrm{d}\Omega = 0
 ```
 *Implementation*
+This implementation is equivalent to [`TransientFourier`](@ref FerriteAssembly.ExampleElements.TransientFourier),
+but it is also possible to add the body load directly in the weak form (if desired). 
 ```julia
 c = 1.0; k = 1.0; # heat capacity and heat conductivity (material parameters)
 qn = 1.0; b=1.0;  # Normal boundary flux and internal heat source (external loading)
-material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> δu*c*u_dot - k*(∇δu ⋅ ∇u))
+material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> δu*c*u_dot + k*(∇δu ⋅ ∇u))
 nh = NeumannHandler(dh)
 add!(nh, Neumann(:u, 2, getfaceset(dh.grid, "right"), (x,t,n)->qn))
 add!(nh, BodyLoad(:c, 1, (x,t)->b))
 ```
 
 ## Linear elasticity
+This implementation is equivalent to [`ElasticPlaneStrain`](@ref FerriteAssembly.ExampleElements.ElasticPlaneStrain),
+but it is also possible to add the body load directly in the weak form (if desired). 
 *Weak form*
 ```math
    \int_\Omega [\boldsymbol{\delta u}\otimes\nabla]^\mathrm{sym} : \boldsymbol{\sigma}\ \mathrm{d}\Omega 
