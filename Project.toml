@@ -6,11 +6,12 @@ version = "0.2.1"
 [deps]
 Ferrite = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
 
 [compat]
-julia = "1.7"
 Ferrite = "0.3"
 ForwardDiff = "0.10"
+julia = "1.8"
 
 [extras]
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"

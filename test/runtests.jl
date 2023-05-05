@@ -3,9 +3,11 @@ using SparseArrays
 using Test
 import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
+import MaterialModelsBase as MMB
 
 include("states.jl")
 include("heatequation.jl")
+include("example_elements.jl")
 
 
 @testset "Errors" begin

@@ -140,9 +140,10 @@
         @test Ke ≈ Ke_ref 
         @test re ≈ -fe_ref # as ae=0
     end
-    materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), example=EE.FourierMaterial(1.0), mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
+    weak = EE.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> 1.0*(∇δu ⋅ ∇u) - δu*1.0)
+    materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), weak=weak, mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
     for DH in (DofHandler, MixedDofHandler)
-        for mattype in (:same, :ad, :mixed, :example)
+        for mattype in (:same, :ad, :mixed, :weak)
             material = materials[mattype]
             
             cv, K, dh = setup_heatequation(DH)
@@ -160,7 +161,7 @@
                         if isnothing(scaling)
                             doassemble!(assembler, cb, states, dh, a)
                         else
-                            doassemble!(assembler, cb, states, dh, a, nothing, nothing, scaling)
+                            doassemble!(assembler, cb, states, dh, a, nothing, NaN, scaling)
                         end
                         isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign
                         @test K_ref ≈ K 
@@ -179,18 +180,17 @@
                             doassemble!(assemblers, cellbuffers, states, dh, colors, a)
                         else
                             scalings = create_threaded_scalings(scaling)
-                            doassemble!(assemblers, cellbuffers, states, dh, colors, a, nothing, nothing, scalings)
+                            doassemble!(assemblers, cellbuffers, states, dh, colors, a, nothing, NaN, scalings)
                             if isa(scaling, ElementResidualScaling)
                                 scaling = sum(scalings)
                                 @test scaling.factors[:u] ≈ sum(abs, r)
                             end
                         end
                         @test K_ref ≈ K 
-                        mattype != :example && @test r_ref ≈ r # f not included in example material
+                        @test r_ref ≈ r
                     end
                 end
             end
         end
     end
-
 end

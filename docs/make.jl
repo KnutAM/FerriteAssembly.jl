@@ -1,4 +1,5 @@
 using FerriteAssembly
+import FerriteAssembly: ExampleElements
 using Documenter
 
 const is_ci = get(ENV, "CI", "false") == "true"
@@ -10,7 +11,6 @@ GENERATEDEXAMPLES = [joinpath("examples", replace(f, ".jl"=>".md")) for f in exa
 build_examples(examples)
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
-
 
 # Run example from `index.md` to force CI failure if it doesn't work
 include("src/firstexample_literate.jl")
@@ -28,8 +28,9 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Example elements" => "ExampleElements.md",
         "Examples" => GENERATEDEXAMPLES,
+        "Example elements" => "ExampleElements.md",
+        "MaterialModelsBase" => "MaterialModelsBase.md",
         "API" => "api.md",
         "Datastructures" => "datastructures.md",
         "Internals" => "internals.md",

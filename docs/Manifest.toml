@@ -111,10 +111,10 @@ uuid = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
 version = "0.3.14"
 
 [[deps.FerriteAssembly]]
-deps = ["Ferrite", "ForwardDiff"]
+deps = ["Ferrite", "ForwardDiff", "MaterialModelsBase"]
 path = ".."
 uuid = "fd21fc07-c509-4fe1-9468-19963fd5935d"
-version = "0.2.0"
+version = "0.2.1"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
