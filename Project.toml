@@ -11,7 +11,7 @@ MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
 [compat]
 Ferrite = "0.3"
 ForwardDiff = "0.10"
-julia = "1.7"
+julia = "1.8"
 
 [extras]
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"

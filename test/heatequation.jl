@@ -140,7 +140,7 @@
         @test Ke ≈ Ke_ref 
         @test re ≈ -fe_ref # as ae=0
     end
-    materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), example=EE.FourierMaterial(1.0), mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
+    materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), example=EE.StationaryFourier(1.0), mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
     for DH in (DofHandler, MixedDofHandler)
         for mattype in (:same, :ad, :mixed, :example)
             material = materials[mattype]

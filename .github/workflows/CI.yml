@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ['1.7', '1', 'nightly']
+        version: ['1.8', '1', 'nightly']
         os: ['ubuntu-latest']
         include:
           - os: windows-latest
