@@ -10,9 +10,9 @@ The strong form is,
 ```
 and the corresponding weak form is 
 ```math
-   \int_\Omega [\nabla \delta T] \cdot \boldsymbol{q} \mathrm{d}\Omega 
-   = \int_\Gamma \delta T\ q_\mathrm{n} \mathrm{d}\Gamma 
-   - \int_\Omega \delta T\ h \mathrm{d}\Omega
+   -\int_\Omega [\nabla \delta T] \cdot \boldsymbol{q}\ \mathrm{d}\Omega 
+   = - \int_\Gamma \delta T\ q_\mathrm{n}\ \mathrm{d}\Gamma 
+     + \int_\Omega \delta T\ h\ \mathrm{d}\Omega
 ```
 where, on the right hand side, ``q_\mathrm{n}`` is a heat flux normal to the boundary ``\Gamma``,
 and ``h`` is a volumetric heat supply. 
@@ -30,10 +30,10 @@ function FerriteAssembly.element_routine!(Ke, re, state, ae, m::StationaryFourie
         q = -m.k*function_gradient(cv, q_point, ae)
         for i in 1:n_basefuncs
             ∇δN = shape_gradient(cv, q_point, i)
-            re[i] += (∇δN ⋅ q) * dΩ
+            re[i] += -(∇δN ⋅ q) * dΩ
             for j in 1:n_basefuncs
                 ∇N = shape_gradient(cv, q_point, j)
-                Ke[i, j] += -m.k*(∇δN ⋅ ∇N) * dΩ
+                Ke[i, j] += m.k*(∇δN ⋅ ∇N) * dΩ
             end
         end
     end
@@ -52,9 +52,9 @@ The strong form is,
 and the corresponding time-discretized weak form is 
 ```math
     \int_\Omega \delta T\ c\ \frac{T - {}^\mathrm{n}T}{\Delta t}\ \mathrm{d}\Omega
-    + \int_\Omega [\nabla \delta T] \cdot \boldsymbol{q}\ \mathrm{d}\Omega 
-   = \int_\Gamma \delta T\ q_\mathrm{n}\ \mathrm{d}\Gamma 
-   - \int_\Omega \delta T\ h\ \mathrm{d}\Omega
+    - \int_\Omega [\nabla \delta T] \cdot \boldsymbol{q}\ \mathrm{d}\Omega 
+   = - \int_\Gamma \delta T\ q_\mathrm{n}\ \mathrm{d}\Gamma 
+     + \int_\Omega \delta T\ h\ \mathrm{d}\Omega
 ```
 where ``{}^\mathrm{n}T`` is the old temperature (in the previous timestep) and ``\Delta t`` is the timestep. 
 On the right hand side, ``q_\mathrm{n}`` is a heat flux normal to the boundary ``\Gamma``,
@@ -82,11 +82,11 @@ function FerriteAssembly.element_routine!(Ke, re, state, ae, m::TransientFourier
         for i in 1:n_basefuncs
             δNi = shape_value(cv, q_point, i)
             ∇δNi = shape_gradient(cv, q_point, i)
-            re[i] += (δNi*m.c*Tdot + ∇δNi ⋅ q)*dΩ
+            re[i] += (δNi*m.c*Tdot - ∇δNi ⋅ q)*dΩ
             for j in 1:n_basefuncs
                 ∇Nj = shape_gradient(cv, q_point, j)
                 Nj = shape_value(cv, q_point, j)
-                Ke[i, j] += (m.c*δNi*Nj/Δt - m.k*(∇δNi ⋅ ∇Nj)) * dΩ
+                Ke[i, j] += (m.c*δNi*Nj/Δt + m.k*(∇δNi ⋅ ∇Nj)) * dΩ
             end
         end
     end

@@ -1,7 +1,7 @@
 @doc raw"""
-    ElasticPlaneStress(;E=2.e3, ν=0.3)
+    ElasticPlaneStrain(;E=2.e3, ν=0.3)
 
-For solving linear elasticity for plane stress, where Young's modulus, `E`, and Poisson's ratio, `ν`,
+For solving linear elasticity for plane strain, where Young's modulus, `E`, and Poisson's ratio, `ν`,
 is used to construct the correct stiffness tensor, ``\boldsymbol{\mathsf{C}}``, 
 such that the stress, ``\boldsymbol{\sigma}=\boldsymbol{\mathsf{C}}:\boldsymbol{\epsilon}``, 
 where the strain tensor, ``\boldsymbol{\epsilon}=[\boldsymbol{u}\otimes\nabla]^\mathrm{sym}``,
@@ -20,19 +20,19 @@ with the corresponding weak form,
 The external loading on the right hand side is not included in the element, but can be implemented 
 using `FerriteNeumann.jl`.  
 """
-struct ElasticPlaneStress{T}
+struct ElasticPlaneStrain{T}
     C::SymmetricTensor{4,2,T,9}
 end
-function ElasticPlaneStress(;E=2.e3, ν=0.3)
+function ElasticPlaneStrain(;E=2.e3, ν=0.3)
     G = E / 2(1 + ν)
     K = E / 3(1 - 2ν)
     I2 = one(SymmetricTensor{2,2})
     I4vol = I2⊗I2
     I4dev = minorsymmetric(otimesu(I2,I2)) - I4vol / 3
-    return ElasticPlaneStress(2G*I4dev + K*I4vol)
+    return ElasticPlaneStrain(2G*I4dev + K*I4vol)
 end
 
-function FerriteAssembly.element_routine!(Ke, re, state, ae, material::ElasticPlaneStress, cv::CellVectorValues, dh_fh, Δt, buffer)
+function FerriteAssembly.element_routine!(Ke, re, state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, dh_fh, Δt, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)

@@ -1,7 +1,47 @@
 @doc raw"""
     PoroElasticPlaneStrain(;E=2.e3, ν=0.3, k=0.05, α=1.0, β=1/2e3)
 
-TODO
+The strong forms are given as
+```math
+\begin{aligned}
+\boldsymbol{\sigma}(\boldsymbol{\epsilon}, p) \cdot \boldsymbol{\nabla} &= \boldsymbol{0} \\
+\dot{\Phi}(\boldsymbol{\epsilon}, p) + \boldsymbol{w}(p) \cdot \boldsymbol{\nabla} &= 0
+\end{aligned}
+```
+where 
+``\boldsymbol{\epsilon} = \left[\boldsymbol{u}\otimes\boldsymbol{\nabla}\right]^\mathrm{sym}`` 
+The constitutive relationships are 
+```math
+\begin{aligned}
+\boldsymbol{\sigma} &= \boldsymbol{\mathsf{E}}:\boldsymbol{\epsilon} - \alpha p \boldsymbol{I} \\
+\boldsymbol{w} &= - k \boldsymbol{\nabla} p \\
+\Phi &= \phi + \alpha \mathrm{tr}(\boldsymbol{\epsilon}) + \beta p
+\end{aligned}
+``` 
+with 
+``\boldsymbol{\mathsf{E}}=2G \boldsymbol{\mathsf{I}}^\mathrm{dev} + 3K \boldsymbol{I}\otimes\boldsymbol{I}``.
+The material parameters are then the 
+shear modulus, ``G``, 
+bulk modulus, ``K``, 
+permeability, ``k``,  
+Biot's coefficient, ``\alpha``, and
+liquid compressibility, ``\beta``.
+The porosity, ``\phi``, doesn't enter into the equations 
+(A different porosity leads to different skeleton stiffness and permeability).
+
+The weak forms are
+```math
+\begin{aligned}
+\int_\Omega \left[\left[\boldsymbol{\delta u}\otimes\boldsymbol{\nabla}\right]^\mathrm{sym}:
+\boldsymbol{\mathsf{E}}:\boldsymbol{\epsilon} - \boldsymbol{\delta u} \cdot \boldsymbol{\nabla} \alpha p\right] \mathrm{d}\Omega 
+&= \int_\Gamma \boldsymbol{\delta u} \cdot \boldsymbol{t} \mathrm{d} \Gamma \\
+\int_\Omega \left[\delta p \left[\alpha \dot{\boldsymbol{u}} \cdot \boldsymbol{\nabla} + \beta \dot{p}\right] + 
+\boldsymbol{\nabla}(\delta p) \cdot [k \boldsymbol{\nabla}]\right] \mathrm{d}\Omega 
+&= -\int_\Gamma \delta p w_\mathrm{n} \mathrm{d} \Gamma 
+\end{aligned}
+```
+where ``\boldsymbol{t}=\boldsymbol{n}\cdot\boldsymbol{\sigma}`` is the traction and 
+``w_\mathrm{n} = \boldsymbol{n}\cdot\boldsymbol{w}`` is the normal flux.  
 """
 struct PoroElasticPlaneStrain{T}
     C::SymmetricTensor{4,2,T,9} # 2D plane strain elastic stiffness

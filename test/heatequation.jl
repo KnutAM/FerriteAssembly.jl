@@ -140,9 +140,10 @@
         @test Ke ≈ Ke_ref 
         @test re ≈ -fe_ref # as ae=0
     end
-    materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
+    weak = EE.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> 1.0*(∇δu ⋅ ∇u) - δu*1.0)
+    materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), weak=weak, mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
     for DH in (DofHandler, MixedDofHandler)
-        for mattype in (:same, :ad, :mixed)
+        for mattype in (:same, :ad, :mixed, :weak)
             material = materials[mattype]
             
             cv, K, dh = setup_heatequation(DH)
@@ -192,5 +193,4 @@
             end
         end
     end
-
 end
