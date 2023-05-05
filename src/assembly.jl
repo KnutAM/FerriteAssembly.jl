@@ -10,7 +10,7 @@ create_threaded_assemblers(K, r; nthreads=Threads.nthreads()) = [start_assemble(
     doassemble!(
         assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 
         s::AbstractVector, dh::DofHandler, 
-        a=nothing, aold=nothing, Δt=nothing, scaling=nothing; cellset=1:ncells
+        a=nothing, aold=nothing, Δt=NaN, scaling=nothing; cellset=1:ncells
         )
 
 Sequential assembly of cells with the `dh::DofHandler`.
@@ -26,7 +26,7 @@ Sequential assembly of cells with the `dh::DofHandler`.
 """
 function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 
-    states, dh::DofHandler, a=nothing, aold=nothing, Δt=nothing, scaling=nothing; 
+    states, dh::DofHandler, a=nothing, aold=nothing, Δt=NaN, scaling=nothing; 
     cellset=1:Ferrite.getncells(dh)
     )
     for cellnr in cellset
@@ -39,7 +39,7 @@ end
         assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
         cellbuffers::Vector{<:AbstractCellBuffer}, states, 
         dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
-        a=nothing, aold=nothing, Δt=nothing, 
+        a=nothing, aold=nothing, Δt=NaN, 
         scalings::Vector=create_threaded_scalings(nothing);
         cellset=nothing
         )
@@ -58,7 +58,7 @@ function doassemble!(
     assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
     cellbuffers::Vector{<:AbstractCellBuffer}, states, 
     dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
-    a=nothing, aold=nothing, Δt=nothing, 
+    a=nothing, aold=nothing, Δt=NaN, 
     scalings::Vector=create_threaded_scalings(nothing); 
     cellset=nothing
     )
@@ -76,7 +76,7 @@ end
         assembler::Ferrite.AbstractSparseAssembler, 
         cellbuffers::Tuple, states::Tuple, 
         dh::MixedDofHandler, 
-        a=nothing, aold=nothing, Δt=nothing, scaling=nothing;
+        a=nothing, aold=nothing, Δt=NaN, scaling=nothing;
         kwargs...
         )
 
@@ -95,7 +95,7 @@ function doassemble!(
     assembler::Ferrite.AbstractSparseAssembler, 
     cellbuffers::Tuple, states::Tuple, 
     dh::MixedDofHandler, 
-    a=nothing, aold=nothing, Δt=nothing, scaling=nothing; kwargs...
+    a=nothing, aold=nothing, Δt=NaN, scaling=nothing; kwargs...
     )
     for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
         inner_doassemble!(assembler, cellbuffer, state, dh, fh, a, aold, Δt, scaling; kwargs...)
@@ -126,7 +126,7 @@ function doassemble!(
     cellbuffers::Tuple, 
     states::Tuple, 
     dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
-    a=nothing, aold=nothing, Δt=nothing, 
+    a=nothing, aold=nothing, Δt=NaN, 
     scalings::Vector=create_threaded_scalings(nothing);
     kwargs...
     )
