@@ -140,7 +140,7 @@
         @test Ke ≈ Ke_ref 
         @test re ≈ -fe_ref # as ae=0
     end
-    weak_material = FerriteAssembly.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> 1.0*(∇δu ⋅ ∇u - δu*1.0))
+    weak_material = EE.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> 1.0*(∇δu ⋅ ∇u - δu*1.0))
     materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), example=EE.StationaryFourier(1.0), weak=weak_material, mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
     for DH in (DofHandler, MixedDofHandler)
         for mattype in (:same, :ad, :mixed, :example, :weak)
