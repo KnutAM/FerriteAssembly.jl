@@ -15,10 +15,9 @@ Note that `create_cell_state` is already implemented for `<:AbstractMaterial`.
 """
 function FerriteAssembly.element_routine!(
     Ke, re, state::Vector{<:MMB.AbstractMaterialState},
-    ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, 
-    dh_fh, Δt, cb)
-    buffer = FerriteAssembly.getCellBuffer(cb)
-    cache = buffer.cache
+    ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
+    cache = FerriteAssembly.get_cache(buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
         # For each integration point, compute stress and material stiffness
@@ -40,10 +39,4 @@ end
 
 function FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVectorValues, args...)
     return [MMB.initial_material_state(m) for _ in 1:getnquadpoints(cv)]
-end
-
-function FerriteAssembly.element_routine!(Ke, re, state::Nothing, ae, ::MMB.AbstractMaterial, args...; kwargs...)
-    msg = "When using MaterialModelsBase materials, state::Vector{<:AbstractMaterialState} is required.\n"*
-          "Perhaps you forgot to add material and cellvalues when calling create_states?"
-    throw(ArgumentError(msg))
 end

@@ -32,7 +32,7 @@ function ElasticPlaneStrain(;E=2.e3, ν=0.3)
     return ElasticPlaneStrain(2G*I4dev + K*I4vol)
 end
 
-function FerriteAssembly.element_routine!(Ke, re, state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, dh_fh, Δt, buffer)
+function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)

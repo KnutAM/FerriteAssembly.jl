@@ -53,8 +53,9 @@ struct WeakForm{F<:Function}
     internal_contribution::F
 end
 
-function FerriteAssembly.element_residual!(re, state, ae, material::WeakForm, cv, dh_fh, Δt, buffer)
+function FerriteAssembly.element_residual!(re, state, ae, material::WeakForm, cv, buffer)
     ae_old = FerriteAssembly.get_aeold(buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         u = function_value(cv, q_point, ae)

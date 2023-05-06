@@ -51,3 +51,7 @@ A faster intersect if `cellset::Nothing`, otherwise calls Base.intersect
 
 _hasfieldname(fh::FieldHandler, name::Symbol) = !isnothing(findfirst(field->field.name==name, fh.fields))
 _hasfieldname(dh::Ferrite.AbstractDofHandler, field_name::Symbol) = field_name ∈ Ferrite.getfieldnames(dh)
+
+
+@inline fast_getindex(::AbstractDict{<:Any,Nothing}, key) = nothing
+@inline fast_getindex(x, key) = getindex(x, key)

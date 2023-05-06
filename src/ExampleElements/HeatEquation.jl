@@ -22,7 +22,7 @@ struct StationaryFourier{T}
     k::T # Thermal conductivity
 end
 
-function FerriteAssembly.element_routine!(Ke, re, state, ae, m::StationaryFourier, cv, args...)
+function FerriteAssembly.element_routine!(Ke, re, new_state, ae, m::StationaryFourier, cv, args...)
     n_basefuncs = getnbasefunctions(cv)
     # Loop over quadrature points
     for q_point in 1:getnquadpoints(cv)
@@ -67,9 +67,10 @@ struct TransientFourier{T}
     c::T # Heat capacity
 end
 
-function FerriteAssembly.element_routine!(Ke, re, state, ae, m::TransientFourier, cv, dh_fh, Δt, buffer)
+function FerriteAssembly.element_routine!(Ke, re, new_state, ae, m::TransientFourier, cv, buffer)
     n_basefuncs = getnbasefunctions(cv)
     ae_old = FerriteAssembly.get_aeold(buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
     for q_point in 1:getnquadpoints(cv)
         # Calculate values for the current quadrature point
         dΩ = getdetJdV(cv, q_point)
