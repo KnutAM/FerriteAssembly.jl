@@ -25,10 +25,16 @@ function doassemble!(r::AbstractVector{<:Number}, new_states::Dict{String}, old_
 end
 
 function _doassemble!(threaded::Val, assembler_or_r, new_states, old_states, buffers; a=nothing, aold=nothing, Δt=NaN)
+    buffer = first(values(buffers))
+    reset_scaling!(buffer.scaling)
+    reset_scaling!.(buffer.scalings)
     for key in keys(new_states)
         buffer = buffers[key]
         update_time!(buffer.cellbuffer, Δt)
         assemble_domain!(threaded, assembler_or_r, new_states[key], old_states[key], buffer, a, aold)
+    end
+    for scaling in buffer.scalings
+        add_to_scaling!(buffer.scaling, scaling)
     end
 end
 

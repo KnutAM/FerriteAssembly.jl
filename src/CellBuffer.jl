@@ -104,7 +104,8 @@ Get the `dofrange::UnitRange{Int}` for the dofs pertaining to the field: `name`.
 Same output as dof_range(dh::DofHandler, name), but fully type-stable. 
 """
 @inline Ferrite.dof_range(c::CellBuffer, name::Symbol) = c.dofrange[name]
-@inline Ferrite.dof_range(c::CellBuffer) = c.dofrange
+
+Ferrite.getfieldnames(c::CellBuffer) = keys(c.dofrange)
 
 """
     get_state_old(c::CellBuffer)

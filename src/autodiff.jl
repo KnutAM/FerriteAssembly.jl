@@ -55,7 +55,7 @@ function copy_for_threading(c::AutoDiffCellBuffer)
     AutoDiffCellBuffer(cb, deepcopy(c.er), deepcopy(c.cfg))
 end
 
-for op = (:celldofs, :getcoordinates, :reinit!, :dof_range)
+for op = (:celldofs, :getcoordinates, :reinit!, :dof_range, :getfieldnames)
     eval(quote
         Ferrite.$op(cb::AutoDiffCellBuffer, args...) = Ferrite.$op(cb.cb, args...)
     end)

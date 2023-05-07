@@ -153,9 +153,9 @@
                         reset_scaling!(scaling)
                         if mattype == :mixed
                             setA, setB = (sort(OrderedSet(getcellset(dh.grid, name))) for name in ("A", "B"))
-                            ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA, scaling=scaling)
-                            ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB, scaling=scaling)
-                            buffer, states_old, states_new = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb)
+                            ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA)
+                            ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB)
+                            buffer, states_old, states_new = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling)
                         else
                             buffer, states_old, states_new = setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb)
                         end
@@ -173,17 +173,16 @@
                         buffer, states_old, states_new = setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb, colors=colors)
                         if mattype == :mixed
                             setA, setB = (sort(OrderedSet(getcellset(dh.grid, name))) for name in ("A", "B"))
-                            ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA, scaling=scaling)
-                            ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB, scaling=scaling)
-                            buffer, states_old, states_new = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, colors=colors)
+                            ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA)
+                            ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB)
+                            buffer, states_old, states_new = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, colors=colors, scaling=scaling)
                         else
                             buffer, states_old, states_new = setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb, colors=colors)
                         end
                         doassemble!(K, r, states_new, states_old, buffer; a=a)
-                        #if isa(scaling, ElementResidualScaling)
-                        #    scaling = sum(scalings)
-                        #    @test scaling.factors[:u] ≈ sum(abs, r)
-                        #end
+                        if isa(scaling, ElementResidualScaling)
+                            @test scaling.factors[:u] ≈ sum(abs, r)
+                        end
                         @test K_ref ≈ K 
                         @test r_ref ≈ r
                     end
