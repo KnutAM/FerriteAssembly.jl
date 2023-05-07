@@ -1,13 +1,13 @@
 using Tensors, MaterialModelsBase, Ferrite, FerriteAssembly
 include("J2Plasticity.jl");
 
-grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)));
+grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)))
 cellvalues = CellVectorValues(
-    QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}());
-dh = DofHandler(grid); add!(dh, :u, 3); close!(dh); # Create dofhandler
-K = create_sparsity_pattern(dh);
-r = zeros(ndofs(dh));
-a = zeros(ndofs(dh))
+    QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
+dh = DofHandler(grid); add!(dh, :u, 3); close!(dh) # Create dofhandler
+K = create_sparsity_pattern(dh)
+r = zeros(ndofs(dh))
+a = zeros(ndofs(dh));
 
 addcellset!(grid, "elastic", x -> x[1] <= 5.0+eps())
 elastic_material = ElasticMaterial(E=200.0e9, ν=0.3)

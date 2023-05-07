@@ -1,9 +1,10 @@
 # # Plasticity
-# This example shows how any material following the 
+# This example shows how to assemble a plastic material following the 
 # [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl)
-# interface can be assembled with `FerriteAssembly.jl`. 
-# [`element_routine!`](@ref FerriteAssembly.element_routine!(Ke, re, state::Vector{<:FerriteAssembly.MMB.AbstractMaterialState}, ae, material::FerriteAssembly.MMB.AbstractMaterial, cellvalues::CellVectorValues, dh_fh, Δt, cb))
-# has already been implemented for this material. This example shows how to 
+# interface with `FerriteAssembly.jl`. The 
+# [`element_routine!`](@ref FerriteAssembly.element_routine!(Ke, re, state_new::Vector{<:MMB.AbstractMaterialState}, ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer))
+# function implementation for any `MaterialModelsBase.AbstractMaterial` is already defined. 
+# This specific example shows how to 
 # * Assemble materials with state variables
 # * Update state variables for the next time step 
 # 
