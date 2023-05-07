@@ -27,7 +27,7 @@ function FerriteAssembly.element_routine!(
     end
 end;
 
-buffer, old_states, new_states = setup_assembly(dh, ThermalMaterial(), cellvalues)
+buffer, old_states, new_states = setup_assembly(dh, ThermalMaterial(), cellvalues);
 
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
