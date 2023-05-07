@@ -5,7 +5,7 @@ import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
 import MaterialModelsBase as MMB
 
-#include("states.jl") # Current tests no longer relevant. 
+include("states.jl") 
 include("heatequation.jl")
 include("example_elements.jl")
 

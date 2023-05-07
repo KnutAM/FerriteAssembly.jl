@@ -146,7 +146,10 @@
             setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
             ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA)
             ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB)
-            return setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+            buffer, states_old, states_new = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+            @test isa(buffer, Dict{String,<:FerriteAssembly.DomainBuffer})
+            @test isa(states_old, Dict{String,<:Dict{Int}})
+            return buffer, states_old, states_new
         elseif isa(material, Dict) && isa(dh, MixedDofHandler)
             sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
             sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
@@ -157,16 +160,25 @@
             ad2 = FerriteAssembly.AssemblyDomain("sdh1B", sdh1, material["B"], cv; cellset=intersect(setB, set1))
             ad3 = FerriteAssembly.AssemblyDomain("sdh2A", sdh2, material["A"], cv; cellset=intersect(setA, set2))
             ad4 = FerriteAssembly.AssemblyDomain("sdh2B", sdh2, material["B"], cv; cellset=intersect(setB, set2))
-            return setup_assembly([ad1, ad2, ad3, ad4]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+            buffer, states_old, states_new = setup_assembly([ad1, ad2, ad3, ad4]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+            @test isa(buffer, Dict{String,<:FerriteAssembly.DomainBuffer})
+            @test isa(states_old, Dict{String,<:Dict{Int}})
+            return buffer, states_old, states_new
         elseif isa(dh, MixedDofHandler)
             sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
             sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
             set1 = getcellset(sdh1); set2 = getcellset(sdh2)
             ad1 = FerriteAssembly.AssemblyDomain("sdh1", sdh1, material, cv; cellset=set1)
             ad2 = FerriteAssembly.AssemblyDomain("sdh2", sdh2, material, cv; cellset=set2)
-            return setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+            buffer, states_old, states_new = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+            @test isa(buffer, Dict{String,<:FerriteAssembly.DomainBuffer})
+            @test isa(states_old, Dict{String,<:Dict{Int}})
+            return buffer, states_old, states_new
         else
-            return setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb, colors=colors)
+            buffer, states_old, states_new = setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb, colors=colors)
+            @test isa(buffer, FerriteAssembly.DomainBuffer)
+            @test isa(states_old, Dict{Int})
+            return buffer, states_old, states_new
         end
     end
     

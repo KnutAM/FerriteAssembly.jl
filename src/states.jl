@@ -40,3 +40,45 @@ function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dof
     cell = CellCache(sdh.dh)
     return Dict(cellnr => _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr) for cellnr in cellset)
 end
+
+"""
+    update_states!(old_states, new_states)
+
+Update `old_states` with the values from `new_states`. This is typically done after a converged time increment.
+
+This method tries to avoid allocating new values where possible. 
+Currently, if [`create_cell_state`](@ref) returns `T` or `Vector{T}` where `isbitstype(T)`, this works.
+
+If needed/wanted, it should be relatively easy to provide an interface to make it possible to have allocation free 
+for custom cell states.
+""" 
+function update_states!(old_states::T, new_states::T) where T<:Union{Dict{String,<:Dict{Int}}, Dict{Int,<:Vector}}
+    for (key, new_s) in new_states
+        update_states!(old_states[key], new_s)
+    end
+end
+update_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing}} = nothing 
+
+@inline function update_states!(old_states::T, new_states::T) where T<:Union{Vector{ET},Dict{Int,ET}} where ET
+    copy_states!(Val(isbitstype(ET)), old_states, new_states)
+end
+@inline copy_states!(::Val{true},  old_states, new_states) = copy!(old_states,new_states)
+@inline copy_states!(::Val{false}, old_states, new_states) = copy!(old_states,deepcopy(new_states))
+
+#= # Something like this with replacing old_states[key] = deepcopy(new_s) with 
+# copy_states!(old_states, key, new_s) to dispatch on new_s could work, 
+# but otherwise directy copy!(dst, deepcopy(src)) seems better
+function copy_states!(::Val{false}, old_states, new_states)
+    for (key, new_s) in pairs(new_states)
+        old_states[key] = deepcopy(new_s)
+    end
+end
+=#
+
+#= # Not used anymore (required if states are stored as vectors at top level instad of Dict{Int})
+function update_states!(old_states::T, new_states::T) where T<:Vector{<:Vector}
+    for (old_s, new_s) in zip(old_states, new_states)
+        update_states!(old_s, new_s)
+    end
+end
+=#
