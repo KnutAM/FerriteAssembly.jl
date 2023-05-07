@@ -15,7 +15,7 @@ include("setup.jl")
 include("assembly.jl")
 
 export setup_assembly, AssemblyDomain
-export doassemble!
+export doassemble!, update_states!
 export ElementResidualScaling, reset_scaling!
 
 """

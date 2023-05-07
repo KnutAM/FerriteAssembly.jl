@@ -14,15 +14,16 @@ where ``\sigma`` is calculated with the `material_response` function from
 Note that `create_cell_state` is already implemented for `<:AbstractMaterial`. 
 """
 function FerriteAssembly.element_routine!(
-    Ke, re, state::Vector{<:MMB.AbstractMaterialState},
+    Ke, re, state_new::Vector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
     cache = FerriteAssembly.get_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
+    state_old = FerriteAssembly.get_state_old(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
         # For each integration point, compute stress and material stiffness
         ϵ = function_symmetric_gradient(cellvalues, q_point, ae) # Total strain
-        σ, D, state[q_point] = MMB.material_response(material, ϵ, state[q_point], Δt, cache)
+        σ, D, state_new[q_point] = MMB.material_response(material, ϵ, state_old[q_point], Δt, cache)
 
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs

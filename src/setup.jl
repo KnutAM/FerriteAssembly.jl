@@ -10,6 +10,9 @@ end
 function AssemblyDomain(name, sdh, material, cellvalues; cellset=getcellset(sdh), user_data=nothing, cache=nothing)
     return AssemblyDomain(name, sdh, material, cellvalues, cellset, user_data, cache)
 end
+function AssemblyDomain(name, dh::DofHandler, args...; kwargs...)
+    return AssemblyDomain(name, SubDofHandler(dh), args...; kwargs...)
+end
 
 struct DomainBuffer{TA,SDH<:SubDofHandler,CS,CB,SC}
     # TA=true if threaded, false if sequential
