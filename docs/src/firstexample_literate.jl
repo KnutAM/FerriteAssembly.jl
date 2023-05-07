@@ -36,7 +36,7 @@ end;
 # which is basically the same as in `Ferrite.jl`'s example. 
 
 # We first call `setup_assembly` to setup all the variables required to assemble:
-buffer, old_states, new_states = setup_assembly(dh, ThermalMaterial(), cellvalues)
+buffer, old_states, new_states = setup_assembly(dh, ThermalMaterial(), cellvalues);
 
 # We can now create the global residual vectors and stiffness matrix
 K = create_sparsity_pattern(dh)
