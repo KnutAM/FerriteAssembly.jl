@@ -29,7 +29,7 @@ Create a cell cache for an element with `numdofs` degrees of freedom and
 old cell state. `material` will be passed as-is to the element. 
 The given `dofrange::NamedTuple`, `user_data::Any`, and `cache::Any` are available to the element via the buffer input. 
 
-!!! note "See [`setup_assembly`](@ref)"
+!!! note "See setup_assembly"
     This constructor is normally not used, and is instead called from [`setup_assembly`](@ref)
 
 """
@@ -41,7 +41,6 @@ function CellBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, cellvalues, materi
         zeros(Int, numdofs), zeros(Vec{sdim}, numnodes), 
         cellvalues, Δt, cellid, dofrange, material, state, user_data, cache)
 end
-
 
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
 function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange, user_data, cache)

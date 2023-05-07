@@ -103,6 +103,8 @@ function setup_assembly(domains::Vector{<:AssemblyDomain}; colors=nothing, scali
     new_states = Dict{String,Dict{Int}}()
     old_states = Dict{String,Dict{Int}}()
     scalings = distribute_scalings(scaling, colors)
+    num_cells = 0
+    all_cells = Set{Int}()
     for d in domains
         n = d.name
         buffers[n], old_states[n], new_states[n] = 
@@ -110,7 +112,13 @@ function setup_assembly(domains::Vector{<:AssemblyDomain}; colors=nothing, scali
                 cellset=d.cellset, user_data=d.user_data, cache=d.cache,
                 colors=colors, scaling=scalings, kwargs...
                 )
+        num_cells += length(d.cellset)
+        all_cells = union!(all_cells, d.cellset)
+        length(all_cells) != num_cells && @warn("The domain $n has cells that overlap with previous domains")
     end
+    num_cells_grid = getncells(domains[1].sdh.dh.grid)
+    num_cells = length(all_cells)
+    num_cells != num_cells_grid && @warn("There are $num_cells_grid cells in the grid, but only $num_cells have been added")
     return buffers, old_states, new_states
 end
 
