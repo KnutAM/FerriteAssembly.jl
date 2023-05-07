@@ -52,22 +52,31 @@ end
 iscolored(::Dict{String,<:DomainBuffer{TA}}) where TA = TA
 
 """
-    setup_assembly(dh, material, cv_qr_quadorder; kwargs...)
+    setup_assembly(dh, material, cellvalues; kwargs...)
 
 Setup assembly for a single domain (i.e. the same material and interpolations everywhere).
 Returns the `buffer`, `old_states`, and `new_states` to be used in [`doassemble!`](@ref).
 The state variables are created by calling the user-defined [`create_cell_state`](@ref) function. 
+Available keyword arguments
+- `a=nothing`: Give the global dof vector to pass element dofs, `ae`, to `create_cell_state` (`NaN`-values otherwise)
+- `colors=nothing`: Give colors for the grid from `Ferrite.create_coloring` to setup threaded assembly. 
+  If `nothing`, the assembly is sequential.
+- `autodiffbuffer=Val(false)`: Set to `true` or `Val(true)` (for type stable construction) to use `AutoDiffCellBuffer`
+  instead of `CellBuffer`.
+- `user_data=nothing`: The `user_data` is passed to each `AbstractCellBuffer` by reference (when threaded)
+- `cache=nothing`: The `cache` is passed to each `AbstractCellBuffer`, and deepcopied if threaded. 
+- `scaling=nothing`: The scaling to be calculated, see e.g. [`ElementResidualScaling`](@ref)
 """
 setup_assembly(dh::DofHandler, args...; kwargs...) = setup_assembly(SubDofHandler(dh), args...; kwargs...)
-function setup_assembly(sdh::SubDofHandler, material, cv; cellset=getcellset(sdh), a=nothing,
+function setup_assembly(sdh::SubDofHandler, material, cellvalues; cellset=getcellset(sdh), a=nothing,
         colors=nothing, autodiffbuffer=Val(false), user_data=nothing, cache=nothing, scaling=nothing
         )
     dofrange = create_dofrange(sdh)
-    new_states = create_states(sdh, material, cv, a, cellset, dofrange)
-    old_states = create_states(sdh, material, cv, a, cellset, dofrange)
+    new_states = create_states(sdh, material, cellvalues, a, cellset, dofrange)
+    old_states = create_states(sdh, material, cellvalues, a, cellset, dofrange)
 
     cell_state = last(first(old_states))
-    cellbuffer = setup_cellbuffer(autodiffbuffer, sdh, cv, material, cell_state, dofrange, user_data, cache)
+    cellbuffer = setup_cellbuffer(autodiffbuffer, sdh, cellvalues, material, cell_state, dofrange, user_data, cache)
 
     domainbuffer = DomainBuffer(colors, sdh, cellset, cellbuffer, scaling)
 
@@ -77,9 +86,16 @@ end
 """
     setup_assembly(domains::Vector{<:AssemblyDomain}; kwargs...)
 
-Setup assembly for each domain in `domains`. 
+Setup assembly for each [`AssemblyDomain`](@ref) in `domains`. 
 Returns the `Dict`s `buffers`, `old_states`, and `new_states` to be used in [`doassemble!`](@ref).
 The state variables are created by calling the user-defined [`create_cell_state`](@ref) function. 
+Available keyword arguments
+- `a=nothing`: Give the global dof vector to pass element dofs, `ae`, to `create_cell_state` (`NaN`-values otherwise)
+- `colors=nothing`: Give colors for the grid from `Ferrite.create_coloring` to setup threaded assembly. 
+  If `nothing`, the assembly is sequential.
+- `autodiffbuffer=Val(false)`: Set to `true` or `Val(true)` (for type stable construction) to use `AutoDiffCellBuffer`
+  instead of `CellBuffer`.
+- `scaling=nothing`: The scaling to be calculated, see e.g. [`ElementResidualScaling`](@ref)
 """
 function setup_assembly(domains::Vector{<:AssemblyDomain}; colors=nothing, scaling=nothing, kwargs...)
     is_threaded = !isnothing(colors)
