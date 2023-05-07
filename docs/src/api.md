@@ -18,22 +18,20 @@ FerriteAssembly.element_residual!
 ## CellBuffer
 Variables that are used and modified for each cell of a certain type, 
 but that don't belong to a specific cell, are collected in a `CellBuffer`.
-```@docs
-CellBuffer
-setup_cellbuffer
-AutoDiffCellBuffer
-setup_ad_cellbuffer
-getCellBuffer
-```
 
 ### Access functions
 The following access functions can be used to extract information from the 
 `CellBuffer`
 ```@docs
-Ferrite.getcoordinates
-FerriteAssembly.get_aeold
-FerriteAssembly.get_load
-FerriteAssembly.get_cache
+get_state_old
+get_aeold
+get_time_increment
+dof_range
+getcoordinates
+celldofs
+cellid
+get_user_data
+get_cache
 ```
 
 ## State variables
@@ -53,20 +51,7 @@ doassemble!
 ```
 
 ## Threaded assembly
-For parallel assembly, we need a vector of `CellBuffer`s and assemblers, 
-one for each thread. 
 
-For the `MixedDofHandler`, the outer loop is over the type of cells,
-so we need a tuple that contains vectors of `CellBuffer`s. 
-Construction of this via `deepcopy` is implemented as
-```@docs
-create_threaded_CellBuffers
-```
-
-A vector of assemblers that is convieniently created by calling 
-```@docs
-create_threaded_assemblers
-```
 
 ## Residual scaling
 There are many options for how to scale the residual in finite element simulations.
@@ -84,12 +69,7 @@ before assembly (to allow consistent separated assembly using different cellsets
 ```@docs
 FerriteAssembly.update_scaling!
 reset_scaling!
-```
-
-Additionally, [`create_threaded_scalings`](@ref) can be used to copy one scaling to each thread
-when using with parallel assembly. 
-```@docs
-create_threaded_scalings
+add_to_scaling!
 ```
 
 ### ElementResidualScaling
