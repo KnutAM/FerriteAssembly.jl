@@ -14,7 +14,7 @@ is to provide a simple structure for assembling in
 * Support for handling of (old and new) *state variables*
 
 ## Typical workflow
-1. Define your custom type and associated element routine (See [Example Elements](@ref))
+1. Define your custom type and associated element routine (See [Example elements](@ref))
 2. Setup Ferrite's `DofHandler` and `CellValues` as usual, and call [`setup_assembly`](@ref)
 3. For each assembly, call [`doassemble!`](@ref)
 
