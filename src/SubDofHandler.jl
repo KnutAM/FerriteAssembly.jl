@@ -5,8 +5,8 @@ struct SubDofHandler{DH,FH}
     SubDofHandler(dh::DofHandler) = new{typeof(dh),Nothing}(dh, nothing)
     SubDofHandler(mdh::MixedDofHandler, fh::FieldHandler) = new{typeof(mdh),typeof(fh)}(mdh, fh)
 end
-Ferrite.getcellset(sdh::SubDofHandler{<:DofHandler}) = OrderedSet(1:getncells(sdh.dh.grid))
-Ferrite.getcellset(sdh::SubDofHandler{<:MixedDofHandler}) = sort(OrderedSet(sdh.fh.cellset))
+Ferrite.getcellset(sdh::SubDofHandler{<:DofHandler}) = 1:getncells(sdh.dh.grid)
+Ferrite.getcellset(sdh::SubDofHandler{<:MixedDofHandler}) = sdh.fh.cellset
 Ferrite.dof_range(sdh::SubDofHandler{<:DofHandler}, name::Symbol) = dof_range(sdh.dh, name)
 Ferrite.dof_range(sdh::SubDofHandler{<:MixedDofHandler}, name::Symbol) = dof_range(sdh.fh, name)
 Ferrite.getfieldnames(sdh::SubDofHandler{<:DofHandler}) = Ferrite.getfieldnames(sdh.dh)

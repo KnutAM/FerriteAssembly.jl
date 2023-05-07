@@ -1,5 +1,4 @@
 module FerriteAssembly
-using OrderedCollections
 using Ferrite, ForwardDiff
 
 # Temporary solutions until Ferrite is updated

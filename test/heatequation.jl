@@ -143,7 +143,7 @@
     
     function setup_assembly_test(dh, material, cv, scaling, autodiff_cb, colors=nothing)
         if isa(material, Dict) && isa(dh, DofHandler)
-            setA, setB = (sort(OrderedSet(getcellset(dh.grid, name))) for name in ("A", "B"))
+            setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
             ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA)
             ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB)
             return setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
@@ -151,7 +151,7 @@
             sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
             sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
             set1 = getcellset(sdh1); set2 = getcellset(sdh2)
-            setA, setB = (sort(OrderedSet(getcellset(dh.grid, name))) for name in ("A", "B"))
+            setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
 
             ad1 = FerriteAssembly.AssemblyDomain("sdh1A", sdh1, material["A"], cv; cellset=intersect(setA, set1))
             ad2 = FerriteAssembly.AssemblyDomain("sdh1B", sdh1, material["B"], cv; cellset=intersect(setB, set1))

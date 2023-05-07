@@ -31,12 +31,12 @@ end
 """
     create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
 
-Create and `OrderedDict` of states for the cells in `cellset`, where the user should 
+Create a `Dict` of states for the cells in `cellset`, where the user should 
 define the [`create_cell_state`](@ref) function for their `material` (and corresponding `cellvalues`)
 `dofrange::NamedTuple` is passed onto `create_cell_state` and contains the local dof ranges for each field. 
 """
 function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
     ae = zeros(ndofs_per_cell(sdh))
     cell = CellCache(sdh.dh)
-    return OrderedDict(cellnr => _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr) for cellnr in cellset)
+    return Dict(cellnr => _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr) for cellnr in cellset)
 end

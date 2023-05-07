@@ -3,7 +3,7 @@ struct AssemblyDomain
     sdh::SubDofHandler
     material::Any
     cellvalues::Union{CellValues,NamedTuple}
-    cellset::OrderedSet{Int}
+    cellset::Union{AbstractVector{Int},AbstractSet{Int}} # Includes UnitRange
     user_data::Any
     cache::Any
 end
@@ -11,28 +11,35 @@ function AssemblyDomain(name, sdh, material, cellvalues; cellset=getcellset(sdh)
     return AssemblyDomain(name, sdh, material, cellvalues, cellset, user_data, cache)
 end
 
-struct DomainBuffer{TA,SDH,CS,CB,SC}
+struct DomainBuffer{TA,SDH<:SubDofHandler,CS,CB,SC}
     # TA=true if threaded, false if sequential
     sdh::SDH        # SubDofHandler
-    cellset::CS     # Vector{OrderedSet{Int}} or OrderedSet{Int} (threaded vs sequential)
+    cellset::CS     # Vector{Vector{Int}} or Vector{Int} (threaded vs sequential)
     cellbuffer::CB  # Vector{AbstractCellBuffer} or AbstractCellBuffer (threaded vs sequential)
     scaling::SC     # Note: All `DomainBuffer`s share the same `scaling` and `scalings`
-    scalings::Vector{SC} # For threaded assembly
-    function DomainBuffer(sdh::SubDofHandler, cellset::OrderedSet, cellbuffer::AbstractCellBuffer, scaling, ::Nothing)
-        return new{false, typeof(sdh), typeof(cellset), typeof(cellbuffer), typeof(scaling)}(sdh, cellset, cellbuffer, scaling, typeof(scaling)[])
-    end
-    function DomainBuffer(sdh::SubDofHandler, cellsets::Vector, cellbuffers::Vector, scalings::Tuple{SC, Vector{SC}}) where SC
-        return new{true, typeof(sdh), typeof(cellsets), typeof(cellbuffers), SC}(sdh, cellsets, cellbuffers, scalings[1], scalings[2])
+    scalings::Vector{SC} # For threaded assembly (empty for sequential)
+    function DomainBuffer{TA}(sdh::SubDofHandler, cellset, cellbuffer, scaling::SC, scalings::Vector{SC}) where {TA, SC}
+        @assert isa(TA, Bool)
+        return new{TA, typeof(sdh), typeof(cellset), typeof(cellbuffer), SC}(sdh, cellset, cellbuffer, scaling, scalings)
     end
 end
-function DomainBuffer(sdh::SubDofHandler, cellset::OrderedSet, cellbuffer::AbstractCellBuffer, scaling, colors::Vector)
-    cellsets = map(Base.Fix1(intersect, cellset), colors)
+# Sequential
+function DomainBuffer(#=colors=#::Nothing, sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffer, scaling::SC) where SC
+    cellset_ = sort!(collect(cellset)) # Saves a copy that is also sorted, making sure it is always Vector{Int}
+    return DomainBuffer{false}(sdh, cellset_, cellbuffer, scaling, SC[])
+end
+# Threaded
+function DomainBuffer(colors::Vector, sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffer, scaling)
+    cellsets = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset), colors)
     cellbuffers = [copy_for_threading(cellbuffer) for _ in 1:Threads.nthreads()]
-    scalings = distribute_scalings(scaling, colors)
-    return DomainBuffer(sdh, cellsets, cellbuffers, scalings)
+    # scaling will be Tuple{T, Vector{T}} if we have multiple domains, in which case distribute_scalings just returns scaling
+    # For single domains, scaling will just be T where T is the type of scaling, and distribute_scalings returns T, Vector{T}
+    global_scaling, perthread_scalings = distribute_scalings(scaling, colors)
+    return DomainBuffer{true}(sdh, cellsets, cellbuffers, global_scaling, perthread_scalings)
 end
-iscolored(::Dict{String,<:DomainBuffer{true}}) = true
-iscolored(::Dict{String,<:DomainBuffer{false}}) = false
+
+# iscolored(::DomainBuffer{TA}) where TA = TA
+iscolored(::Dict{String,<:DomainBuffer{TA}}) where TA = TA
 
 """
     setup_assembly(dh, material, cv_qr_quadorder; kwargs...)
@@ -52,7 +59,7 @@ function setup_assembly(sdh::SubDofHandler, material, cv; cellset=getcellset(sdh
     cell_state = last(first(old_states))
     cellbuffer = setup_cellbuffer(autodiffbuffer, sdh, cv, material, cell_state, dofrange, user_data, cache)
 
-    domainbuffer = DomainBuffer(sdh, cellset, cellbuffer, scaling, colors)
+    domainbuffer = DomainBuffer(colors, sdh, cellset, cellbuffer, scaling)
 
     return domainbuffer, old_states, new_states
 end
@@ -67,8 +74,8 @@ The state variables are created by calling the user-defined [`create_cell_state`
 function setup_assembly(domains::Vector{<:AssemblyDomain}; colors=nothing, scaling=nothing, kwargs...)
     is_threaded = !isnothing(colors)
     buffers = Dict{String,DomainBuffer{is_threaded}}()
-    new_states = Dict{String,OrderedDict{Int}}()
-    old_states = Dict{String,OrderedDict{Int}}()
+    new_states = Dict{String,Dict{Int}}()
+    old_states = Dict{String,Dict{Int}}()
     scalings = distribute_scalings(scaling, colors)
     for d in domains
         n = d.name

@@ -1,7 +1,6 @@
 using Ferrite, FerriteAssembly
 using SparseArrays
 using Test
-using OrderedCollections
 import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
 import MaterialModelsBase as MMB

@@ -7,10 +7,10 @@ function setup_assemblers(::Val{true}, K, r; fillzero=true)
     return assemblers
 end
 
-function doassemble!(K::AbstractMatrix, r::AbstractVector, new_states::OrderedDict{Int}, old_states::OrderedDict{Int}, buffer::DomainBuffer; kwargs...)
+function doassemble!(K::AbstractMatrix, r::AbstractVector, new_states::Dict{Int}, old_states::Dict{Int}, buffer::DomainBuffer; kwargs...)
     doassemble!(K, r, Dict("noname"=>new_states), Dict("noname"=>old_states), Dict("noname"=>buffer); kwargs...)
 end
-function doassemble!(r::AbstractVector{<:Number}, new_states::OrderedDict{Int}, old_states::OrderedDict{Int}, buffer::DomainBuffer; kwargs...)
+function doassemble!(r::AbstractVector{<:Number}, new_states::Dict{Int}, old_states::Dict{Int}, buffer::DomainBuffer; kwargs...)
     doassemble!(r, Dict("noname"=>new_states), Dict("noname"=>old_states), Dict("noname"=>buffer); kwargs...)
 end
 
@@ -39,34 +39,28 @@ function _doassemble!(threaded::Val, assembler_or_r, new_states, old_states, buf
     end
 end
 
-function assemble_domain!(threaded::Val{false}, assembler_or_r, new_states, old_states, buffer, a, aold)
+function assemble_domain!(#=threaded=#::Val{false}, assembler_or_r, new_states, old_states, buffer, a, aold)
     for cellnr in buffer.cellset
         assemble_cell!(assembler_or_r, buffer.cellbuffer, buffer.sdh, cellnr, a, aold, new_states, old_states, buffer.scaling)
     end
 end
 
-function assemble_domain!(threaded::Val{true}, assemblers::Vector{<:Ferrite.AbstractSparseAssembler}, new_states, old_states, buffer, a, aold)
+function assemble_domain!(#=threaded=#::Val{true}, assemblers::Vector{<:Ferrite.AbstractSparseAssembler}, new_states, old_states, buffer, a, aold)
     cellbuffers = buffer.cellbuffer
     scalings = buffer.scalings
     for cellset in buffer.cellset
-        # This is using internal stuff, probably better to not use OrderedSet and vector instead?
-        OrderedCollections.rehash!(cellset.dict)
-        cellnrs = cellset.dict.keys
-        Threads.@threads :static for cellnr in cellnrs
+        Threads.@threads :static for cellnr in cellset
             id = Threads.threadid()
             assemble_cell!(assemblers[id], cellbuffers[id], buffer.sdh, cellnr, a, aold, new_states, old_states, scalings[id])
         end
     end
 end
 
-function assemble_domain!(threaded::Val{true}, r::Vector{<:Number}, new_states, old_states, buffer, a, aold)
+function assemble_domain!(#=threaded=#::Val{true}, r::Vector{<:Number}, new_states, old_states, buffer, a, aold)
     cellbuffers = buffer.cellbuffer
     scalings = buffer.scalings
     for cellset in buffer.cellset
-        # This is using internal stuff, probably better to not use OrderedSet and vector instead?
-        OrderedCollections.rehash!(cellset.dict)
-        cellnrs = cellset.dict.keys
-        Threads.@threads :static for cellnr in cellnrs
+        Threads.@threads :static for cellnr in cellset
             id = Threads.threadid()
             assemble_cell!(r, cellbuffers[id], buffer.sdh, cellnr, a, aold, new_states, old_states, scalings[id])
         end

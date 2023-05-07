@@ -30,7 +30,7 @@ makedocs(;
         "Home" => "index.md",
         "Examples" => GENERATEDEXAMPLES,
         "Example elements" => "ExampleElements.md",
-        "MaterialModelsBase" => "MaterialModelsBase.md",
+        "MaterialModelsBase.jl" => "MaterialModelsBase.md",
         "API" => "api.md",
         "Datastructures" => "datastructures.md",
         "Internals" => "internals.md",
