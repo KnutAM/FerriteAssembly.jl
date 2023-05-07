@@ -7,4 +7,7 @@ FerriteAssembly.assemble_cell_reinited!
 FerriteAssembly._copydofs!
 FerriteAssembly.reinit!
 FerriteAssembly._create_cell_state
+FerriteAssembly.CellBuffer
+FerriteAssembly.AutoDiffCellBuffer
+FerriteAssembly.fast_getindex
 ```

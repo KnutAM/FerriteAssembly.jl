@@ -1,3 +1,10 @@
+"""
+    AssemblyDomain(name, dh, material, cellvalues; cellset, user_data=nothing, cache=nothing)
+
+Create an `AssemblyDomain` that can be used when calling [`setup_assembly`](@ref) to assemble multiple domains.
+`name` is used to access the corresponding `DomainBuffer` and state variables returned by `setup_assembly`. 
+If not given, `cellset` is attempted to be inferred from the DofHandler, `dh`. 
+"""
 struct AssemblyDomain
     name::String
     sdh::SubDofHandler

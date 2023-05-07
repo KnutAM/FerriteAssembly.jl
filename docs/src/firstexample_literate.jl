@@ -3,7 +3,7 @@
 # First we create the dofhandler and cellvalues as in 
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
 using Ferrite, FerriteAssembly, BenchmarkTools
-dh = DofHandler(generate_grid(Quadrilateral, (1000, 1000))); add!(dh, :u, 1); close!(dh)
+dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); add!(dh, :u, 1); close!(dh)
 cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
 
 # We start by defining the material 
@@ -94,10 +94,10 @@ a = zeros(ndofs(dh))
 doassemble!(K,r, new_states_ad, old_states_ad, buffer_ad; a=a);
 
 # However, explicitly defining the element stiffness was a lot faster and has less allocations
-#@btime doassemble!($K, $r, $new_states, $old_states, $buffer; a=$a)
-#@btime doassemble!($K, $r, $new_states_ad, $old_states_ad, $buffer_ad; a=$a)
+@btime doassemble!($K, $r, $new_states, $old_states, $buffer; a=$a)
+@btime doassemble!($K, $r, $new_states_ad, $old_states_ad, $buffer_ad; a=$a)
 
 # By using the special [`FerriteAssembly.AutoDiffCellBuffer`](@ref) that caches some variables for
 # automatic differentiation, we can significantly improve performance. 
 buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(), cellvalues; autodiffbuffer=true)
-#@btime doassemble!($K, $r, $new_states_ad, $old_states_ad, $buffer_ad2; a=$a)
+@btime doassemble!($K, $r, $new_states_ad, $old_states_ad, $buffer_ad2; a=$a)

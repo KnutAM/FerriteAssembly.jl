@@ -29,8 +29,8 @@ Create a cell cache for an element with `numdofs` degrees of freedom and
 old cell state. `material` will be passed as-is to the element. 
 The given `dofrange::NamedTuple`, `user_data::Any`, and `cache::Any` are available to the element via the buffer input. 
 
-!!! note "See [`setup_cellbuffer`](@ref)"
-    This constructor is normally not used, and is instead called from [`setup_cellbuffer`](@ref). 
+!!! note "See [`setup_assembly`](@ref)"
+    This constructor is normally not used, and is instead called from [`setup_assembly`](@ref)
 
 """
 function CellBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, cellvalues, material, state, dofrange, user_data=nothing, cache=nothing) where sdim
@@ -71,6 +71,13 @@ update_time!(c::CellBuffer, Δt) = (c.Δt = Δt)
 @inline get_ae(c::CellBuffer) = c.ae
 @inline get_material(c::CellBuffer) = c.material
 @inline get_cellvalues(c::CellBuffer) = c.cellvalues
+
+"""
+    Ferrite.celldofs(c::CellBuffer)
+
+`Ferrite.jl`'s `celldofs` function is overloaded on the `CellBuffer` to return 
+the current cell's degree of freedom indices.
+"""
 @inline Ferrite.celldofs(c::CellBuffer) = c.dofs
 
 # Convenience access functions to CellBuffer for use inside element routines

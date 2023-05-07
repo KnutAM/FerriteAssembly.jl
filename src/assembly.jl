@@ -7,6 +7,18 @@ function setup_assemblers(::Val{true}, K, r; fillzero=true)
     return assemblers
 end
 
+"""
+    doassemble!([K::AbstractMatrix,] r::AbstractVector, new_states, old_states, buffer; kwargs...)
+
+Assemble `K` and `r` (`element_residual` must be defined to only assemble `r`), given the `new_states`, `old_states`,
+and `buffer` returned from `setup_assembly`. The available keyword arguments are 
+
+* `a=nothing`: The current degree of freedom vector. If nothing, `ae` with `NaN` values is passed to `element_routine!`
+* `aold=nothing`: The old degree of freedom vector. If `nothing`, `get_aeold(buffer) gives a `NaN`-filled vector.
+* `Δt=NaN`: The time increment that can be accessed as `get_time_increment(buffer)` in the element routines. 
+* `fillzero=true`: Should `K` and `r` be zeroed before starting the assembly?
+
+"""
 function doassemble!(K::AbstractMatrix, r::AbstractVector, new_states::Dict{Int}, old_states::Dict{Int}, buffer::DomainBuffer; kwargs...)
     doassemble!(K, r, Dict("noname"=>new_states), Dict("noname"=>old_states), Dict("noname"=>buffer); kwargs...)
 end

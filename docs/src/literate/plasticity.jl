@@ -29,7 +29,7 @@ r = zeros(ndofs(dh));
 # Using the `setup_assembly` function, 
 buffer, states_old, states_new = setup_assembly(dh, material, cellvalues)
 # we setup the `buffer`, old state variables, and new state variables. 
-# The state variables are created via the [`create_cell_state`](@ref) 
+# The state variables are created via the [`create_cell_state`](@ref FerriteAssembly.create_cell_state) 
 # function that is already defined for `MaterialModelsBase.AbstractMaterial`
 
 # We can now just provide an initial guess for the degree of freedom vector,`a`,

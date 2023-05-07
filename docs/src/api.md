@@ -6,6 +6,13 @@ CurrentModule = FerriteAssembly
 Methods that should be overloaded and exported functions are described on this page.
 It may also be useful to checkout the [Data structures](@ref).
 
+## Setting up and doing the assembly
+```@docs
+AssemblyDomain
+setup_assembly
+doassemble!
+```
+
 ## Element routines
 One of the element methods should be overloaded for a given combination of `cellvalues`
 and `material`. 
@@ -13,6 +20,16 @@ Note that the `cellvalues` are already `reinit!`:ed when passed to the element r
 ```@docs
 FerriteAssembly.element_routine!
 FerriteAssembly.element_residual!
+```
+
+## State variables
+The initial state variables may vary depending on the position in the grid.
+Furthermore, the datastructure depends on the type of dof handler, so
+a convenience function exists that creates the correct variable structure. 
+```@docs
+FerriteAssembly.create_cell_state
+update_states!
+FerriteAssembly.create_states
 ```
 
 ## CellBuffer
@@ -26,32 +43,13 @@ The following access functions can be used to extract information from the
 get_state_old
 get_aeold
 get_time_increment
-dof_range
-getcoordinates
-celldofs
-cellid
+Ferrite.dof_range
+Ferrite.getcoordinates
+Ferrite.celldofs
+Ferrite.cellid
 get_user_data
 get_cache
 ```
-
-## State variables
-The initial state variables may vary depending on the position in the grid.
-Furthermore, the datastructure depends on the type of dof handler, so
-a convenience function exists that creates the correct variable structure. 
-```@docs
-create_states
-FerriteAssembly.create_cell_state
-```
-
-## `doassemble!`
-Once everything is set up, one can call the function which will actually 
-do the assembly:
-```@docs
-doassemble!
-```
-
-## Threaded assembly
-
 
 ## Residual scaling
 There are many options for how to scale the residual in finite element simulations.
