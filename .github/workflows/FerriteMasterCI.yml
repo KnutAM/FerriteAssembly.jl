@@ -32,11 +32,15 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v1
-      # - uses: julia-actions/julia-buildpkg@v1   # Replaced the following
+      # - uses: julia-actions/julia-buildpkg@v1   # Replaced by the following
       - run: |
           julia --color=yes --project=. -e '
             using Pkg
-            Pkg.add(url="https://github.com/Ferrite-FEM/Ferrite.jl.git", rev="master")
+            packages = [
+              PackageSpec(;url="https://github.com/Ferrite-FEM/Ferrite.jl.git", rev="master"),
+              PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
+              ]
+            Pkg.add(packages)
             Pkg.instantiate()'
         shell: bash
       - uses: julia-actions/julia-runtest@v1

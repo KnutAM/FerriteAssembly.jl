@@ -1,20 +1,22 @@
 # # Multiple materials
 # This example shows how to use two different materials on a 
-# grid with the same cells everywhere. 
+# grid with the same cells everywhere. The key with this example is how
+# * Setup multiple [`AssemblyDomain`](@ref)s
+# * Run threaded assembly
 # 
-# To do this, we use the ElasticMaterial defined at the end of the 
-# [`J2Plasticity.jl`](J2Plasticity.jl) file.
+# In addition to `J2Plasticity`, we setup a portion of the domain to use the `ElasticMaterial`
+# that is also defined in [`J2Plasticity.jl`](J2Plasticity.jl) file.
 using Tensors, MaterialModelsBase, Ferrite, FerriteAssembly
 include("J2Plasticity.jl");
 
 # We start by setting up the 
-grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)));
+grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)))
 cellvalues = CellVectorValues(
-    QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}());
-dh = DofHandler(grid); add!(dh, :u, 3); close!(dh); # Create dofhandler
-K = create_sparsity_pattern(dh);
-r = zeros(ndofs(dh));
-a = zeros(ndofs(dh))
+    QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
+dh = DofHandler(grid); add!(dh, :u, 3); close!(dh) # Create dofhandler
+K = create_sparsity_pattern(dh)
+r = zeros(ndofs(dh))
+a = zeros(ndofs(dh));
 
 # In order to setup a simulation with multiple domains, we must use the 
 # [`AssemblyDomain`](@ref) structure to setup the simulation.
