@@ -98,7 +98,7 @@
 
     function FerriteAssembly.element_residual!(
             re::AbstractVector, state, ae::AbstractVector, 
-            material::ThermalMaterialAD, cellvalues, buffer::FerriteAssembly.CellBuffer)
+            material::ThermalMaterialAD, cellvalues, buffer)
         n_basefuncs = getnbasefunctions(cellvalues)
         # Loop over quadrature points
         for q_point in 1:getnquadpoints(cellvalues)
@@ -182,12 +182,22 @@
                 @testset "$DH, $mattype, sequential" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
+                        fill!(K, 0); 
+                        r .= rand(length(r)) # To ensure that it is actually changed
                         reset_scaling!(scaling)
                         buffer, states_old, states_new = setup_assembly_test(dh, material, cv, scaling, autodiff_cb)
                         doassemble!(K, r, states_new, states_old, buffer; a=a)
                         isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign
                         @test K_ref ≈ K 
                         @test r_ref ≈ r
+                        if mattype == :ad    
+                            # Assemble only r (requires element_residual!)
+                            r .= rand(length(r)) # To ensure that it is actually changed
+                            reset_scaling!(scaling)
+                            doassemble!(r, states_new, states_old, buffer; a=a)
+                            isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign 
+                            @test r_ref ≈ r
+                        end
                     end
                 end
                 @testset "$DH, $mattype, threaded" begin
@@ -210,6 +220,16 @@
                         end
                         @test K_ref ≈ K
                         @test r_ref ≈ r
+                        
+                        if mattype == :ad    
+                            r .= rand(length(r)) # To ensure that it is actually changed
+                            reset_scaling!(scaling)
+                            doassemble!(r, states_new, states_old, buffer; a=a)
+                            if isa(scaling, ElementResidualScaling)
+                                @test scaling.factors[:u] ≈ sum(abs, r)
+                            end
+                            @test r_ref ≈ r
+                        end
                     end
                 end
             end

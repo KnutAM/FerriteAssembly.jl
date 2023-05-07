@@ -14,13 +14,14 @@ function doassemble!(r::AbstractVector{<:Number}, new_states::OrderedDict{Int}, 
     doassemble!(r, Dict("noname"=>new_states), Dict("noname"=>old_states), Dict("noname"=>buffer); kwargs...)
 end
 
-function doassemble!(K::AbstractMatrix, r::AbstractVector, new_states::Dict{String}, old_states::Dict{String}, buffers::Dict{String}; kwargs...)
+function doassemble!(K::AbstractMatrix, r::AbstractVector, new_states::Dict{String}, old_states::Dict{String}, buffers::Dict{String}; fillzero=true, kwargs...)
     threaded = Val(iscolored(buffers))
-    assemblers = setup_assemblers(threaded, K, r)
+    assemblers = setup_assemblers(threaded, K, r; fillzero=fillzero)
     _doassemble!(threaded, assemblers, new_states, old_states, buffers; kwargs...)
 end
-function doassemble!(r::AbstractVector{<:Number}, new_states::Dict{String}, old_states::Dict{String}, buffers::Dict{String}; kwargs...)
+function doassemble!(r::AbstractVector{<:Number}, new_states::Dict{String}, old_states::Dict{String}, buffers::Dict{String}; fillzero=true, kwargs...)
     threaded = Val(iscolored(buffers))
+    fillzero && fill!(r, zero(eltype(r)))
     _doassemble!(threaded, r, new_states, old_states, buffers; kwargs...)
 end
 
