@@ -36,7 +36,7 @@ doassemble!(K, r, new_states, old_states, buffer)
 
 colors = create_coloring(dh.grid);
 
-buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; colors=colors)
+buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; colors=colors);
 
 doassemble!(K, r, new_states, old_states, buffer2);
 
@@ -62,7 +62,7 @@ function FerriteAssembly.element_residual!(
     end
 end;
 
-buffer_ad, old_states_ad, new_states_ad = setup_assembly(dh, ThermalMaterialAD(), cellvalues)
+buffer_ad, old_states_ad, new_states_ad = setup_assembly(dh, ThermalMaterialAD(), cellvalues);
 
 a = zeros(ndofs(dh))
 doassemble!(K,r, new_states_ad, old_states_ad, buffer_ad; a=a);
