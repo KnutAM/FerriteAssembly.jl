@@ -19,7 +19,9 @@
     function get_mdh(ip)
         grid = get_grid();
         dh = MixedDofHandler(grid)
-        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:getncells(grid)))))
+        n_half = getncells(grid)÷2
+        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:n_half))))
+        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect((n_half+1):getncells(grid)))))
         close!(dh);
         return dh
     end
@@ -138,7 +140,37 @@
     end
     weak = EE.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> 1.0*(∇δu ⋅ ∇u) - δu*1.0)
     materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), weak=weak, mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
-    for DH in (DofHandler,)# MixedDofHandler)
+    
+    function setup_assembly_test(dh, material, cv, scaling, autodiff_cb, colors=nothing)
+        if isa(material, Dict) && isa(dh, DofHandler)
+            setA, setB = (sort(OrderedSet(getcellset(dh.grid, name))) for name in ("A", "B"))
+            ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA)
+            ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB)
+            return setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+        elseif isa(material, Dict) && isa(dh, MixedDofHandler)
+            sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
+            sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
+            set1 = getcellset(sdh1); set2 = getcellset(sdh2)
+            setA, setB = (sort(OrderedSet(getcellset(dh.grid, name))) for name in ("A", "B"))
+
+            ad1 = FerriteAssembly.AssemblyDomain("sdh1A", sdh1, material["A"], cv; cellset=intersect(setA, set1))
+            ad2 = FerriteAssembly.AssemblyDomain("sdh1B", sdh1, material["B"], cv; cellset=intersect(setB, set1))
+            ad3 = FerriteAssembly.AssemblyDomain("sdh2A", sdh2, material["A"], cv; cellset=intersect(setA, set2))
+            ad4 = FerriteAssembly.AssemblyDomain("sdh2B", sdh2, material["B"], cv; cellset=intersect(setB, set2))
+            return setup_assembly([ad1, ad2, ad3, ad4]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+        elseif isa(dh, MixedDofHandler)
+            sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
+            sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
+            set1 = getcellset(sdh1); set2 = getcellset(sdh2)
+            ad1 = FerriteAssembly.AssemblyDomain("sdh1", sdh1, material, cv; cellset=set1)
+            ad2 = FerriteAssembly.AssemblyDomain("sdh2", sdh2, material, cv; cellset=set2)
+            return setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
+        else
+            return setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb, colors=colors)
+        end
+    end
+    
+    for DH in (DofHandler, MixedDofHandler)
         for mattype in (:same, :ad, :mixed, :weak)
             material = materials[mattype]
             
@@ -151,14 +183,7 @@
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
                         reset_scaling!(scaling)
-                        if mattype == :mixed
-                            setA, setB = (sort(OrderedSet(getcellset(dh.grid, name))) for name in ("A", "B"))
-                            ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA)
-                            ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB)
-                            buffer, states_old, states_new = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, scaling=scaling)
-                        else
-                            buffer, states_old, states_new = setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb)
-                        end
+                        buffer, states_old, states_new = setup_assembly_test(dh, material, cv, scaling, autodiff_cb)
                         doassemble!(K, r, states_new, states_old, buffer; a=a)
                         isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign
                         @test K_ref ≈ K 
@@ -168,22 +193,22 @@
                 @testset "$DH, $mattype, threaded" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
+                        fill!(K, 0); 
+                        r .= rand(length(r)) # To ensure that it is actually changed
                         reset_scaling!(scaling)
                         colors = create_coloring(dh.grid)
-                        buffer, states_old, states_new = setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb, colors=colors)
-                        if mattype == :mixed
-                            setA, setB = (sort(OrderedSet(getcellset(dh.grid, name))) for name in ("A", "B"))
-                            ad1 = FerriteAssembly.AssemblyDomain("A", FerriteAssembly.SubDofHandler(dh), material["A"], cv; cellset=setA)
-                            ad2 = FerriteAssembly.AssemblyDomain("B", FerriteAssembly.SubDofHandler(dh), material["B"], cv; cellset=setB)
-                            buffer, states_old, states_new = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, colors=colors, scaling=scaling)
+                        buffer, states_old, states_new = setup_assembly_test(dh, material, cv, scaling, autodiff_cb, colors)
+                        # Quick check that test script works and that it is actually colored
+                        if isa(buffer, Dict)
+                            @test FerriteAssembly.iscolored(buffer)
                         else
-                            buffer, states_old, states_new = setup_assembly(dh, material, cv; scaling=scaling, autodiffbuffer=autodiff_cb, colors=colors)
+                            @test isa(buffer, FerriteAssembly.DomainBuffer{true})
                         end
                         doassemble!(K, r, states_new, states_old, buffer; a=a)
                         if isa(scaling, ElementResidualScaling)
                             @test scaling.factors[:u] ≈ sum(abs, r)
                         end
-                        @test K_ref ≈ K 
+                        @test K_ref ≈ K
                         @test r_ref ≈ r
                     end
                 end
