@@ -57,8 +57,9 @@ function update_states!(old_states::T, new_states::T) where T<:Union{Dict{String
         update_states!(old_states[key], new_s)
     end
 end
-update_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing}} = nothing 
-
+function update_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing}}
+    return nothing 
+end
 @inline function update_states!(old_states::T, new_states::T) where T<:Union{Vector{ET},Dict{Int,ET}} where ET
     copy_states!(Val(isbitstype(ET)), old_states, new_states)
 end

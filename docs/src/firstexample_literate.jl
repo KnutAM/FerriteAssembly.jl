@@ -52,12 +52,12 @@ doassemble!(K, r, new_states, old_states, buffer)
 colors = create_coloring(dh.grid);
 
 # We then just pass these colors into the `setup_assembly` function to get the apprpriate buffers:
-buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; colors=colors)
+buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; colors=colors);
 # but this does not affect the states so we let them be as before. 
 
 # And then we can call `doassemble!` as before
 doassemble!(K, r, new_states, old_states, buffer2);
-# noting that `K` and `r` are zeroed at the beginning of each call to `doassemble!`
+# `K` and `r` are automatically zeroed (by default) when calling `doassemble!`
 
 # ### Automatic differentiation
 # For elements for nonlinear coupled behavior, it can be time-consuming 
@@ -87,7 +87,7 @@ function FerriteAssembly.element_residual!(
     end
 end;
 
-buffer_ad, old_states_ad, new_states_ad = setup_assembly(dh, ThermalMaterialAD(), cellvalues)
+buffer_ad, old_states_ad, new_states_ad = setup_assembly(dh, ThermalMaterialAD(), cellvalues);
 
 # In this case we need the `ae` input and must therefore define `a`:
 a = zeros(ndofs(dh))

@@ -72,11 +72,11 @@ end
         for cellnr in 1:getncells(grid)
             @test states_new[cellnr] == [StateA(cellnr, i) for i in 1:getnquadpoints(cv)]  # Updated
         end
-        FerriteAssembly.update_states!(states_old, states_new)
+        update_states!(states_old, states_new)
         @test states_old == states_new          # Correctly updated values
         states_new[1][1] = StateA(0,0)
         @test states_old[1][1] == StateA(1,1)   # But not aliased
-        allocs = @allocated FerriteAssembly.update_states!(states_old, states_new)
+        allocs = @allocated update_states!(states_old, states_new)
         @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
 
         # MatB (not bitstype)
@@ -93,14 +93,14 @@ end
             x_values = [spatial_coordinate(cv, i, coords) for i in 1:getnquadpoints(cv)]
             @test states_new[cellnr] == StateB(cellnr, x_values)                          # Updated
         end
-        FerriteAssembly.update_states!(states_old, states_new)
+        update_states!(states_old, states_new)
         @test states_old == states_new                  # Correctly updated values
         cellnr = rand(1:getncells(grid))
         coords = getcoordinates(grid, cellnr)
         x_values = [spatial_coordinate(cv, i, coords) for i in 1:getnquadpoints(cv)]
         states_new[cellnr] = StateB(0, -x_values)
         @test states_old[cellnr] == StateB(cellnr, x_values)   # But not aliased
-        allocs = @allocated FerriteAssembly.update_states!(states_old, states_new)
+        allocs = @allocated update_states!(states_old, states_new)
         @test allocs > 0 # Vector{T} where !isbitstype(T) is expected to allocate. 
         # If this fails after improvements, that is just good, but then the docstring should be updated. 
 
@@ -113,7 +113,7 @@ end
         doassemble!(K, r, states_new, states_old, buffer)
         @test states_old[1][1] == StateC(0)
         @test states_new[1][1] == StateC(1) # Added 1
-        FerriteAssembly.update_states!(states_old, states_new)
+        update_states!(states_old, states_new)
         @test states_old[1][1] == StateC(1) # Updated
         states_new[1][1] = StateC(0)        # Set states_new to zero to test aliasing and update in next assembly
         @test states_old[1][1] == StateC(1) # But not aliased
@@ -122,7 +122,19 @@ end
         for cellnr in 1:getncells(grid)
             @test states_new[cellnr][2] == StateC(2) # Check that all are updated
         end
-        allocs = @allocated FerriteAssembly.update_states!(states_old, states_new)
+        allocs = @allocated update_states!(states_old, states_new)
         @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
     end
+
+    # Smoke-test of update_states! for nothing states (and check no allocations)
+    snew = Dict(i=>nothing for i in 1:10)
+    sold = deepcopy(snew)
+    update_states!(sold, snew) # Compile
+    allocs = @allocated update_states!(sold, snew)
+    @test allocs == 0
+    snew = Dict(string(k)=>Dict(i=>nothing for i in k:2:10) for k in 1:2)
+    sold = deepcopy(snew)
+    update_states!(sold, snew) # Compile
+    allocs = @allocated update_states!(sold, snew)
+    @test allocs == 0
 end
