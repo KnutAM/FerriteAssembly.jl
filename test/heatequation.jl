@@ -153,13 +153,14 @@
         elseif isa(material, Dict) && isa(dh, MixedDofHandler)
             sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
             sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
-            set1 = getcellset(sdh1); set2 = getcellset(sdh2)
+            set1 = getcellset(sdh1)
             setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
 
             ad1 = FerriteAssembly.AssemblyDomain("sdh1A", sdh1, material["A"], cv; cellset=intersect(setA, set1))
             ad2 = FerriteAssembly.AssemblyDomain("sdh1B", sdh1, material["B"], cv; cellset=intersect(setB, set1))
-            ad3 = FerriteAssembly.AssemblyDomain("sdh2A", sdh2, material["A"], cv; cellset=intersect(setA, set2))
-            ad4 = FerriteAssembly.AssemblyDomain("sdh2B", sdh2, material["B"], cv; cellset=intersect(setB, set2))
+            # For ad3 and ad4; add the full set to check correct intersection with sdh2's cellset internally. 
+            ad3 = FerriteAssembly.AssemblyDomain("sdh2A", sdh2, material["A"], cv; cellset=setA)
+            ad4 = FerriteAssembly.AssemblyDomain("sdh2B", sdh2, material["B"], cv; cellset=setB)
             buffer, states_old, states_new = setup_assembly([ad1, ad2, ad3, ad4]; autodiffbuffer=autodiff_cb, scaling=scaling, colors=colors)
             @test isa(buffer, Dict{String,<:FerriteAssembly.DomainBuffer})
             @test isa(states_old, Dict{String,<:Dict{Int}})

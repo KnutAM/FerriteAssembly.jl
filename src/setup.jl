@@ -35,12 +35,13 @@ struct DomainBuffer{TA,SDH<:SubDofHandler,CS,CB,SC}
 end
 # Sequential
 function DomainBuffer(#=colors=#::Nothing, sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffer, scaling::SC) where SC
-    cellset_ = sort!(collect(cellset)) # Saves a copy that is also sorted, making sure it is always Vector{Int}
+    cellset_ = sort!(collect(intersect(getcellset(sdh), cellset))) # Saves a copy that is also sorted, making sure it is always Vector{Int}
     return DomainBuffer{false}(sdh, cellset_, cellbuffer, scaling, SC[])
 end
 # Threaded
 function DomainBuffer(colors::Vector, sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffer, scaling)
-    cellsets = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset), colors)
+    cellset_intersect = intersect(cellset, getcellset(sdh))
+    cellsets = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset_intersect), colors)
     cellbuffers = [copy_for_threading(cellbuffer) for _ in 1:Threads.nthreads()]
     # scaling will be Tuple{T, Vector{T}} if we have multiple domains, in which case distribute_scalings just returns scaling
     # For single domains, scaling will just be T where T is the type of scaling, and distribute_scalings returns T, Vector{T}
@@ -66,6 +67,8 @@ Available keyword arguments
 - `user_data=nothing`: The `user_data` is passed to each `AbstractCellBuffer` by reference (when threaded)
 - `cache=nothing`: The `cache` is passed to each `AbstractCellBuffer`, and deepcopied if threaded. 
 - `scaling=nothing`: The scaling to be calculated, see e.g. [`ElementResidualScaling`](@ref)
+- `cellset="all cells in dh"`: Which cells to assemble. In most cases, it is better to setup `AssemblyDomain`s 
+  to assemble different domains. But this option can be used to assemble only a subset of the grid.
 """
 setup_assembly(dh::DofHandler, args...; kwargs...) = setup_assembly(SubDofHandler(dh), args...; kwargs...)
 function setup_assembly(sdh::SubDofHandler, material, cellvalues; cellset=getcellset(sdh), a=nothing,
@@ -103,22 +106,26 @@ function setup_assembly(domains::Vector{<:AssemblyDomain}; colors=nothing, scali
     new_states = Dict{String,Dict{Int}}()
     old_states = Dict{String,Dict{Int}}()
     scalings = distribute_scalings(scaling, colors)
-    num_cells = 0
-    all_cells = Set{Int}()
+    num_cells_grid = getncells(_getgrid(domains[1].sdh))
+    added_cells = sizehint!(Set{Int}(), num_cells_grid)
     for d in domains
         n = d.name
-        buffers[n], old_states[n], new_states[n] = 
+        buffer, old_states[n], new_states[n] = 
             setup_assembly(d.sdh, d.material, d.cellvalues; 
                 cellset=d.cellset, user_data=d.user_data, cache=d.cache,
                 colors=colors, scaling=scalings, kwargs...
                 )
-        num_cells += length(d.cellset)
-        all_cells = union!(all_cells, d.cellset)
-        length(all_cells) != num_cells && @warn("The domain $n has cells that overlap with previous domains")
+        buffers[n] = buffer
+        # Checks if some cells have been added before, and warn if that is the case.
+        old_num = length(added_cells)
+        num_add = sum(length, buffer.cellset) # sum(length, [1,2]) = sum([1,1]) = 2
+        # buffer.cellset is Vector{Vector} is is_threaded: flatten always works
+        union!(added_cells, Base.Iterators.flatten(buffer.cellset)) 
+        length(added_cells) < (old_num + num_add) && @warn("The domain $n has cells that overlap with previous domains")
     end
-    num_cells_grid = getncells(domains[1].sdh.dh.grid)
-    num_cells = length(all_cells)
-    num_cells != num_cells_grid && @warn("There are $num_cells_grid cells in the grid, but only $num_cells have been added")
+    # Check that all cells have been added and warn otherwise. 
+    num_cells_added = length(added_cells)
+    num_cells_grid != num_cells_added && @warn("There are $num_cells_grid cells in the grid, but only $num_cells have been added")
     return buffers, old_states, new_states
 end
 
