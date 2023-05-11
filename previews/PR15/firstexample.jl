@@ -32,13 +32,15 @@ buffer, old_states, new_states = setup_assembly(dh, ThermalMaterial(), cellvalue
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
 
-doassemble!(K, r, new_states, old_states, buffer)
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer);
+K1 = deepcopy(K); #hide
 
-colors = create_coloring(dh.grid);
+buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; threading=true);
 
-buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; colors=colors);
-
-doassemble!(K, r, new_states, old_states, buffer2);
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer2);
+K2 = deepcopy(K) #hide
 
 struct ThermalMaterialAD end
 
@@ -65,13 +67,22 @@ end;
 buffer_ad, old_states_ad, new_states_ad = setup_assembly(dh, ThermalMaterialAD(), cellvalues);
 
 a = zeros(ndofs(dh))
-doassemble!(K,r, new_states_ad, old_states_ad, buffer_ad; a=a);
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states_ad, buffer_ad; a=a);
+K3 = deepcopy(K) #hide
 
-@btime doassemble!($K, $r, $new_states, $old_states, $buffer; a=$a)
-@btime doassemble!($K, $r, $new_states_ad, $old_states_ad, $buffer_ad; a=$a)
+#@btime doassemble!($assembler, $new_states, $buffer; a=$a)
+#@btime doassemble!($assembler, $new_states_ad, $buffer_ad; a=$a)
 
 buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(), cellvalues; autodiffbuffer=true)
-@btime doassemble!($K, $r, $new_states_ad, $old_states_ad, $buffer_ad2; a=$a)
+#@btime doassemble!($assembler, $new_states_ad, $buffer_ad2; a=$a)
+
+assembler = start_assemble(K, r)                            #hide
+doassemble!(assembler, new_states_ad, buffer_ad2; a=a);     #hide
+K4 = deepcopy(K)                                            #hide
+
+using Test                                      #hide
+@test K1 ≈ K2 ≈ K3 ≈ K4                         #hide
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

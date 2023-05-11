@@ -10,14 +10,16 @@ dh = DofHandler(grid); add!(dh, :u, 3); close!(dh); # Create dofhandler
 K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
-buffer, states_old, states_new = setup_assembly(dh, material, cellvalues);
+buffer, old_states, new_states = setup_assembly(dh, material, cellvalues);
 
 a = zeros(ndofs(dh))
-doassemble!(K, r, states_new, states_old, buffer; a=a);
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer; a=a, old_states=old_states);
 
-doassemble!(K, r, states_new, states_old, buffer; a=a, Δt=1.0);
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer; a=a, old_states=old_states, Δt=1.0);
 
-update_states!(states_old, states_new);
+update_states!(old_states, new_states);
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

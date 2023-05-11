@@ -26,7 +26,7 @@ K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
 # Using the `setup_assembly` function, 
-buffer, states_old, states_new = setup_assembly(dh, material, cellvalues);
+buffer, old_states, new_states = setup_assembly(dh, material, cellvalues);
 # we setup the `buffer`, old state variables, and new state variables. 
 # The state variables are created via the [`create_cell_state`](@ref FerriteAssembly.create_cell_state) 
 # function that is already defined for `MaterialModelsBase.AbstractMaterial`
@@ -34,16 +34,18 @@ buffer, states_old, states_new = setup_assembly(dh, material, cellvalues);
 # We can now just provide an initial guess for the degree of freedom vector,`a`,
 # and do the assembly
 a = zeros(ndofs(dh))
-doassemble!(K, r, states_new, states_old, buffer; a=a);
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer; a=a, old_states=old_states);
 
 # If we would have a rate-dependent material, such that the time increment mattered,
 # we can also supply that (but that is not required in this example)
-doassemble!(K, r, states_new, states_old, buffer; a=a, Δt=1.0);
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer; a=a, old_states=old_states, Δt=1.0);
 
 # In a full FE-program we iterate until convergence to find `a`. When converged,
 # we go to the next time step, and would like to set the old state equal to the 
 # current state, which we can do by calling 
-update_states!(states_old, states_new);
+update_states!(old_states, new_states);
 
-# If we would like to access the states in any cell, states_old and states_new can be 
+# If we would like to access the states in any cell, old_states and new_states can be 
 # indexed with the cell number. 
