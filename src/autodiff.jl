@@ -50,8 +50,8 @@ for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_cellvalues,
 end
 update_time!(c::AutoDiffCellBuffer, Δt) = update_time!(c.cb, Δt)
 
-function copy_for_threading(c::AutoDiffCellBuffer)
-    cb = copy_for_threading(c.cb)
+function create_local(c::AutoDiffCellBuffer)
+    cb = create_local(c.cb)
     AutoDiffCellBuffer(cb, deepcopy(c.er), deepcopy(c.cfg))
 end
 

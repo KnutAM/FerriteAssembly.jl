@@ -1,6 +1,7 @@
 using FerriteAssembly
 import FerriteAssembly: ExampleElements
 import MaterialModelsBase as MMB
+using Test
 using Documenter
 
 const is_ci = get(ENV, "CI", "false") == "true"

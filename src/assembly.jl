@@ -1,128 +1,113 @@
-setup_assemblers(::Val{false}, K, r; fillzero=true) = start_assemble(K, r; fillzero=fillzero)
-function setup_assemblers(::Val{true}, K, r; fillzero=true)
-    assemblers = [start_assemble(K, r; fillzero=fillzero)]
-    for _ in 2:Threads.nthreads()
-        push!(assemblers, start_assemble(K, r; fillzero=false))
-    end
-    return assemblers
+# Assemble single domain
+function doassemble!(assembler, new_states, buffer::DomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    assemble_domain!(assembler, new_states, buffer, a, aold, old_states, Δt)
+end
+function doassemble!(assembler, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    threaded_assembler = TaskLocals(assembler)
+    assemble_domain!(threaded_assembler, new_states, buffer, a, aold, old_states, Δt)
+end
+function doassemble!(assembler::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    assemble_domain!(assembler, new_states, buffer, a, aold, old_states, Δt)
 end
 
-"""
-    doassemble!([K::AbstractMatrix,] r::AbstractVector, new_states, old_states, buffer; kwargs...)
-
-Assemble `K` and `r` (`element_residual` must be defined to only assemble `r`), given the `new_states`, `old_states`,
-and `buffer` returned from `setup_assembly`. The available keyword arguments are 
-
-* `a=nothing`: The current degree of freedom vector. If nothing, `ae` with `NaN` values is passed to `element_routine!`
-* `aold=nothing`: The old degree of freedom vector. If `nothing`, `get_aeold(buffer) gives a `NaN`-filled vector.
-* `Δt=NaN`: The time increment that can be accessed as `get_time_increment(buffer)` in the element routines. 
-* `fillzero=true`: Should `K` and `r` be zeroed before starting the assembly?
-
-"""
-function doassemble!(K::AbstractMatrix, r::AbstractVector, new_states::Dict{Int}, old_states::Dict{Int}, buffer::DomainBuffer; kwargs...)
-    doassemble!(K, r, Dict("noname"=>new_states), Dict("noname"=>old_states), Dict("noname"=>buffer); kwargs...)
-end
-function doassemble!(r::AbstractVector{<:Number}, new_states::Dict{Int}, old_states::Dict{Int}, buffer::DomainBuffer; kwargs...)
-    doassemble!(r, Dict("noname"=>new_states), Dict("noname"=>old_states), Dict("noname"=>buffer); kwargs...)
-end
-
-function doassemble!(K::AbstractMatrix, r::AbstractVector, new_states::Dict{String}, old_states::Dict{String}, buffers::Dict{String}; fillzero=true, kwargs...)
-    threaded = Val(iscolored(buffers))
-    assemblers = setup_assemblers(threaded, K, r; fillzero=fillzero)
-    _doassemble!(threaded, assemblers, new_states, old_states, buffers; kwargs...)
-end
-function doassemble!(r::AbstractVector{<:Number}, new_states::Dict{String}, old_states::Dict{String}, buffers::Dict{String}; fillzero=true, kwargs...)
-    threaded = Val(iscolored(buffers))
-    fillzero && fill!(r, zero(eltype(r)))
-    _doassemble!(threaded, r, new_states, old_states, buffers; kwargs...)
-end
-
-function _doassemble!(threaded::Val, assembler_or_r, new_states, old_states, buffers; a=nothing, aold=nothing, Δt=NaN)
-    buffer = first(values(buffers))
-    reset_scaling!(buffer.scaling)
-    reset_scaling!.(buffer.scalings)
+# Assemble multiple domains
+function doassemble!(assembler, new_states, buffers::Dict{String,<:DomainBuffer}; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
     for key in keys(new_states)
-        buffer = buffers[key]
-        update_time!(buffer.cellbuffer, Δt)
-        assemble_domain!(threaded, assembler_or_r, new_states[key], old_states[key], buffer, a, aold)
+        domain_old_states = isnothing(old_states) ? nothing : old_states[key]
+        assemble_domain!(assembler, new_states[key], buffers[key], a, aold, domain_old_states, Δt)
     end
-    for scaling in buffer.scalings
-        add_to_scaling!(buffer.scaling, scaling)
+end
+function doassemble!(assembler, new_states, buffers::Dict{String,<:ThreadedDomainBuffer}; kwargs...)
+    threaded_assembler = TaskLocals(assembler)
+    doassemble!(threaded_assembler, new_states, buffers; kwargs...)
+end
+function doassemble!(assembler::TaskLocals, new_states, buffers::Dict{String,<:ThreadedDomainBuffer}; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    for key in keys(new_states)
+        domain_old_states = isnothing(old_states) ? nothing : old_states[key]
+        assemble_domain!(assembler, new_states[key], buffers[key], a, aold, domain_old_states, Δt)
     end
 end
 
-function assemble_domain!(#=threaded=#::Val{false}, assembler_or_r, new_states, old_states, buffer, a, aold)
+function assemble_domain!(assembler, new_states, buffer::DomainBuffer, a, aold, old_states, Δt)
+    cellbuffer = buffer.cellbuffer
+    update_time!(cellbuffer, Δt)
     for cellnr in buffer.cellset
-        assemble_cell!(assembler_or_r, buffer.cellbuffer, buffer.sdh, cellnr, a, aold, new_states, old_states, buffer.scaling)
+        assemble_cell!(assembler, new_states, cellbuffer, buffer.sdh, cellnr, a, aold, old_states)
     end
 end
 
-function assemble_domain!(#=threaded=#::Val{true}, assemblers::Vector{<:Ferrite.AbstractSparseAssembler}, new_states, old_states, buffer, a, aold)
-    cellbuffers = buffer.cellbuffer
-    scalings = buffer.scalings
-    for cellset in buffer.cellset
+function assemble_domain!(assembler::TaskLocals, new_states, buffer::ThreadedDomainBuffer, a, aold, old_states, Δt)
+    cellbuffers = buffer.cellbuffers #::TaskLocals
+    update_time!(get_base(cellbuffers), Δt)
+    scatter!(cellbuffers)
+    scatter!(assembler)
+    for cellset in buffer.colors
         Threads.@threads :static for cellnr in cellset
             id = Threads.threadid()
-            assemble_cell!(assemblers[id], cellbuffers[id], buffer.sdh, cellnr, a, aold, new_states, old_states, scalings[id])
+            assemble_cell!(get_local(assembler, id), new_states, get_local(cellbuffers, id), buffer.sdh, cellnr, a, aold, old_states)
         end
     end
-end
-
-function assemble_domain!(#=threaded=#::Val{true}, r::Vector{<:Number}, new_states, old_states, buffer, a, aold)
-    cellbuffers = buffer.cellbuffer
-    scalings = buffer.scalings
-    for cellset in buffer.cellset
-        Threads.@threads :static for cellnr in cellset
-            id = Threads.threadid()
-            assemble_cell!(r, cellbuffers[id], buffer.sdh, cellnr, a, aold, new_states, old_states, scalings[id])
-        end
-    end
+    gather!(cellbuffers)
+    gather!(assembler)
 end
 
 """
-    assemble_cell!(assembler, cellbuffer, dh::DofHandler, cellnr, a, aold, state, Δt)
-    assemble_cell!(assembler, cellbuffer, dh::MixedDofHandler, fh::FieldHandler, cellnr, a, aold, state, Δt)
+    assemble_cell!(assembler, new_states, cellbuffer, sdh::SubDofHandler, cellnr, a, aold, old_states)
 
 Internal function to that reinitializes the `cellbuffer` and calls [`assemble_cell_reinited!`](@ref).
 """
-function assemble_cell!(assembler_or_r, cellbuffer, sdh::SubDofHandler, cellnr, a, aold, new_states, old_states, scaling)
+function assemble_cell!(assembler, new_states, cellbuffer, sdh::SubDofHandler, cellnr, a, aold, old_states)
     reinit!(cellbuffer, sdh.dh, cellnr, a, aold, old_states)
     cell_state = fast_getindex(new_states, cellnr)
-    assemble_cell_reinited!(assembler_or_r, cellbuffer, cell_state, scaling)
+    assemble_cell_reinited!(assembler, cell_state, cellbuffer)
 end
 
 """
-    assemble_cell_reinited!(assembler, cellbuffer, state, scaling)
+    assemble_cell_reinited!(assembler::Ferrite.AbstractSparseAssembler, state, cellbuffer)
 
-Internal function that assembles the cell described by the reinitialized `cellbuffer`.
+Internal function that assembles local element stiffness, `Ke`, and the local residual, `re`, 
+for the cell described by the reinitialized `cellbuffer` into the global matrix and vector in `assembler`
 """
-function assemble_cell_reinited!(assembler::Ferrite.AbstractSparseAssembler, cellbuffer, state, scaling)
+function assemble_cell_reinited!(assembler::Ferrite.AbstractSparseAssembler, state, cellbuffer)
     Ke = get_Ke(cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
     material = get_material(cellbuffer)
     cellvalues = get_cellvalues(cellbuffer)
     element_routine!(Ke, re, state, ae, material, cellvalues, cellbuffer)
-    update_scaling!(scaling, re, cellbuffer)
-    dofs = celldofs(cellbuffer)
-    assemble!(assembler, dofs, Ke, re)
+    assemble!(assembler, celldofs(cellbuffer), Ke, re)
 end
 
 """
-    assemble_cell_reinited!(assembler, cellbuffer, state, scaling)
+    assemble_cell_reinited!(assembler::KeReAssembler, state, cellbuffer)
+
+Internal function that assembles local element stiffness, `Ke`, and the local residual, `re`, 
+for the cell described by the reinitialized `cellbuffer` into the global matrix and vector in 
+`assembler`. In addition, `KeReAssembler` supports extra options, in particular
+- Local application of constraints Ferrite.apply_assemble!
+- Residual scaling factor, e.g. `ElementResidualScaling`
+"""
+function assemble_cell_reinited!(assembler::KeReAssembler, state, cellbuffer)
+    Ke = get_Ke(cellbuffer)
+    re = get_re(cellbuffer)
+    ae = get_ae(cellbuffer)
+    material = get_material(cellbuffer)
+    cellvalues = get_cellvalues(cellbuffer)
+    element_routine!(Ke, re, state, ae, material, cellvalues, cellbuffer)
+    assemble!(assembler, cellbuffer)
+end
+
+"""
+    assemble_cell_reinited!(assembler::ReAssembler, cellbuffer, state, scaling)
 
 Internal function that assembles the residual for the cell described by the reinitialized `cellbuffer`.
 """
-function assemble_cell_reinited!(r::Vector{<:Number}, cellbuffer, state, scaling)
+function assemble_cell_reinited!(assembler::ReAssembler, state, cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
     material = get_material(cellbuffer)
     cellvalues = get_cellvalues(cellbuffer)
     element_residual!(re, state, ae, material, cellvalues, cellbuffer)
-    update_scaling!(scaling, re, cellbuffer)
-    dofs = celldofs(cellbuffer)
-    # assemble!(r, dofs, re) would be nice. 
-    for (i, d) in pairs(dofs)
-        r[d] += re[i]
-    end
+    
+    assemble!(assembler, cellbuffer)
 end

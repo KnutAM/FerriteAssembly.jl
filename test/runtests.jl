@@ -19,12 +19,13 @@ include("example_elements.jl")
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     # Check error when element_residual! is not defined. material=nothing
-    buffer, states_old, states_new = setup_assembly(dh, nothing, cv)
-    buffer_ad, states_old, states_new = setup_assembly(dh, nothing, cv; autodiffbuffer=true)
+    buffer, old_states, new_states = setup_assembly(dh, nothing, cv)
+    buffer_ad, old_states, new_states = setup_assembly(dh, nothing, cv; autodiffbuffer=true)
     
     exception = ErrorException("Did not find correctly defined element_routine! or element_residual!")
-    @test_throws exception doassemble!(K, r, states_new, states_old, buffer; a=a)
-    @test_throws exception doassemble!(K, r, states_new, states_old, buffer_ad; a=a)
+    assembler = start_assemble(K, r)
+    @test_throws exception doassemble!(assembler, new_states, buffer; a=a)
+    @test_throws exception doassemble!(assembler, new_states, buffer_ad; a=a)
     
     # Check error when trying to insert a dual number into the state variables
     # Note: Not optimal as we should actually check the printed message
@@ -34,8 +35,8 @@ include("example_elements.jl")
     function FerriteAssembly.element_residual!(re, state, ae, m::_TestMaterial, args...)
         state[1] = first(ae) # Not allowed, must be state[1] = ForwardDiff.value(first(ae))
     end
-    buffer_dualissue, states_old_dualissue, states_new_dualissue = setup_assembly(dh, _TestMaterial(), cv; autodiffbuffer=true)
-    @test_throws MethodError doassemble!(K, r, states_old_dualissue, states_new_dualissue, buffer_dualissue; a=a) 
+    buffer_dualissue, old_states_dualissue, new_states_dualissue = setup_assembly(dh, _TestMaterial(), cv; autodiffbuffer=true)
+    @test_throws MethodError doassemble!(assembler, new_states_dualissue, buffer_dualissue; a=a, old_states=old_states_dualissue)
 
     printstyled("================== End of expected error messages ==================\n"; color=:green, bold=true)
 end

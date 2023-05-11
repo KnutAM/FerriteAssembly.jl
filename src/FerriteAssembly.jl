@@ -3,7 +3,7 @@ using Ferrite, ForwardDiff
 
 # Temporary solutions until Ferrite is updated
 include("SubDofHandler.jl")
-
+include("TaskLocals.jl")    # Task-local storage model 
 include("utils.jl")
 
 include("scaling.jl")
@@ -11,11 +11,13 @@ include("states.jl")
 include("CellBuffer.jl")
 include("autodiff.jl")
 
+include("Assemblers.jl")
 include("setup.jl")
 include("assembly.jl")
 
 export setup_assembly, AssemblyDomain
 export doassemble!, update_states!
+
 export ElementResidualScaling, reset_scaling!
 
 """

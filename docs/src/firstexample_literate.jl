@@ -43,21 +43,20 @@ K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
 
 # And then assemble them.
-doassemble!(K, r, new_states, old_states, buffer)
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer);
+K1 = deepcopy(K); #hide
+# where we only need to give the `new_states`, since we do not rely on the old states.
 
 # ### Threaded assembly
-# To do the assembly in the example above threaded, 
-# we need to color the grid to avoid race conditions.
-# This can be done with `Ferrite.jl`'s `create_coloring` function:
-colors = create_coloring(dh.grid);
+# To do the assembly in the example above threaded, we just tell `setup_assembly` that:
+buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; threading=true);
+# This creates a default coloring of the grid, but custom coloring can also be given.
 
-# We then just pass these colors into the `setup_assembly` function to get the apprpriate buffers:
-buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; colors=colors);
-# but this does not affect the states so we let them be as before. 
-
-# And then we can call `doassemble!` as before
-doassemble!(K, r, new_states, old_states, buffer2);
-# `K` and `r` are automatically zeroed (by default) when calling `doassemble!`
+# We can call `doassemble!` as before
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer2);
+K2 = deepcopy(K) #hide
 
 # ### Automatic differentiation
 # For elements for nonlinear coupled behavior, it can be time-consuming 
@@ -91,13 +90,23 @@ buffer_ad, old_states_ad, new_states_ad = setup_assembly(dh, ThermalMaterialAD()
 
 # In this case we need the `ae` input and must therefore define `a`:
 a = zeros(ndofs(dh))
-doassemble!(K,r, new_states_ad, old_states_ad, buffer_ad; a=a);
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states_ad, buffer_ad; a=a);
+K3 = deepcopy(K) #hide
 
 # However, explicitly defining the element stiffness was a lot faster and has less allocations
-@btime doassemble!($K, $r, $new_states, $old_states, $buffer; a=$a)
-@btime doassemble!($K, $r, $new_states_ad, $old_states_ad, $buffer_ad; a=$a)
+@btime doassemble!($assembler, $new_states, $buffer; a=$a)
+@btime doassemble!($assembler, $new_states_ad, $buffer_ad; a=$a)
 
 # By using the special [`FerriteAssembly.AutoDiffCellBuffer`](@ref) that caches some variables for
 # automatic differentiation, we can significantly improve performance. 
 buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(), cellvalues; autodiffbuffer=true)
-@btime doassemble!($K, $r, $new_states_ad, $old_states_ad, $buffer_ad2; a=$a)
+@btime doassemble!($assembler, $new_states_ad, $buffer_ad2; a=$a)
+
+assembler = start_assemble(K, r)                            #hide
+doassemble!(assembler, new_states_ad, buffer_ad2; a=a);     #hide
+K4 = deepcopy(K)                                            #hide
+
+# Test that all methods give the same stiffness #src
+using Test                                      #hide
+@test K1 ≈ K2 ≈ K3 ≈ K4                         #hide

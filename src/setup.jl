@@ -1,5 +1,5 @@
 """
-    AssemblyDomain(name, dh, material, cellvalues; cellset, user_data=nothing, cache=nothing)
+    AssemblyDomain(name, dh, material, cellvalues; cellset, colors=nothing, user_data=nothing, cache=nothing)
 
 Create an `AssemblyDomain` that can be used when calling [`setup_assembly`](@ref) to assemble multiple domains.
 `name` is used to access the corresponding `DomainBuffer` and state variables returned by `setup_assembly`. 
@@ -11,46 +11,60 @@ struct AssemblyDomain
     material::Any
     cellvalues::Union{CellValues,NamedTuple}
     cellset::Union{AbstractVector{Int},AbstractSet{Int}} # Includes UnitRange
+    colors::Any
     user_data::Any
     cache::Any
 end
-function AssemblyDomain(name, sdh, material, cellvalues; cellset=getcellset(sdh), user_data=nothing, cache=nothing)
-    return AssemblyDomain(name, sdh, material, cellvalues, cellset, user_data, cache)
+function AssemblyDomain(name, sdh, material, cellvalues; cellset=getcellset(sdh), colors=nothing, user_data=nothing, cache=nothing)
+    return AssemblyDomain(name, sdh, material, cellvalues, cellset, colors, user_data, cache)
 end
 function AssemblyDomain(name, dh::DofHandler, args...; kwargs...)
     return AssemblyDomain(name, SubDofHandler(dh), args...; kwargs...)
 end
 
-struct DomainBuffer{TA,SDH<:SubDofHandler,CS,CB,SC}
+abstract type AbstractDomainBuffer end
+
+struct DomainBuffer{SDH<:SubDofHandler,CB<:AbstractCellBuffer} <: AbstractDomainBuffer
     # TA=true if threaded, false if sequential
-    sdh::SDH        # SubDofHandler
-    cellset::CS     # Vector{Vector{Int}} or Vector{Int} (threaded vs sequential)
-    cellbuffer::CB  # Vector{AbstractCellBuffer} or AbstractCellBuffer (threaded vs sequential)
-    scaling::SC     # Note: All `DomainBuffer`s share the same `scaling` and `scalings`
-    scalings::Vector{SC} # For threaded assembly (empty for sequential)
-    function DomainBuffer{TA}(sdh::SubDofHandler, cellset, cellbuffer, scaling::SC, scalings::Vector{SC}) where {TA, SC}
-        @assert isa(TA, Bool)
-        return new{TA, typeof(sdh), typeof(cellset), typeof(cellbuffer), SC}(sdh, cellset, cellbuffer, scaling, scalings)
-    end
+    sdh::SDH                # SubDofHandler
+    cellset::Vector{Int}    # 
+    cellbuffer::CB          # AbstractCellBuffer
 end
-# Sequential
-function DomainBuffer(#=colors=#::Nothing, sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffer, scaling::SC) where SC
+function DomainBuffer(sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffer)
     cellset_ = sort!(collect(intersect(getcellset(sdh), cellset))) # Saves a copy that is also sorted, making sure it is always Vector{Int}
-    return DomainBuffer{false}(sdh, cellset_, cellbuffer, scaling, SC[])
-end
-# Threaded
-function DomainBuffer(colors::Vector, sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffer, scaling)
-    cellset_intersect = intersect(cellset, getcellset(sdh))
-    cellsets = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset_intersect), colors)
-    cellbuffers = [copy_for_threading(cellbuffer) for _ in 1:Threads.nthreads()]
-    # scaling will be Tuple{T, Vector{T}} if we have multiple domains, in which case distribute_scalings just returns scaling
-    # For single domains, scaling will just be T where T is the type of scaling, and distribute_scalings returns T, Vector{T}
-    global_scaling, perthread_scalings = distribute_scalings(scaling, colors)
-    return DomainBuffer{true}(sdh, cellsets, cellbuffers, global_scaling, perthread_scalings)
+    return DomainBuffer(sdh, cellset_, cellbuffer)
 end
 
-# iscolored(::DomainBuffer{TA}) where TA = TA
-iscolored(::Dict{String,<:DomainBuffer{TA}}) where TA = TA
+struct ThreadedDomainBuffer{SDH<:SubDofHandler, CB<:AbstractCellBuffer} <: AbstractDomainBuffer
+    sdh::SDH 
+    cellset::Vector{Int}
+    colors::Vector{Vector{Int}}
+    cellbuffers::TaskLocals{CB,CB}
+end
+# Threaded
+function ThreadedDomainBuffer(sdh::SubDofHandler, cellset, colors::Vector, cellbuffer::AbstractCellBuffer)
+    cellset_intersect = sort!(collect(intersect(cellset, getcellset(sdh))))
+    colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset_intersect), colors)
+    cellbuffers = TaskLocals(cellbuffer)
+    return ThreadedDomainBuffer(sdh, cellset_intersect, colors_intersect, cellbuffers)
+end
+
+Ferrite.getcellset(b::Union{DomainBuffer, ThreadedDomainBuffer}) = b.cellset
+
+# Type-unstable switch
+setup_domainbuffer(threaded::Bool, args...; kwargs...) = setup_domainbuffer(Val(threaded), args...; kwargs...)
+
+# Sequential
+setup_domainbuffer(::Val{false}, sdh, cellset, cellbuffer, colors) = DomainBuffer(sdh, cellset, cellbuffer)
+
+# Threaded
+function setup_domainbuffer(::Val{true}, sdh, cellset, cellbuffer, colors::Nothing)
+    _colors = create_coloring(_getgrid(sdh), cellset)
+    return ThreadedDomainBuffer(sdh, cellset, _colors, cellbuffer)
+end
+function setup_domainbuffer(::Val{true}, sdh, cellset, cellbuffer, colors)
+    return ThreadedDomainBuffer(sdh, cellset, colors, cellbuffer)
+end
 
 """
     setup_assembly(dh, material, cellvalues; kwargs...)
@@ -60,19 +74,19 @@ Returns the `buffer`, `old_states`, and `new_states` to be used in [`doassemble!
 The state variables are created by calling the user-defined [`create_cell_state`](@ref) function. 
 Available keyword arguments
 - `a=nothing`: Give the global dof vector to pass element dofs, `ae`, to `create_cell_state` (`NaN`-values otherwise)
-- `colors=nothing`: Give colors for the grid from `Ferrite.create_coloring` to setup threaded assembly. 
-  If `nothing`, the assembly is sequential.
+- `threaded=Val(false)`: Set to `Val(true)` to setup threaded assembly. More elaborate settings may be added in the future. 
 - `autodiffbuffer=Val(false)`: Set to `true` or `Val(true)` (for type stable construction) to use `AutoDiffCellBuffer`
   instead of `CellBuffer`.
 - `user_data=nothing`: The `user_data` is passed to each `AbstractCellBuffer` by reference (when threaded)
 - `cache=nothing`: The `cache` is passed to each `AbstractCellBuffer`, and deepcopied if threaded. 
-- `scaling=nothing`: The scaling to be calculated, see e.g. [`ElementResidualScaling`](@ref)
+- `colors=nothing`: Give colors for the grid from `Ferrite.create_coloring` to setup threaded colored assembly. 
+  If `nothing`, Ferrite's default coloring algorithm is used.
 - `cellset="all cells in dh"`: Which cells to assemble. In most cases, it is better to setup `AssemblyDomain`s 
   to assemble different domains. But this option can be used to assemble only a subset of the grid.
 """
 setup_assembly(dh::DofHandler, args...; kwargs...) = setup_assembly(SubDofHandler(dh), args...; kwargs...)
-function setup_assembly(sdh::SubDofHandler, material, cellvalues; cellset=getcellset(sdh), a=nothing,
-        colors=nothing, autodiffbuffer=Val(false), user_data=nothing, cache=nothing, scaling=nothing
+function setup_assembly(sdh::SubDofHandler, material, cellvalues; a=nothing, user_data=nothing, cache=nothing, 
+        autodiffbuffer=Val(false), threading=Val(false), colors=nothing, cellset=getcellset(sdh)
         )
     dofrange = create_dofrange(sdh)
     new_states = create_states(sdh, material, cellvalues, a, cellset, dofrange)
@@ -81,7 +95,7 @@ function setup_assembly(sdh::SubDofHandler, material, cellvalues; cellset=getcel
     cell_state = last(first(old_states))
     cellbuffer = setup_cellbuffer(autodiffbuffer, sdh, cellvalues, material, cell_state, dofrange, user_data, cache)
 
-    domainbuffer = DomainBuffer(colors, sdh, cellset, cellbuffer, scaling)
+    domainbuffer = setup_domainbuffer(threading, sdh, cellset, cellbuffer, colors)
 
     return domainbuffer, old_states, new_states
 end
@@ -94,44 +108,36 @@ Returns the `Dict`s `buffers`, `old_states`, and `new_states` to be used in [`do
 The state variables are created by calling the user-defined [`create_cell_state`](@ref) function. 
 Available keyword arguments
 - `a=nothing`: Give the global dof vector to pass element dofs, `ae`, to `create_cell_state` (`NaN`-values otherwise)
-- `colors=nothing`: Give colors for the grid from `Ferrite.create_coloring` to setup threaded assembly. 
-  If `nothing`, the assembly is sequential.
 - `autodiffbuffer=Val(false)`: Set to `true` or `Val(true)` (for type stable construction) to use `AutoDiffCellBuffer`
   instead of `CellBuffer`.
-- `scaling=nothing`: The scaling to be calculated, see e.g. [`ElementResidualScaling`](@ref)
+- `threading=Val(false)`: Set to `Val(true)` to setup threaded assembly. More elaborate settings may be added in the future. 
 """
-function setup_assembly(domains::Vector{<:AssemblyDomain}; colors=nothing, scaling=nothing, kwargs...)
-    is_threaded = !isnothing(colors)
-    buffers = Dict{String,DomainBuffer{is_threaded}}()
+function setup_assembly(domains::Vector{<:AssemblyDomain}; a=nothing, autodiffbuffer=Val(false), threading=Val(false))
+    buffers = Dict{String,Any}()
     new_states = Dict{String,Dict{Int}}()
     old_states = Dict{String,Dict{Int}}()
-    scalings = distribute_scalings(scaling, colors)
     num_cells_grid = getncells(_getgrid(domains[1].sdh))
     added_cells = sizehint!(Set{Int}(), num_cells_grid)
+    local buffer # Gives access after loop
     for d in domains
         n = d.name
         buffer, old_states[n], new_states[n] = 
             setup_assembly(d.sdh, d.material, d.cellvalues; 
-                cellset=d.cellset, user_data=d.user_data, cache=d.cache,
-                colors=colors, scaling=scalings, kwargs...
-                )
+                a=a, threading=threading, autodiffbuffer=autodiffbuffer, 
+                cellset=d.cellset, colors=d.colors, user_data=d.user_data, cache=d.cache)
         buffers[n] = buffer
+        
         # Checks if some cells have been added before, and warn if that is the case.
         old_num = length(added_cells)
-        num_add = sum(length, buffer.cellset) # sum(length, [1,2]) = sum([1,1]) = 2
-        # buffer.cellset is Vector{Vector} is is_threaded: flatten always works
-        union!(added_cells, Base.Iterators.flatten(buffer.cellset)) 
+        num_add = length(getcellset(buffer))
+        union!(added_cells, getcellset(buffer))
         length(added_cells) < (old_num + num_add) && @warn("The domain $n has cells that overlap with previous domains")
     end
     # Check that all cells have been added and warn otherwise. 
     num_cells_added = length(added_cells)
     num_cells_grid != num_cells_added && @warn("There are $num_cells_grid cells in the grid, but only $num_cells have been added")
-    return buffers, old_states, new_states
+    # Make the returned buffer dict have the type of buffer as a type parameter (for dispatch)
+    BT = isa(buffer, DomainBuffer) ? DomainBuffer : ThreadedDomainBuffer
+    buffers_typed = Dict{String,BT}(key=>val for (key,val) in buffers) # 
+    return buffers_typed, old_states, new_states
 end
-
-function distribute_scalings(scaling, ::Vector) # Distribute to each thread
-    return (scaling, [deepcopy(scaling) for _ in 1:Threads.nthreads()]) 
-end
-distribute_scalings(scaling, ::Nothing) = scaling   # Sequential
-# Already distributed:
-distribute_scalings(scalings::Tuple{T,Vector{T}}, ::Vector) where T = scalings

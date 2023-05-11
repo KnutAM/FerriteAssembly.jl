@@ -54,17 +54,16 @@ function setup_cellbuffer(::Val{true}, args...)
     return AutoDiffCellBuffer(setup_cellbuffer(Val(false), args...))
 end
 
-function update_time!(cv::Vector{<:AbstractCellBuffer}, Δt)
-    map(Base.Fix2(update_time!, Δt), cv)
-    return nothing
-end
-
 # Required functions for a custom CellBuffer (only required internally)
-function copy_for_threading(c::CellBuffer)
+# TaskLocals interface (only `create_local` required for other `AbstractCellBuffer`s) (unless gather! is req.)
+function create_local(c::CellBuffer)
     dcpy = (deepcopy(f) for f in (c.ae_old, c.ae, c.re, c.Ke, c.dofs, c.coords, c.cellvalues, c.Δt, c.cellid, c.dofrange, c.material, c.old_state))
     return CellBuffer(dcpy..., c.user_data, deepcopy(c.cache))
 end
-update_time!(c::CellBuffer, Δt) = (c.Δt = Δt)
+scatter!(task::AbstractCellBuffer, base::AbstractCellBuffer) = update_time!(task, get_time_increment(base))
+gather!(::AbstractCellBuffer, ::AbstractCellBuffer) = nothing
+
+update_time!(c::CellBuffer, Δt) = setfield!(c, :Δt, Δt)
 @inline get_Ke(c::CellBuffer) = c.Ke
 @inline get_re(c::CellBuffer) = c.re
 @inline get_ae(c::CellBuffer) = c.ae
@@ -152,7 +151,10 @@ The element stiffness, `c.Ke`, and residual, `c.re`, are also zeroed.
 """
 function Ferrite.reinit!(c::CellBuffer, dh::Ferrite.AbstractDofHandler, cellnum::Int, anew, aold, old_states)
     c.cellid = cellnum
-    c.old_state = fast_getindex(old_states, cellnum)
+    # `update_old_state!` could be made overloadable to make it error for certain state types 
+    update_old_state!(::Any, ::Nothing) = nothing # Allow nothing to avoid having to pass old state if not needed. 
+    update_old_state!(cb, _old_states) = (cb.old_state = fast_getindex(_old_states, cellnum))
+    update_old_state!(c, old_states)
     celldofs!(c.dofs, dh, cellnum)
     getcoordinates!(c.coords, dh.grid, cellnum)
     reinit!(c.cellvalues, c.coords)

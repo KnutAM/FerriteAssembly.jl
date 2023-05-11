@@ -15,7 +15,7 @@ in multiple iterations/time steps.
 function reset_scaling! end
 
 """
-    add_to_scaling!(base_scaling, scaling)
+    gather!(base_scaling, scaling)
 
 Add the scaling values from `scaling` to `base_scaling`. This function is used after 
 threaded assembly to put all the scaling values together into the object initially sent
@@ -24,10 +24,15 @@ to `setup_assembly`
 function add_to_scaling! end
 
 
-# Default: nothing = no scaling 
-update_scaling!(::Nothing, args...) = nothing
-reset_scaling!(::Nothing, args...) = nothing 
-add_to_scaling!(::Nothing, args...) = nothing
+# Default: NoScaling
+struct NoScaling end
+update_scaling!(::NoScaling, args...) = nothing
+reset_scaling!(::NoScaling, args...) = nothing 
+# TaskLocals interface
+create_local(s::NoScaling) = s
+gather!(::NoScaling, ::NoScaling) = nothing
+scatter!(::NoScaling, ::NoScaling) = nothing
+
 
 """
     ElementResidualScaling(dh::AbstractDofHandler, p=Val(2), T=Float64)
@@ -73,8 +78,16 @@ function reset_scaling!(s::ElementResidualScaling{T}, args...) where T
     end
 end
 
-function add_to_scaling!(base_scaling::T, scaling::T) where {T<:ElementResidualScaling}
+# TaskLocals interface
+function create_local(base::ElementResidualScaling)
+    task = deepcopy(base)
+    reset_scaling!(task)
+    return task
+end
+scatter!(::ElementResidualScaling, ::ElementResidualScaling) = nothing
+function gather!(base_scaling::T, scaling::T) where {T<:ElementResidualScaling}
     for fieldname in keys(base_scaling.factors)
         base_scaling.factors[fieldname] += scaling.factors[fieldname]
     end
+    reset_scaling!(scaling)
 end

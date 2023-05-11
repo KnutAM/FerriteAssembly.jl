@@ -12,8 +12,9 @@ end
 function assemble_test(dh, cv, m, a, aold, Δt)
     K = create_sparsity_pattern(dh)
     r = zeros(ndofs(dh))
-    buffer, states_old, states_new = setup_assembly(dh, m, cv; a=a)
-    doassemble!(K, r, states_new, states_old, buffer, a=a, aold=aold, Δt=Δt);
+    buffer, old_states, new_states = setup_assembly(dh, m, cv; a=a)
+    assembler = start_assemble(K, r)
+    doassemble!(assembler, new_states, buffer; a=a, aold=aold, old_states=old_states, Δt=Δt)
     return K, r
 end
 
