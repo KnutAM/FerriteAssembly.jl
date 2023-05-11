@@ -17,7 +17,7 @@ include("assembly.jl")
 
 export setup_assembly, AssemblyDomain
 export doassemble!, update_states!
-
+export ReAssembler, KeReAssembler
 export ElementResidualScaling, reset_scaling!
 
 """
@@ -33,7 +33,7 @@ and potentially `state_new`. The element degree of freedom values, `ae`, are fil
 `NaN`s unless `a` is passed to [`doassemble!`](@ref).
 
 The following variables can be obtained from `buffer`.
-* [`get_state_old(buffer)`](@ref FerriteAssembly.get_state_old)
+* [`get_old_state(buffer)`](@ref FerriteAssembly.get_old_state)
 * [`get_aeold(buffer)`](@ref FerriteAssembly.get_aeold)
 * [`get_time_increment(buffer)`](@ref FerriteAssembly.get_time_increment)
 * [`dof_range(buffer, fieldname::Symbol)`](@ref Ferrite.dof_range)

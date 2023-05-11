@@ -34,7 +34,7 @@ end
 
 """
 function AutoDiffCellBuffer(cb::CellBuffer)
-    cellstate = deepcopy(get_state_old(cb)) # to be safe, copy shouldn't be required. 
+    cellstate = deepcopy(get_old_state(cb)) # to be safe, copy shouldn't be required. 
     material = get_material(cb)
     cellvalues = get_cellvalues(cb)
     er = ElementResidual(cellstate, material, cellvalues, cb)
@@ -43,7 +43,7 @@ function AutoDiffCellBuffer(cb::CellBuffer)
 end
 
 for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_cellvalues, 
-        :get_aeold, :get_state_old, :get_time_increment, :get_user_data, :get_cache)
+        :get_aeold, :get_old_state, :get_time_increment, :get_user_data, :get_cache)
     eval(quote
         $op(cb::AutoDiffCellBuffer) = $op(cb.cb)
     end)

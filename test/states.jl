@@ -34,7 +34,7 @@ module TestStateModule
     end
     FerriteAssembly.create_cell_state(::MatC, cv, args...) = [StateC(0) for _ in 1:getnquadpoints(cv)]
     function FerriteAssembly.element_residual!(re, new_states::Vector{StateC}, ae, ::MatC, cv, buffer)
-        old_states = FerriteAssembly.get_state_old(buffer)
+        old_states = FerriteAssembly.get_old_state(buffer)
         for i in 1:getnquadpoints(cv)
             new_states[i] = StateC(old_states[i].counter + 1)
         end

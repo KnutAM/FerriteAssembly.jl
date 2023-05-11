@@ -113,11 +113,11 @@ Same output as dof_range(dh::DofHandler, name), but fully type-stable.
 Ferrite.getfieldnames(c::CellBuffer) = keys(c.dofrange)
 
 """
-    get_state_old(c::CellBuffer)
+    get_old_state(c::CellBuffer)
 
 Get the state variables for the cell from the previous time step. 
 """
-@inline get_state_old(c::CellBuffer) = c.old_state
+@inline get_old_state(c::CellBuffer) = c.old_state
 
 """
     get_time_increment(c::CellBuffer)

@@ -14,16 +14,6 @@ in multiple iterations/time steps.
 """
 function reset_scaling! end
 
-"""
-    gather!(base_scaling, scaling)
-
-Add the scaling values from `scaling` to `base_scaling`. This function is used after 
-threaded assembly to put all the scaling values together into the object initially sent
-to `setup_assembly`
-"""
-function add_to_scaling! end
-
-
 # Default: NoScaling
 struct NoScaling end
 update_scaling!(::NoScaling, args...) = nothing
@@ -32,7 +22,6 @@ reset_scaling!(::NoScaling, args...) = nothing
 create_local(s::NoScaling) = s
 gather!(::NoScaling, ::NoScaling) = nothing
 scatter!(::NoScaling, ::NoScaling) = nothing
-
 
 """
     ElementResidualScaling(dh::AbstractDofHandler, p=Val(2), T=Float64)
