@@ -12,12 +12,14 @@ include("CellBuffer.jl")
 include("autodiff.jl")
 
 include("Assemblers.jl")
+include("Integrators.jl")
 include("setup.jl")
 include("assembly.jl")
 
 export setup_assembly, AssemblyDomain
 export doassemble!, update_states!
 export ReAssembler, KeReAssembler
+export Integrator
 export ElementResidualScaling, reset_scaling!
 
 """

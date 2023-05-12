@@ -8,7 +8,7 @@ import MaterialModelsBase as MMB
 include("states.jl") 
 include("heatequation.jl")
 include("example_elements.jl")
-
+include("integration.jl")
 
 @testset "Errors" begin
     printstyled("=== Testing will give expected error messages, ok if tests pass! ===\n"; color=:green, bold=true)

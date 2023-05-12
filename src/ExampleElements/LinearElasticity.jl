@@ -49,3 +49,16 @@ function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::Elast
         end
     end
 end
+
+function FerriteAssembly.element_residual!(re, new_state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, buffer)
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        ϵ = function_symmetric_gradient(cv, q_point, ae)
+        σ = material.C ⊡ ϵ
+        ## Assemble residual contributions
+        for i in 1:getnbasefunctions(cv)
+            ∇δNu = shape_symmetric_gradient(cv, q_point, i)
+            re[i] += (∇δNu ⊡ σ )*dΩ
+        end
+    end
+end

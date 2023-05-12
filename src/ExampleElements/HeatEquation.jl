@@ -39,6 +39,19 @@ function FerriteAssembly.element_routine!(Ke, re, new_state, ae, m::StationaryFo
     end
 end
 
+function FerriteAssembly.element_residual!(re, new_state, ae, m::StationaryFourier, cv, args...)
+    n_basefuncs = getnbasefunctions(cv)
+    # Loop over quadrature points
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        q = -m.k*function_gradient(cv, q_point, ae)
+        for i in 1:n_basefuncs
+            ∇δN = shape_gradient(cv, q_point, i)
+            re[i] += -(∇δN ⋅ q) * dΩ
+        end
+    end
+end
+
 @doc raw"""
     TransientFourier(k, c)
 
@@ -89,6 +102,27 @@ function FerriteAssembly.element_routine!(Ke, re, new_state, ae, m::TransientFou
                 Nj = shape_value(cv, q_point, j)
                 Ke[i, j] += (m.c*δNi*Nj/Δt + m.k*(∇δNi ⋅ ∇Nj)) * dΩ
             end
+        end
+    end
+end
+
+function FerriteAssembly.element_residual!(re, new_state, ae, m::TransientFourier, cv, buffer)
+    n_basefuncs = getnbasefunctions(cv)
+    ae_old = FerriteAssembly.get_aeold(buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
+    for q_point in 1:getnquadpoints(cv)
+        # Calculate values for the current quadrature point
+        dΩ = getdetJdV(cv, q_point)
+        ∇T = function_gradient(cv, q_point, ae)
+        T = function_value(cv, q_point, ae) 
+        Told = function_value(cv, q_point, ae_old)
+        Tdot = (T-Told)/Δt
+        q = -m.k*∇T
+        # Assemble values into residual and stiffness arrays
+        for i in 1:n_basefuncs
+            δNi = shape_value(cv, q_point, i)
+            ∇δNi = shape_gradient(cv, q_point, i)
+            re[i] += (δNi*m.c*Tdot - ∇δNi ⋅ q)*dΩ
         end
     end
 end
