@@ -1,10 +1,22 @@
 # Assemblers
+The assembly process runs by calling [`doassemble!`](@ref) with a given assembler. 
+There are currently two categories of assemblers implemented, which are used to calculate
+- [System matrices and vectors](@ref Assembling-system-matrices-and-residual-vectors)
+- [Integrating a function](@ref Integration)
+
 ```@docs
 doassemble!
 ```
 
 ## Assembling system matrices and residual vectors
+In order to assemble the system matrices and residual vectors, it is necessary to define the appropriate 
+element routine and choose an assembler. The following assemblers can be used to assemble the system matrix and vector:
+- `Ferrite.AssemblerSparsityPattern` or `Ferrite.AssemblerSymmetricSparsityPattern` created with [`Ferrite.start_assemble`](https://ferrite-fem.github.io/Ferrite.jl/stable/reference/assembly/#Ferrite.start_assemble)
+- [`KeReAssembler`](@ref)
+- [`ReAssembler`](@ref)
 
+Where the ones available in `FerriteAssembly` have additional features, 
+such as the possibility of applying constraints locally (see `Ferrite.apply_assemble`) or calculate [scaling](@ref ElementResidualScaling) for the residual. 
 
 ### Element routines
 One of the element methods should be overloaded for `material`. 
@@ -15,10 +27,6 @@ FerriteAssembly.element_residual!
 ```
 
 ### Assemblers
-`Ferrite.AssemblerSparsityPattern` and `Ferrite.AssemblerSymmetricSparsityPattern` 
-are supported. These are created as described in `Ferrite.jl`'s documentation, and
-when passed to `doassemble!`, they assemble `K` and `r` as in `Ferrite.jl`. In addition,
-the following assemblers are provided by `FerriteAssemble.jl`,
 ```@docs
 KeReAssembler
 ReAssembler

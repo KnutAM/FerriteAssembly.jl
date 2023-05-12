@@ -1,4 +1,8 @@
 # The full example can be downloaded [here](firstexample.jl).
+# This example covers the following
+# 1) How to assemble the heat equation in the standard way 
+# 2) How to do the assembly threaded 
+# 3) How to use automatic differentiation
 # 
 # First we create the dofhandler and cellvalues as in 
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
@@ -56,7 +60,7 @@ buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; threading=true
 # We can call `doassemble!` as before
 assembler = start_assemble(K, r)
 doassemble!(assembler, new_states, buffer2);
-K2 = deepcopy(K) #hide
+K2 = deepcopy(K); #hide
 
 # ### Automatic differentiation
 # For elements for nonlinear coupled behavior, it can be time-consuming 
@@ -92,21 +96,22 @@ buffer_ad, old_states_ad, new_states_ad = setup_assembly(dh, ThermalMaterialAD()
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
 doassemble!(assembler, new_states_ad, buffer_ad; a=a);
-K3 = deepcopy(K) #hide
+K3 = deepcopy(K); #hide
 
 # However, explicitly defining the element stiffness was a lot faster and has less allocations
-#@btime doassemble!($assembler, $new_states, $buffer; a=$a)
-#@btime doassemble!($assembler, $new_states_ad, $buffer_ad; a=$a)
+@btime doassemble!($assembler, $new_states, $buffer; a=$a)
+@btime doassemble!($assembler, $new_states_ad, $buffer_ad; a=$a)
 
 # By using the special [`FerriteAssembly.AutoDiffCellBuffer`](@ref) that caches some variables for
-# automatic differentiation, we can significantly improve performance. 
+# automatic differentiation, we can significantly improve the performance.
 buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(), cellvalues; autodiffbuffer=true)
-#@btime doassemble!($assembler, $new_states_ad, $buffer_ad2; a=$a)
-
+@btime doassemble!($assembler, $new_states_ad, $buffer_ad2; a=$a)
+                                                            #hide
 assembler = start_assemble(K, r)                            #hide
 doassemble!(assembler, new_states_ad, buffer_ad2; a=a);     #hide
-K4 = deepcopy(K)                                            #hide
-
+K4 = deepcopy(K);                                           #hide
+                                                            #hide
 # Test that all methods give the same stiffness #src
 using Test                                      #hide
 @test K1 ≈ K2 ≈ K3 ≈ K4                         #hide
+nothing;                                        #hide

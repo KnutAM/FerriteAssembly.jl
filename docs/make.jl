@@ -30,8 +30,7 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Examples" => pushfirst!(GENERATEDEXAMPLES, "ExampleElements.md"),
-        #"Example elements" => "ExampleElements.md",
+        "Examples" => push!(GENERATEDEXAMPLES, "ExampleElements.md"),
         "Builtin elements" => "MaterialModelsBase.md",
         "User API" => [
             "Setup" => "UserAPI/Setup.md",
