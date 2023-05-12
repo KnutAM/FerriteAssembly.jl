@@ -40,7 +40,7 @@ buffer2, _, _ = setup_assembly(dh, ThermalMaterial(), cellvalues; threading=true
 
 assembler = start_assemble(K, r)
 doassemble!(assembler, new_states, buffer2);
-K2 = deepcopy(K) #hide
+K2 = deepcopy(K); #hide
 
 struct ThermalMaterialAD end
 
@@ -69,20 +69,21 @@ buffer_ad, old_states_ad, new_states_ad = setup_assembly(dh, ThermalMaterialAD()
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
 doassemble!(assembler, new_states_ad, buffer_ad; a=a);
-K3 = deepcopy(K) #hide
+K3 = deepcopy(K); #hide
 
-#@btime doassemble!($assembler, $new_states, $buffer; a=$a)
-#@btime doassemble!($assembler, $new_states_ad, $buffer_ad; a=$a)
+@btime doassemble!($assembler, $new_states, $buffer; a=$a)
+@btime doassemble!($assembler, $new_states_ad, $buffer_ad; a=$a)
 
 buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(), cellvalues; autodiffbuffer=true)
-#@btime doassemble!($assembler, $new_states_ad, $buffer_ad2; a=$a)
-
+@btime doassemble!($assembler, $new_states_ad, $buffer_ad2; a=$a)
+                                                            #hide
 assembler = start_assemble(K, r)                            #hide
 doassemble!(assembler, new_states_ad, buffer_ad2; a=a);     #hide
-K4 = deepcopy(K)                                            #hide
-
+K4 = deepcopy(K);                                           #hide
+                                                            #hide
 using Test                                      #hide
 @test K1 ≈ K2 ≈ K3 ≈ K4                         #hide
+nothing;                                        #hide
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 
