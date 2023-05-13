@@ -65,7 +65,7 @@ end
         # MatA: 
         # - Check correct values before and after update
         # - Check unaliased old and new after update_states!
-        buffer, old_states, new_states = setup_assembly(dh, MatA(), cv)
+        buffer, new_states, old_states = setup_assembly(dh, MatA(), cv)
         @test isa(old_states, Dict{Int,Vector{StateA}})
         @test old_states == new_states
         @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
@@ -84,7 +84,7 @@ end
         # MatB (not bitstype)
         # - Check correct values before and after update
         # - Check unaliased old and new after update_states!
-        buffer, old_states, new_states = setup_assembly(dh, MatB{Dim}(), cv)
+        buffer, new_states, old_states = setup_assembly(dh, MatB{Dim}(), cv)
         @test isa(old_states, Dict{Int,StateB{Dim}})
         @test old_states == new_states
         @test old_states[1] == StateB(-1, [zero(Vec{Dim}) for i in 1:getnquadpoints(cv)])
@@ -108,7 +108,7 @@ end
 
         # MatC (accumulation), using threading as well
         colors = create_coloring(grid)
-        buffer, old_states, new_states = setup_assembly(dh, MatC(), cv; colors=colors)
+        buffer, new_states, old_states = setup_assembly(dh, MatC(), cv; colors=colors)
         @test isa(old_states, Dict{Int,Vector{StateC}})
         @test old_states == new_states
         @test old_states[1][1] == StateC(0)

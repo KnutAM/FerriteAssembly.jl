@@ -1,7 +1,9 @@
 import MaterialModelsBase as MMB
 
 @doc raw"""
-    FerriteAssembly.element_routine!(Ke, re, state, ae, m::MaterialModelsBase.AbstractMaterial, args...)
+    FerriteAssembly.element_routine!(
+        Ke, re, state::Vector{<:MMB.AbstractMaterialState}, ae, 
+        m::MMB.AbstractMaterial, cv::CellVectorValues, buffer)
 
 Solve the weak form 
 ```math
@@ -38,6 +40,12 @@ function FerriteAssembly.element_routine!(
     end
 end
 
+"""
+    FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVectorValues, args...)
+
+Create a `Vector{<:MMM.AbstractMaterialState}` where each element is the output from 
+`MMB.initial_material_state(m)` and the length is the number of quadrature points in `cv`.
+"""
 function FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVectorValues, args...)
     return [MMB.initial_material_state(m) for _ in 1:getnquadpoints(cv)]
 end

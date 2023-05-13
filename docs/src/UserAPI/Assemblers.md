@@ -1,17 +1,19 @@
 # Assemblers
 The assembly process runs by calling [`doassemble!`](@ref) with a given assembler. 
 There are currently two categories of assemblers implemented, which are used to calculate
-- [System matrices and vectors](@ref Assembling-system-matrices-and-residual-vectors)
-- [Integrating a function](@ref Integration)
+- [System matrices and vectors](@ref System-matrix-and-vector)
+- [The integral of a function](@ref Integration)
 
 ```@docs
 doassemble!
 ```
 
-## Assembling system matrices and residual vectors
+## System matrix and vector
 In order to assemble the system matrices and residual vectors, it is necessary to define the appropriate 
 element routine and choose an assembler. The following assemblers can be used to assemble the system matrix and vector:
-- `Ferrite.AssemblerSparsityPattern` or `Ferrite.AssemblerSymmetricSparsityPattern` created with [`Ferrite.start_assemble`](https://ferrite-fem.github.io/Ferrite.jl/stable/reference/assembly/#Ferrite.start_assemble)
+- [`Ferrite.start_assemble`](https://ferrite-fem.github.io/Ferrite.jl/stable/reference/assembly/#Ferrite.start_assemble) that returns
+  - `Ferrite.AssemblerSparsityPattern`
+  - `Ferrite.AssemblerSymmetricSparsityPattern`
 - [`KeReAssembler`](@ref)
 - [`ReAssembler`](@ref)
 
@@ -22,7 +24,7 @@ such as the possibility of applying constraints locally (see `Ferrite.apply_asse
 One of the element methods should be overloaded for `material`. 
 Note that `cellvalues` are already `reinit!`:ed for the current cell.
 ```@docs
-FerriteAssembly.element_routine!
+FerriteAssembly.element_routine!(args...)
 FerriteAssembly.element_residual!
 ```
 

@@ -1,14 +1,16 @@
 # # Multiple materials
-# This example shows how to use two different materials on a 
-# grid with the same cells everywhere. The key with this example is how
+# *How to assemble with different materials on different parts of the grid*\
+# Specifically, how to
 # * Setup multiple [`AssemblyDomain`](@ref)s
 # * Run threaded assembly
 # 
+# ## Material modeling 
 # In addition to `J2Plasticity`, we setup a portion of the domain to use the `ElasticMaterial`
 # that is also defined in [`J2Plasticity.jl`](J2Plasticity.jl) file.
 using Tensors, MaterialModelsBase, Ferrite, FerriteAssembly
 include("J2Plasticity.jl");
 
+# ## Standard `Ferrite.jl` setup
 # We start by setting up the 
 grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)))
 cellvalues = CellVectorValues(
@@ -18,25 +20,34 @@ K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh))
 a = zeros(ndofs(dh));
 
+# ## Setting up `AssemblyDomain`s
 # In order to setup a simulation with multiple domains, we must use the 
 # [`AssemblyDomain`](@ref) structure to setup the simulation.
-# We start by creating the elastic domain,
+# We start by creating the **elastic domain**,
 addcellset!(grid, "elastic", x -> x[1] <= 5.0+eps())
-elastic_material = ElasticMaterial(E=200.0e9, ν=0.3)
-elastic_domain = AssemblyDomain("elast", dh, elastic_material, cellvalues; cellset=getcellset(grid, "elastic"));
+cellset_el = getcellset(grid, "elastic")
+material_el = ElasticMaterial(E=200.0e9, ν=0.3)
+domain_el = AssemblyDomain("elast", dh, material_el, cellvalues; cellset=cellset_el);
 
-# And then create the plastic domain
-plastic_cellset = setdiff(1:getncells(grid), getcellset(grid,"elastic"))
-plastic_material = J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9)
-plastic_domain = AssemblyDomain("plast", dh, plastic_material, cellvalues; cellset=plastic_cellset);
+# followed by the **plastic domain**
+cellset_pl = setdiff(1:getncells(grid), cellset_el)
+material_pl = J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9)
+domain_pl = AssemblyDomain("plast", dh, material_pl, cellvalues; cellset=cellset_pl);
 
-# We can then setup the assembly, and in this case we would like to do the assembly threaded
-buffers, old_states, new_states = setup_assembly([elastic_domain, plastic_domain]; threading=true);
-# In this case, `buffers`, `old_states`, and `new_states` are `Dict{String}` with keys according to the 
-# names given to each `AssemblyDomain`. This is important for postprocessing, but for doing assembly,
-# these can be passed directly:
+# And then we can set up the assembly, where `threading=true` makes it multithreaded. 
+buffers, new_states, old_states = setup_assembly([domain_el, domain_pl]; threading=true);
+# For multiple domains, `buffers`, `old_states`, and `new_states` are `Dict{String}` 
+# with keys according to the names given to each `AssemblyDomain`. 
+
+# ## Doing the assembly
+# The structure of `buffers`, `old_states`, and `new_states` is important for postprocessing, 
+# but these are passed directly for doing assembly:
 assembler = start_assemble(K, r)
 doassemble!(assembler, new_states, buffers; a=a, old_states=old_states);
+
+# ## Updating state variables
+# Updating the state variables after convergence in the current time step works as for single domains,
+update_states!(old_states, new_states);
 
 # Although the material behaviors are different, #src
 # there are no differences in the responses as the displacements are zero   #src
@@ -46,7 +57,8 @@ using Test #hide
 K_ref = create_sparsity_pattern(dh) #hide
 r_ref = zeros(ndofs(dh)) #hide
 a_ref = zeros(ndofs(dh)) #hide
-buffer, old_states, new_states = setup_assembly(dh, elastic_material, cellvalues) #hide
+buffer, new_states, old_states = setup_assembly(dh, material_el, cellvalues) #hide
 assembler_ref = start_assemble(K_ref, r_ref)
 doassemble!(assembler_ref, new_states, buffer; a=a_ref, old_states=old_states) #hide
 @test K ≈ K_ref    #hide
+nothing;           #hide

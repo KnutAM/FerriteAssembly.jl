@@ -97,7 +97,7 @@ function setup_assembly(sdh::SubDofHandler, material, cellvalues; a=nothing, use
 
     domainbuffer = setup_domainbuffer(threading, sdh, cellset, cellbuffer, colors)
 
-    return domainbuffer, old_states, new_states
+    return domainbuffer, new_states, old_states
 end
 
 """
@@ -121,7 +121,7 @@ function setup_assembly(domains::Vector{<:AssemblyDomain}; a=nothing, autodiffbu
     local buffer # Gives access after loop
     for d in domains
         n = d.name
-        buffer, old_states[n], new_states[n] = 
+        buffer, new_states[n], old_states[n] =
             setup_assembly(d.sdh, d.material, d.cellvalues; 
                 a=a, threading=threading, autodiffbuffer=autodiffbuffer, 
                 cellset=d.cellset, colors=d.colors, user_data=d.user_data, cache=d.cache)
@@ -139,5 +139,5 @@ function setup_assembly(domains::Vector{<:AssemblyDomain}; a=nothing, autodiffbu
     # Make the returned buffer dict have the type of buffer as a type parameter (for dispatch)
     BT = isa(buffer, DomainBuffer) ? DomainBuffer : ThreadedDomainBuffer
     buffers_typed = Dict{String,BT}(key=>val for (key,val) in buffers) # 
-    return buffers_typed, old_states, new_states
+    return buffers_typed, new_states, old_states
 end

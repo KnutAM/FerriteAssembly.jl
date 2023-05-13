@@ -1,16 +1,21 @@
 """
-    doassemble!(assembler, new_states::Dict{Int}, buffer::AbstractDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    doassemble!(
+        assembler, new_states::Dict{Int}, buffer::AbstractDomainBuffer; 
+        a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
 
 Use `assembler` to assemble a single domain described by `buffer`, and update `new_states` if dictated by the assembler. 
 
-    doassemble!(assembler, new_states::Dict{String}, buffers::Dict{String,AbstractDomainBuffer}; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    doassemble!(
+        assembler, new_states::Dict{String}, buffers::Dict{String,AbstractDomainBuffer}; 
+        a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
 
-Use `assembler` to assemble all domains described by `buffers`, and update `new_states` if dictated by the assembler.
+Use `assembler` to assemble the domains described by `buffers`, and update `new_states` if dictated by the assembler.
 
 The keyword arguments work as follows:
-- `a, aold`: If these are `nothing`, then `NaN` values are given to the element routine for the corresponding entry.
-- `old_states`: If `nothing`, the old state in the cellbuffer will not be updated before calling the element routine 
-- `Δt`: Directly the value returned by `get_time_increment(cellbuffer)`
+- `a, aold`: Global degree of freedom vectors. If `nothing`, `NaN` values are passed to the element routine.
+- `old_states`: Old state variables. If `nothing`, [`get_old_state`](@ref FerriteAssembly.get_old_state) 
+  will always return the initial state. 
+- `Δt`: The value returned by [`get_time_increment`](@ref FerriteAssembly.get_time_increment)
 """
 function doassemble!(assembler, new_states, buffer::DomainBuffer; kwargs...)
     sequential_assemble_domain!(assembler, new_states, buffer; kwargs...)

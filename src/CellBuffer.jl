@@ -110,19 +110,25 @@ Same output as dof_range(dh::DofHandler, name), but fully type-stable.
 """
 @inline Ferrite.dof_range(c::CellBuffer, name::Symbol) = c.dofrange[name]
 
+# Internal overload for now
 Ferrite.getfieldnames(c::CellBuffer) = keys(c.dofrange)
 
 """
     get_old_state(c::CellBuffer)
 
 Get the state variables for the cell from the previous time step. 
+
+!!! note
+    If no `old_state` keyword is passed to `doassemble!`, this variable 
+    will not be updated for the given cell, and typically contains the 
+    initial cell state. 
 """
 @inline get_old_state(c::CellBuffer) = c.old_state
 
 """
     get_time_increment(c::CellBuffer)
 
-Get the time increment, `Δt`, that was passed to `doassemble`
+Get the time increment, `Δt`, that was passed to `doassemble` (defaults to `NaN`)
 """
 @inline get_time_increment(c::CellBuffer) = c.Δt
 

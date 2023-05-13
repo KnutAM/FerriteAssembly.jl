@@ -2,6 +2,7 @@
 Note that the internal API may change without being considered a breaking change!
 
 ```@docs
+FerriteAssembly.create_states
 FerriteAssembly.assemble_cell!
 FerriteAssembly._copydofs!
 FerriteAssembly.reinit!

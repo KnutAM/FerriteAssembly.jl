@@ -1,8 +1,8 @@
 # Setup
+* To setup the assembly, call [`setup_assembly`](@ref)
+* For multiple domains, [`AssemblyDomain`](@ref)s must be created first.
 
-## Setting up
 ```@docs
 setup_assembly
 AssemblyDomain
 ```
-

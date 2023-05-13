@@ -55,7 +55,8 @@ To calculate the element tangent stiffness `Ke` automatically by using `ForwardD
 it is possible to overload `element_residual!` instead of `element_routine!`. See 
 [`element_routine!`](@ref) for a description of the input parameters. 
 
-!!! note `MethodError` with `ForwardDiff.Dual`
+!!! note 
+    `MethodError` with `ForwardDiff.Dual`\\
     When using automatic differentiation for elements with state variables (or other mutating values in e.g. cache),
     an error will be thrown if trying to change the type in many cases. 
     When mutating `new_state`, call `ForwardDiff.value()` on the value to be assigned **after** 

@@ -20,8 +20,8 @@ include("scaling.jl")
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     # Check error when element_residual! is not defined. material=nothing
-    buffer, old_states, new_states = setup_assembly(dh, nothing, cv)
-    buffer_ad, old_states, new_states = setup_assembly(dh, nothing, cv; autodiffbuffer=true)
+    buffer, new_states, old_states = setup_assembly(dh, nothing, cv)
+    buffer_ad, new_states, old_states = setup_assembly(dh, nothing, cv; autodiffbuffer=true)
     
     exception = ErrorException("Did not find correctly defined element_routine! or element_residual!")
     assembler = start_assemble(K, r)

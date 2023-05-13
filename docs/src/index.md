@@ -12,6 +12,7 @@ is to provide a simple structure for assembling in
 * *Multiple domains* with different fields, interpolations, and/or element routines.
 * Efficient *automatic differentiation* if analytical tangent is not implemented. 
 * Support for handling of (old and new) *state variables*
+* Easy [*integration*](@ref Integration) of a function over the domain
 
 ## Typical workflow
 1. Define your custom type and associated element routine (See [Example elements](@ref))
