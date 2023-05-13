@@ -1,17 +1,17 @@
 import MaterialModelsBase as MMB
 
-@doc raw"""
+"""
     FerriteAssembly.element_routine!(
         Ke, re, state::Vector{<:MMB.AbstractMaterialState}, ae, 
         m::MMB.AbstractMaterial, cv::CellVectorValues, buffer)
 
 Solve the weak form 
 ```math
-   \int_\Omega [\boldsymbol{\delta u}\otimes\nabla]^\mathrm{sym} : \boldsymbol{\sigma}\ \mathrm{d}\Omega 
-   = \int_\Gamma \boldsymbol{\delta u} \cdot \boldsymbol{t}\ \mathrm{d}\Gamma 
-   + \int_\Omega \boldsymbol{\delta u} \cdot \boldsymbol{b}\ \mathrm{d}\Omega
+   \\int_\\Omega [\\boldsymbol{\\delta u}\\otimes\\nabla]^\\mathrm{sym} : \\boldsymbol{\\sigma}\\ \\mathrm{d}\\Omega 
+   = \\int_\\Gamma \\boldsymbol{\\delta u} \\cdot \\boldsymbol{t}\\ \\mathrm{d}\\Gamma 
+   + \\int_\\Omega \\boldsymbol{\\delta u} \\cdot \\boldsymbol{b}\\ \\mathrm{d}\\Omega
 ```
-where ``\sigma`` is calculated with the `material_response` function from 
+where ``\\sigma`` is calculated with the `material_response` function from 
 [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl). 
 Note that `create_cell_state` is already implemented for `<:AbstractMaterial`. 
 """
