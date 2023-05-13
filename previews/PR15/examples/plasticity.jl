@@ -10,7 +10,7 @@ dh = DofHandler(grid); add!(dh, :u, 3); close!(dh); # Create dofhandler
 K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
-buffer, old_states, new_states = setup_assembly(dh, material, cellvalues);
+buffer, new_states, old_states = setup_assembly(dh, material, cellvalues);
 
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
