@@ -135,7 +135,7 @@ function setup_assembly(domains::Vector{<:AssemblyDomain}; a=nothing, autodiffbu
     end
     # Check that all cells have been added and warn otherwise. 
     num_cells_added = length(added_cells)
-    num_cells_grid != num_cells_added && @warn("There are $num_cells_grid cells in the grid, but only $num_cells have been added")
+    num_cells_grid != num_cells_added && @warn("There are $num_cells_grid cells in the grid, but only $num_cells_added have been added")
     # Make the returned buffer dict have the type of buffer as a type parameter (for dispatch)
     BT = isa(buffer, DomainBuffer) ? DomainBuffer : ThreadedDomainBuffer
     buffers_typed = Dict{String,BT}(key=>val for (key,val) in buffers) # 

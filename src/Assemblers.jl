@@ -2,11 +2,19 @@
 # `TaskLocals` interface
 # `assemble_cell_reinited!(assembler, state, cellbuffer)`
 
+# Defaults: Suffices to use this in if-else blocks to avoid too many dispatch layers (improve readability)
+can_thread(::Any) = false # Opt-in for threading
+need_colors(::Any) = true # Opt-out of using colors
+skip_this_domain(::Any, ::String) = false # opt-in to skip domains (used for integration)
+
 # Ferrite.AbstractSparseAssembler
 const FerriteSparseAssemblers = Union{Ferrite.AssemblerSparsityPattern, Ferrite.AssemblerSymmetricSparsityPattern}
 create_local(a::FerriteSparseAssemblers) = start_assemble(a.K, a.f; fillzero=false)
 scatter!(::FerriteSparseAssemblers, ::FerriteSparseAssemblers) = nothing
 gather!( ::FerriteSparseAssemblers, ::FerriteSparseAssemblers) = nothing
+
+can_thread(::FerriteSparseAssemblers) = true
+need_colors(::FerriteSparseAssemblers) = true
 
 """
     assemble_cell_reinited!(assembler::Ferrite.AbstractSparseAssembler, cell_state, cellbuffer)
@@ -52,6 +60,9 @@ function create_local(ra::ReAssembler)
 end
 scatter!(task::ReAssembler, base::ReAssembler) = scatter!(task.scaling, base.scaling)
 gather!(base::ReAssembler, task::ReAssembler) = gather!(base.scaling, task.scaling)
+
+can_thread(::ReAssembler) = true
+need_colors(::ReAssembler) = true # To be clear
 
 # assemble! routine
 function assemble_contributions!(ra::ReAssembler, buffer::AbstractCellBuffer)
@@ -127,6 +138,9 @@ function gather!(base::KeReAssembler, task::KeReAssembler)
     gather!(base.a, task.a)
     gather!(base.scaling, task.scaling)
 end
+
+can_thread(::KeReAssembler) = true
+need_colors(::KeReAssembler) = true # To be clear
 
 # assemble! routines
 # # No constraint handler - no local application of constraints

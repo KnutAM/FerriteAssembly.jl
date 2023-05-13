@@ -36,8 +36,9 @@ ReAssembler
 In addition to assembling system matrices and vectors, much of the internal code can be reused 
 to create quite efficient integration of values, given a solution vector (and potentially state variables)
 The general workflow assumes that [`setup_assembly`](@ref) has already been called, and that a solution 
-vector is available. Then, it is possible to call [`doassemble!`](@ref) with an `Integrator` to obtain 
-the integrated value. The following integrators are implemented
+vector is available. Then, it is possible to call [`doassemble!`](@ref) with an integrator to 
+obtain the integrated value. The following integrators are implemented
 ```@docs
+SimpleIntegrator
 Integrator
 ```

@@ -13,40 +13,52 @@ The keyword arguments work as follows:
 - `Δt`: Directly the value returned by `get_time_increment(cellbuffer)`
 """
 function doassemble!(assembler, new_states, buffer::DomainBuffer; kwargs...)
-    assemble_domain!(assembler, new_states, buffer; kwargs...)
+    sequential_assemble_domain!(assembler, new_states, buffer; kwargs...)
 end
 function doassemble!(assembler, new_states, buffer::ThreadedDomainBuffer; kwargs...)
-    threaded_assembler = TaskLocals(assembler)
-    assemble_domain!(threaded_assembler, new_states, buffer; kwargs...)
+    if can_thread(assembler)
+        threaded_assemble_domain!(TaskLocals(assembler), new_states, buffer; kwargs...)
+    else
+        sequential_assemble_domain!(assembler, new_states, buffer; kwargs...)
+    end
 end
 
 # Assemble multiple domains
-function doassemble!(assembler, new_states, buffers::Dict{String,<:DomainBuffer}; old_states=nothing, kwargs...)
-    for key in keys(new_states)
-        domain_old_states = isnothing(old_states) ? nothing : fast_getindex(old_states, key)
-        assemble_domain!(assembler, new_states[key], buffers[key]; old_states=domain_old_states, kwargs...)
+function doassemble!(assembler, new_states, buffers::Dict{String,<:DomainBuffer}; kwargs...)
+    sequential_assemble_domains!(assembler, new_states, buffers; kwargs...)
+end
+
+function doassemble!(assembler, new_states, buffers::Dict{String,<:ThreadedDomainBuffer}; kwargs...)
+    if can_thread(assembler)
+        threaded_assemble_domains!(TaskLocals(assembler), new_states, buffers; kwargs...)
+    else
+        sequential_assemble_domains!(assembler, new_states, buffers; kwargs...)
     end
 end
-function doassemble!(assembler, new_states, buffers::Dict{String,<:ThreadedDomainBuffer}; kwargs...)
-    threaded_assembler = TaskLocals(assembler)
-    threaded_doassemble!(threaded_assembler, new_states, buffers; kwargs...)
-end
-function threaded_doassemble!(assembler::TaskLocals, new_states, buffers::Dict{String,<:ThreadedDomainBuffer}; old_states=nothing, kwargs...)
+function sequential_assemble_domains!(assembler, new_states, buffers::Dict{String}; old_states=nothing, kwargs...)
     for key in keys(new_states)
+        skip_this_domain(assembler, key) && continue
         domain_old_states = isnothing(old_states) ? nothing : fast_getindex(old_states, key)
-        assemble_domain!(assembler, new_states[key], buffers[key]; old_states=domain_old_states, kwargs...)
+        sequential_assemble_domain!(assembler, new_states[key], buffers[key]; old_states=domain_old_states, kwargs...)
+    end
+end
+function threaded_assemble_domains!(assembler::TaskLocals, new_states, buffers::Dict{String,<:ThreadedDomainBuffer}; old_states=nothing, kwargs...)
+    for key in keys(new_states)
+        skip_this_domain(get_base(assembler), key) && continue
+        domain_old_states = isnothing(old_states) ? nothing : fast_getindex(old_states, key)
+        threaded_assemble_domain!(assembler, new_states[key], buffers[key]; old_states=domain_old_states, kwargs...)
     end
 end
 
-function assemble_domain!(assembler, new_states, buffer::DomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
-    cellbuffer = buffer.cellbuffer
+function sequential_assemble_domain!(assembler, new_states, buffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    cellbuffer = isa(buffer, DomainBuffer) ? buffer.cellbuffer : get_base(buffer.cellbuffers)
     update_time!(cellbuffer, Δt)
     for cellnr in buffer.cellset
         assemble_cell!(assembler, new_states, cellbuffer, buffer.sdh, cellnr, a, aold, old_states)
     end
 end
 
-function assemble_domain!(assembler::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+function threaded_assemble_domain!(assembler::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
     cellbuffers = buffer.cellbuffers #::TaskLocals
     update_time!(get_base(cellbuffers), Δt)
     scatter!(cellbuffers)

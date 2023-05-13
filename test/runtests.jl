@@ -9,6 +9,7 @@ include("states.jl")
 include("heatequation.jl")
 include("example_elements.jl")
 include("integration.jl")
+include("scaling.jl") 
 
 @testset "Errors" begin
     printstyled("=== Testing will give expected error messages, ok if tests pass! ===\n"; color=:green, bold=true)
@@ -44,3 +45,4 @@ end
 # Print show warning at the end if running tests single-threaded. 
 # During unit testing, exclude tests that must be multithreaded to pass.
 Threads.nthreads() == 1 && @warn("Threads.nthreads() == 1: Run multithreaded for full test coverage")
+# =#

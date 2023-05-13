@@ -1,8 +1,7 @@
 module FerriteAssembly
 using Ferrite, ForwardDiff
 
-# Temporary solutions until Ferrite is updated
-include("SubDofHandler.jl")
+include("SubDofHandler.jl") # Temporary solutions until Ferrite is updated
 include("TaskLocals.jl")    # Task-local storage model 
 include("utils.jl")
 
@@ -19,7 +18,7 @@ include("assembly.jl")
 export setup_assembly, AssemblyDomain
 export doassemble!, update_states!
 export ReAssembler, KeReAssembler
-export Integrator
+export Integrator, SimpleIntegrator
 export ElementResidualScaling, reset_scaling!
 
 """
