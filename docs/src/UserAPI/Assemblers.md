@@ -41,4 +41,5 @@ obtain the integrated value. The following integrators are implemented
 ```@docs
 SimpleIntegrator
 Integrator
+FerriteAssembly.integrate_cell!
 ```
