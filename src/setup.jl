@@ -33,6 +33,15 @@ function DomainBuffer(sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffe
     cellset_ = sort!(collect(intersect(getcellset(sdh), cellset))) # Saves a copy that is also sorted, making sure it is always Vector{Int}
     return DomainBuffer(sdh, cellset_, cellbuffer)
 end
+"""
+    get_material(buffer::AbstractDomainBuffer)
+    get_material(buffers::Dict{String,<:AbstractDomainBuffer}, name::String)
+
+Get the material stored in `buffer` or `buffers[name]`. Note that when called for 
+`buffers::Dict`, the output will be type-unstable and care must be taken (by e.g. function barriers)
+if used in performance sensitive locations. 
+"""
+get_material(buffer::DomainBuffer) = get_material(buffer.cellbuffer)
 
 struct ThreadedDomainBuffer{SDH<:SubDofHandler, CB<:AbstractCellBuffer} <: AbstractDomainBuffer
     sdh::SDH 
@@ -47,6 +56,8 @@ function ThreadedDomainBuffer(sdh::SubDofHandler, cellset, colors::Vector, cellb
     cellbuffers = TaskLocals(cellbuffer)
     return ThreadedDomainBuffer(sdh, cellset_intersect, colors_intersect, cellbuffers)
 end
+get_material(buffer::ThreadedDomainBuffer) = get_material(get_base(buffer.cellbuffer))
+get_material(buffers::Dict{String,<:AbstractDomainBuffer}, name::String) = get_material(buffers[name]) # Note: Not typestable!
 
 Ferrite.getcellset(b::Union{DomainBuffer, ThreadedDomainBuffer}) = b.cellset
 

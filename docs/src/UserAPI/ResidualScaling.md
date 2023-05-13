@@ -1,4 +1,4 @@
-## Residual scaling
+# Residual scaling
 There are many options for how to scale the residual in finite element simulations.
 This package does not intend to implement many different options, but does give the 
 user the option to calculate scaling contributions from each cell, which may be useful.
@@ -9,7 +9,7 @@ One type of scaling, [`ElementResidualScaling`](@ref), is included as described 
 Its code can be used as a template for how to include custom scaling that works on 
 the element level.
 
-### ElementResidualScaling
+## ElementResidualScaling
 ```@docs
 ElementResidualScaling
 ```

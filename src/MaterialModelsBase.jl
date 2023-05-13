@@ -41,6 +41,33 @@ function FerriteAssembly.element_routine!(
 end
 
 """
+    FerriteAssembly.element_residual!(
+        re, state::Vector{<:MMB.AbstractMaterialState}, ae, 
+        m::MMB.AbstractMaterial, cv::CellVectorValues, buffer)
+
+The `element_residual!` implementation corresponding to the `element_routine!` implementation
+for a `MaterialModelsBase.AbstractMaterial`
+"""
+function FerriteAssembly.element_residual!(
+    re, state_new::Vector{<:MMB.AbstractMaterialState},
+    ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
+    cache = FerriteAssembly.get_cache(buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
+    state_old = FerriteAssembly.get_old_state(buffer)
+    n_basefuncs = getnbasefunctions(cellvalues)
+    for q_point in 1:getnquadpoints(cellvalues)
+        # For each integration point, compute stress and material stiffness
+        ϵ = function_symmetric_gradient(cellvalues, q_point, ae) # Total strain
+        σ, _, state_new[q_point] = MMB.material_response(material, ϵ, state_old[q_point], Δt, cache)
+        dΩ = getdetJdV(cellvalues, q_point)
+        for i in 1:n_basefuncs
+            ∇δN = shape_symmetric_gradient(cellvalues, q_point, i)
+            re[i] += (∇δN ⊡ σ) * dΩ # add internal force to residual
+        end
+    end
+end
+
+"""
     FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVectorValues, args...)
 
 Create a `Vector{<:MMM.AbstractMaterialState}` where each element is the output from 
@@ -51,8 +78,8 @@ function FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVect
 end
 
 """
-    FerriteAssembly.allocate_cell_cache(m::MMB.AbstractMaterial)
+    FerriteAssembly.allocate_cell_cache(m::MMB.AbstractMaterial, ::Any)
 
 Create the material cache defined by the `MMB.get_cache(m)` function.
 """
-allocate_cell_cache(m::MMB.AbstractMaterial) = MMB.get_cache(m)
+allocate_cell_cache(m::MMB.AbstractMaterial, ::Any) = MMB.get_cache(m)

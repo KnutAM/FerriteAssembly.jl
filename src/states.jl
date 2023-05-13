@@ -11,7 +11,6 @@ As for the element routines, `ae`, is filled with `NaN` unless the global degree
 of freedom vector is given to the [`setup_assembly`](@ref) function.
 """
 create_cell_state(args...) = nothing
-create_cell_state(material, cellvalues, x, ae, dh_fh) = create_cell_state(material, cellvalues, x, ae) # Backwards comp
 
 """
     _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr)

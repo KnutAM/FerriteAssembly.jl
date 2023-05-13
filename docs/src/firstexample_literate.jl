@@ -102,13 +102,13 @@ doassemble!(assembler, states_ad, buffer_ad; a=a);
 K3 = deepcopy(K); #hide
 
 # However, explicitly defining the element stiffness was a lot faster and has less allocations
-@btime doassemble!($assembler, $states, $buffer; a=$a)
-@btime doassemble!($assembler, $states_ad, $buffer_ad; a=$a)
+#@btime doassemble!($assembler, $states, $buffer; a=$a)
+#@btime doassemble!($assembler, $states_ad, $buffer_ad; a=$a)
 
 # By using the special [`FerriteAssembly.AutoDiffCellBuffer`](@ref) that caches some variables for
 # automatic differentiation, we can significantly improve the performance.
 buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues; autodiffbuffer=true)
-@btime doassemble!($assembler, $states_ad, $buffer_ad2; a=$a)
+#@btime doassemble!($assembler, $states_ad, $buffer_ad2; a=$a)
                                                             #hide
 assembler = start_assemble(K, r)                            #hide
 doassemble!(assembler, states_ad, buffer_ad2; a=a);         #hide

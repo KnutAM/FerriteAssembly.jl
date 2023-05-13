@@ -42,7 +42,9 @@ vector `r`. `fillzero=true` implies that `r` is zeroed upon construction of
 `ReAssembler`. Furthermore, remaining keyword arguments can enable the following 
 features:
 - `scaling`: Calculate a scaling measure locally at the residual level, see e.g., 
-  [`ElementResidualScaling`](@ref)
+  [`ElementResidualScaling`](@ref). 
+  
+[`reset_scaling!`](@ref) is called when creating `ReAssembler`
 """
 struct ReAssembler{R<:AbstractVector, SC}
     r::R
@@ -50,6 +52,7 @@ struct ReAssembler{R<:AbstractVector, SC}
 end
 function ReAssembler(r::AbstractVector{T}; scaling=NoScaling(), fillzero=true) where T
     fillzero && fill!(r, zero(T))
+    reset_scaling!(scaling)
     return ReAssembler(r, scaling)
 end
 
@@ -105,6 +108,8 @@ that are controllable via the keyword arguments:
 
 `a=Ferrite.start_assemble(K, r; fillzero=fillzero)` is passed to the second definition 
 if a matrix, `K`, and vector, `r`, are given as input.
+
+[`reset_scaling!`](@ref) is called when creating `KeReAssembler`
 """
 struct KeReAssembler{A<:FerriteSparseAssemblers, CH, SC}
     a::A
@@ -117,6 +122,7 @@ function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, kwar
     return KeReAssembler(a; kwargs...)
 end
 function KeReAssembler(a::FerriteSparseAssemblers; apply_zero=nothing, ch=nothing, scaling=NoScaling())
+    reset_scaling!(scaling)
     if !isnothing(ch) && isnothing(apply_zero)
          throw(ArgumentError("apply_zero must be specified when `ch` is given"))
     end

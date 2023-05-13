@@ -2,15 +2,23 @@
 CurrentModule = FerriteAssembly
 ```
 
-## CellBuffer
-Variables that are used and modified for each cell of a certain type, 
-but that don't belong to a specific cell, are collected in a `CellBuffer`.
+# CellBuffer
+A `CellBuffer` contains variables that are used and modified for each cell of a certain type.
+For each cell, it is `reinit!`:ed such that values such as cell coordinates, old state variables, 
+etc. are updated to the current cell. 
 
-Note that construction of `CellBuffer` happens automatically when calling
-[`setup_assembly`](@ref), and to include `cache` or `user_data`, these 
-should be passed to `setup_assembly` (or [`AssemblyDomain`](@ref)).
+## Construction
+Construction of `CellBuffer` happens automatically when calling
+[`setup_assembly`](@ref). 
+To extra data can be included via the `user_data` keyword when calling
+`setup_assembly` or [`AssemblyDomain`](@ref).
 
-### Access functions
+To allocate cache for the element routine, overload `allocate_cell_cache`:
+```@docs
+allocate_cell_cache(::Any, ::Any)
+```
+
+## Access functions
 The following access functions can be used to extract information from 
 an `AbstractCellBuffer`.
 ```@docs
@@ -23,5 +31,4 @@ Ferrite.celldofs
 Ferrite.cellid
 get_user_data
 get_cache
-allocate_cell_cache
 ```

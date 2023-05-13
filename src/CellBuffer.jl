@@ -36,7 +36,7 @@ The given `dofrange::NamedTuple`, `user_data::Any`, and `cache::Any` are availab
 function CellBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, cellvalues, material, state, dofrange, user_data=nothing) where sdim
     Δt = NaN 
     cellid = -1
-    cache = allocate_cell_cache(material)
+    cache = allocate_cell_cache(material, cellvalues)
     return CellBuffer(
         zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
         zeros(Int, numdofs), zeros(Vec{sdim}, numnodes), 
@@ -148,13 +148,13 @@ Get the user-specified `cache` created by [`allocate_cell_cache`](@ref)
 @inline get_cache(c::CellBuffer) = c.cache
 
 """
-    FerriteAssembly.allocate_cell_cache(material)
+    FerriteAssembly.allocate_cell_cache(material, cellvalues)
 
 This function can be overloaded for the specific material to allocate 
 a cache that is stored in the `CellBuffer` which can be used to reduce 
 allocations in the element routine. Returns `nothing` by default.
 """
-allocate_cell_cache(::Any) = nothing
+allocate_cell_cache(::Any, ::Any) = nothing
 
 """
     Ferrite.reinit!(c::CellBuffer, dh::AbstractDofHandler, cellnum::Int, anew, aold)
