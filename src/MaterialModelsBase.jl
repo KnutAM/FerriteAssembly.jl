@@ -49,3 +49,10 @@ Create a `Vector{<:MMM.AbstractMaterialState}` where each element is the output 
 function FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVectorValues, args...)
     return [MMB.initial_material_state(m) for _ in 1:getnquadpoints(cv)]
 end
+
+"""
+    FerriteAssembly.allocate_cell_cache(m::MMB.AbstractMaterial)
+
+Create the material cache defined by the `MMB.get_cache(m)` function.
+"""
+allocate_cell_cache(m::MMB.AbstractMaterial) = MMB.get_cache(m)

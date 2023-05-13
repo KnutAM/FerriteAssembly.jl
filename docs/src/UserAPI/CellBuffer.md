@@ -23,4 +23,5 @@ Ferrite.celldofs
 Ferrite.cellid
 get_user_data
 get_cache
+allocate_cell_cache
 ```

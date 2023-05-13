@@ -33,9 +33,10 @@ The given `dofrange::NamedTuple`, `user_data::Any`, and `cache::Any` are availab
     This constructor is normally not used, and is instead called from [`setup_assembly`](@ref)
 
 """
-function CellBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, cellvalues, material, state, dofrange, user_data=nothing, cache=nothing) where sdim
+function CellBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, cellvalues, material, state, dofrange, user_data=nothing) where sdim
     Δt = NaN 
     cellid = -1
+    cache = allocate_cell_cache(material)
     return CellBuffer(
         zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
         zeros(Int, numdofs), zeros(Vec{sdim}, numnodes), 
@@ -43,11 +44,11 @@ function CellBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, cellvalues, materi
 end
 
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
-function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange, user_data, cache)
+function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange, user_data)
     numdofs = ndofs_per_cell(sdh)
     numnodes = Ferrite.nnodes_per_cell(sdh)
     sdim = Val(Ferrite.getdim(sdh))
-    return CellBuffer(numdofs, numnodes, sdim, cv, material, cell_state, dofrange, user_data, cache)
+    return CellBuffer(numdofs, numnodes, sdim, cv, material, cell_state, dofrange, user_data)
 end
 
 function setup_cellbuffer(::Val{true}, args...)
@@ -135,16 +136,25 @@ Get the time increment, `Δt`, that was passed to `doassemble` (defaults to `NaN
 """
     FerriteAssembly.get_user_data(c::CellBuffer)
 
-Get the user specified `user_data` given to `CellBuffer`
+Get the user specified `user_data` given to `setup_assembly` or `AssemblyDomain`
 """
 @inline get_user_data(c::CellBuffer) = c.user_data
 
 """
     FerriteAssembly.get_cache(c::CellBuffer)
 
-Get the user-specified `cache` given to the `CellBuffer`
+Get the user-specified `cache` created by [`allocate_cell_cache`](@ref)
 """
 @inline get_cache(c::CellBuffer) = c.cache
+
+"""
+    FerriteAssembly.allocate_cell_cache(material)
+
+This function can be overloaded for the specific material to allocate 
+a cache that is stored in the `CellBuffer` which can be used to reduce 
+allocations in the element routine. Returns `nothing` by default.
+"""
+allocate_cell_cache(::Any) = nothing
 
 """
     Ferrite.reinit!(c::CellBuffer, dh::AbstractDofHandler, cellnum::Int, anew, aold)

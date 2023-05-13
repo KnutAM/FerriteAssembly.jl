@@ -125,7 +125,7 @@
     cv, _, dh = setup_heatequation(DofHandler)
     reinit!(cv, getcoordinates(dh.grid,1))
     mtrl = ThermalMaterialAD()
-    cellbuffer = FerriteAssembly.setup_cellbuffer(false, FerriteAssembly.SubDofHandler(dh), cv, mtrl, [nothing], (u=dof_range(dh, :u),), nothing, nothing)
+    cellbuffer = FerriteAssembly.setup_cellbuffer(false, FerriteAssembly.SubDofHandler(dh), cv, mtrl, [nothing], (u=dof_range(dh, :u),), nothing)
     cellbuffer_ad = FerriteAssembly.AutoDiffCellBuffer(cellbuffer)
     ae = FerriteAssembly.get_ae(cellbuffer)
     re = FerriteAssembly.get_re(cellbuffer)

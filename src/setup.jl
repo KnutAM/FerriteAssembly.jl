@@ -1,5 +1,5 @@
 """
-    AssemblyDomain(name, dh, material, cellvalues; cellset, colors=nothing, user_data=nothing, cache=nothing)
+    AssemblyDomain(name, dh, material, cellvalues; cellset, colors=nothing, user_data=nothing)
 
 Create an `AssemblyDomain` that can be used when calling [`setup_assembly`](@ref) to assemble multiple domains.
 `name` is used to access the corresponding `DomainBuffer` and state variables returned by `setup_assembly`. 
@@ -13,10 +13,9 @@ struct AssemblyDomain
     cellset::Union{AbstractVector{Int},AbstractSet{Int}} # Includes UnitRange
     colors::Any
     user_data::Any
-    cache::Any
 end
-function AssemblyDomain(name, sdh, material, cellvalues; cellset=getcellset(sdh), colors=nothing, user_data=nothing, cache=nothing)
-    return AssemblyDomain(name, sdh, material, cellvalues, cellset, colors, user_data, cache)
+function AssemblyDomain(name, sdh, material, cellvalues; cellset=getcellset(sdh), colors=nothing, user_data=nothing)
+    return AssemblyDomain(name, sdh, material, cellvalues, cellset, colors, user_data)
 end
 function AssemblyDomain(name, dh::DofHandler, args...; kwargs...)
     return AssemblyDomain(name, SubDofHandler(dh), args...; kwargs...)
@@ -78,14 +77,13 @@ Available keyword arguments
 - `autodiffbuffer=Val(false)`: Set to `true` or `Val(true)` (for type stable construction) to use `AutoDiffCellBuffer`
   instead of `CellBuffer`.
 - `user_data=nothing`: The `user_data` is passed to each `AbstractCellBuffer` by reference (when threaded)
-- `cache=nothing`: The `cache` is passed to each `AbstractCellBuffer`, and deepcopied if threaded. 
 - `colors=nothing`: Give colors for the grid from `Ferrite.create_coloring` to setup threaded colored assembly. 
   If `nothing`, Ferrite's default coloring algorithm is used.
 - `cellset="all cells in dh"`: Which cells to assemble. In most cases, it is better to setup `AssemblyDomain`s 
   to assemble different domains. But this option can be used to assemble only a subset of the grid.
 """
 setup_assembly(dh::DofHandler, args...; kwargs...) = setup_assembly(SubDofHandler(dh), args...; kwargs...)
-function setup_assembly(sdh::SubDofHandler, material, cellvalues; a=nothing, user_data=nothing, cache=nothing, 
+function setup_assembly(sdh::SubDofHandler, material, cellvalues; a=nothing, user_data=nothing, 
         autodiffbuffer=Val(false), threading=Val(false), colors=nothing, cellset=getcellset(sdh)
         )
     dofrange = create_dofrange(sdh)
@@ -93,7 +91,7 @@ function setup_assembly(sdh::SubDofHandler, material, cellvalues; a=nothing, use
     old_states = create_states(sdh, material, cellvalues, a, cellset, dofrange)
 
     cell_state = last(first(old_states))
-    cellbuffer = setup_cellbuffer(autodiffbuffer, sdh, cellvalues, material, cell_state, dofrange, user_data, cache)
+    cellbuffer = setup_cellbuffer(autodiffbuffer, sdh, cellvalues, material, cell_state, dofrange, user_data)
 
     domainbuffer = setup_domainbuffer(threading, sdh, cellset, cellbuffer, colors)
 
@@ -124,7 +122,7 @@ function setup_assembly(domains::Vector{<:AssemblyDomain}; a=nothing, autodiffbu
         buffer, new_states[n], old_states[n] =
             setup_assembly(d.sdh, d.material, d.cellvalues; 
                 a=a, threading=threading, autodiffbuffer=autodiffbuffer, 
-                cellset=d.cellset, colors=d.colors, user_data=d.user_data, cache=d.cache)
+                cellset=d.cellset, colors=d.colors, user_data=d.user_data)
         buffers[n] = buffer
         
         # Checks if some cells have been added before, and warn if that is the case.
