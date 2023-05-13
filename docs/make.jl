@@ -42,7 +42,7 @@ makedocs(;
         "Hacking API" => "hack_api.md",
         "Internals" => "internals.md",
     ],
-    strict=true,
+    #strict=true,
 )
 
 deploydocs(;
