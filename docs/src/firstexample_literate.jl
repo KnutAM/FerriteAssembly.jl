@@ -41,7 +41,8 @@ end;
 # which is basically the same as in `Ferrite.jl`'s example. 
 
 # We first call `setup_assembly` to setup all the variables required to assemble:
-buffer, states = setup_assembly(dh, ThermalMaterial(1.0, 1.0), cellvalues);
+material = ThermalMaterial(1.0, 1.0)
+buffer, states = setup_assembly(dh, material, cellvalues);
 # (states are not used in this example, but must be passed anyways.)
 
 # We can now create the global residual vectors and stiffness matrix
@@ -93,7 +94,9 @@ function FerriteAssembly.element_residual!(re, state, ae,
     end
 end;
 
-buffer_ad, states_ad = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues);
+# We then create an instance of this material, and setup the assembly,
+material_ad = ThermalMaterialAD(1.0, 1.0)
+buffer_ad, states_ad = setup_assembly(dh, material_ad, cellvalues);
 
 # In this case we need the `ae` input and must therefore define `a`:
 a = zeros(ndofs(dh))
@@ -107,7 +110,7 @@ K3 = deepcopy(K); #hide
 
 # By using the special [`FerriteAssembly.AutoDiffCellBuffer`](@ref) that caches some variables for
 # automatic differentiation, we can significantly improve the performance.
-buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues; autodiffbuffer=true)
+buffer_ad2, _, _ = setup_assembly(dh, material_ad, cellvalues; autodiffbuffer=true)
 @btime doassemble!($assembler, $states_ad, $buffer_ad2; a=$a)
                                                             #hide
 assembler = start_assemble(K, r)                            #hide
