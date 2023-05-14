@@ -1,4 +1,8 @@
 # The full example can be downloaded [here](firstexample.jl).
+# This example covers the following
+# 1) How to assemble the heat equation in the standard way 
+# 2) How to do the assembly threaded 
+# 3) How to use automatic differentiation
 # 
 # First we create the dofhandler and cellvalues as in 
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
@@ -7,15 +11,15 @@ dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); add!(dh, :u, 1); clos
 cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
 
 # We start by defining the material 
-# (that normally contains material parameters but are hard-coded in the example)
-struct ThermalMaterial end;
+struct ThermalMaterial 
+    k::Float64 # Thermal conductivity
+    f::Float64 # Volumetric heat source
+end
 
 # and then define our `element_routine!` for that material as
-function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector, state, 
-    ae::AbstractVector, material::ThermalMaterial, cellvalues::CellScalarValues, 
-    dh_fh, Δt, buffer::CellBuffer
-    )
+function FerriteAssembly.element_routine!(Ke, re, state, ae, 
+        material::ThermalMaterial, cellvalues, buffer
+        )
     n_basefuncs = getnbasefunctions(cellvalues)
     ## Loop over quadrature points
     for q_point in 1:getnquadpoints(cellvalues)
@@ -24,50 +28,40 @@ function FerriteAssembly.element_routine!(
             δN  = shape_value(cellvalues, q_point, i)
             ∇δN = shape_gradient(cellvalues, q_point, i)
             ## Add body load contribution to re
-            re[i] += -δN * dΩ
+            re[i] += -material.f*δN * dΩ
             ## Loop over trial shape functions
             for j in 1:n_basefuncs
                 ∇N = shape_gradient(cellvalues, q_point, j)
                 ## Add contribution to Ke
-                Ke[i, j] += (∇δN ⋅ ∇N) * dΩ
+                Ke[i, j] += material.k*(∇δN ⋅ ∇N) * dΩ
             end
         end
     end
 end;
 # which is basically the same as in `Ferrite.jl`'s example. 
 
-# We can now create the global vectors and matrices.
+# We first call `setup_assembly` to setup all the variables required to assemble:
+buffer, states = setup_assembly(dh, ThermalMaterial(1.0, 1.0), cellvalues);
+# (states are not used in this example, but must be passed anyways.)
+
+# We can now create the global residual vectors and stiffness matrix
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
 
-# In general, each integration point (or cell if desired by the user) can have a `state`.
-# In this case, we have no state variables, but the interface still requires them.
-# We can then create states of `nothing` by 
-states = create_states(dh);
-# See [`create_states`](@ref) for more detailed options of creating actual state variables. 
-
-# The next step is gathering all variables that are shared for all elements,
-# but may be modified for or by each element in the `cellbuffer`:
-cellbuffer = setup_cellbuffer(dh, cellvalues, ThermalMaterial());
-# Note that `cellvalues` can be a `Tuple` or `NamedTuple`, 
-# this is useful for coupled problems with multiple fields. 
-
-# We then define our `assembler` and do the assembly that will modify `K` and `r`
-assembler = start_assemble(K,r)
-doassemble!(assembler, cellbuffer, states, dh);
+# And then assemble them.
+assembler = start_assemble(K, r)
+doassemble!(assembler, states, buffer);
+K1 = deepcopy(K); #hide
 
 # ### Threaded assembly
-# To do the assembly in the example above threaded, 
-# we need to color the grid to avoid race conditions.
-# This can be done with `Ferrite.jl`'s `create_coloring` function:
-colors = create_coloring(dh.grid);
+# To do the assembly in the example above threaded, we just tell `setup_assembly` that:
+threaded_buffer, _ = setup_assembly(dh, ThermalMaterial(1.0, 1.0), cellvalues; threading=true);
+# This creates a default coloring of the grid, but custom coloring can also be given.
 
-# We must also create threaded versions of the `cellbuffer` and `assembler`,
-cellbuffers = create_threaded_CellBuffers(cellbuffer)
-assemblers = create_threaded_assemblers(K, r);
-
-# And then we can call `doassemble!` as
-doassemble!(assemblers, cellbuffers, states, dh, colors);
+# We can call `doassemble!` as before
+assembler = start_assemble(K, r)
+doassemble!(assembler, states, threaded_buffer);
+K2 = deepcopy(K); #hide
 
 # ### Automatic differentiation
 # For elements for nonlinear coupled behavior, it can be time-consuming 
@@ -75,13 +69,14 @@ doassemble!(assemblers, cellbuffers, states, dh, colors);
 # advantageous to use automatic differentiation instead. This can be done 
 # automatically by defining [`element_residual!`](@ref) instead of 
 # [`element_routine!`](@ref) for the given material.
-struct ThermalMaterialAD end
+struct ThermalMaterialAD
+    k::Float64 # Thermal conductivity
+    f::Float64 # Volumetric heat source
+end
 
-function FerriteAssembly.element_residual!(
-    re::AbstractVector, state,
-    ae::AbstractVector, material::ThermalMaterialAD, cellvalues, 
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer
-    )
+function FerriteAssembly.element_residual!(re, state, ae, 
+        material::ThermalMaterialAD, cellvalues, buffer
+        )
     n_basefuncs = getnbasefunctions(cellvalues)
     ## Loop over quadrature points
     for q_point in 1:getnquadpoints(cellvalues)
@@ -93,22 +88,33 @@ function FerriteAssembly.element_residual!(
             δN  = shape_value(cellvalues, q_point, i)
             ∇δN = shape_gradient(cellvalues, q_point, i)
             ## re = fint - fext
-            re[i] += (∇δN ⋅ ∇u - δN) * dΩ
+            re[i] += (material.k*(∇δN ⋅ ∇u) - material.f*δN) * dΩ
         end
     end
 end;
 
+buffer_ad, states_ad = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues);
+
 # In this case we need the `ae` input and must therefore define `a`:
 a = zeros(ndofs(dh))
-cellbuffer2 = setup_cellbuffer(dh, cellvalues, ThermalMaterialAD())
-assembler = start_assemble(K,r)
-doassemble!(assembler, cellbuffer2, states, dh, a);
+assembler = start_assemble(K, r)
+doassemble!(assembler, states_ad, buffer_ad; a=a);
+K3 = deepcopy(K); #hide
 
 # However, explicitly defining the element stiffness was a lot faster and has less allocations
-@btime doassemble!(assembler, $cellbuffer, $states, $dh) setup=(assembler=start_assemble(K,r));
-@btime doassemble!(assembler, $cellbuffer2, $states, $dh) setup=(assembler=start_assemble(K,r));
+#@btime doassemble!($assembler, $states, $buffer; a=$a)
+#@btime doassemble!($assembler, $states_ad, $buffer_ad; a=$a)
 
-# By using the special [`AutoDiffCellBuffer`](@ref) that caches some variables for automatic differentiation,
-# we can significantly improve performance when using automatic differentiation. 
-cellbuffer3 = setup_ad_cellbuffer(states, dh, cellvalues, ThermalMaterialAD())
-@btime doassemble!(assembler, $cellbuffer3, $states, $dh) setup=(assembler=start_assemble(K,r));
+# By using the special [`FerriteAssembly.AutoDiffCellBuffer`](@ref) that caches some variables for
+# automatic differentiation, we can significantly improve the performance.
+buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues; autodiffbuffer=true)
+#@btime doassemble!($assembler, $states_ad, $buffer_ad2; a=$a)
+                                                            #hide
+assembler = start_assemble(K, r)                            #hide
+doassemble!(assembler, states_ad, buffer_ad2; a=a);         #hide
+K4 = deepcopy(K);                                           #hide
+                                                            #hide
+# Test that all methods give the same stiffness #src
+using Test                                      #hide
+@test K1 ≈ K2 ≈ K3 ≈ K4                         #hide
+nothing;                                        #hide

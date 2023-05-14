@@ -1,100 +1,84 @@
 """
-    create_cell_state(material, cellvalues, x, ae, [dh_fh])
+    create_cell_state(material, cellvalues, x, ae, dofrange)
 
 Defaults to returning `nothing`.
 
-Overload this function to create the state which should be passed 
-into the `element_routine!`/`element_residual!` for the given 
-material and cellvalues. 
-As for the element routines, `ae`, is filled with `NaN` unless the
-global degree of freedom vector is given to the 
-[`create_states`](@ref) function. 
+Overload this function to create the state which should be passed into the 
+`element_routine!`/`element_residual!` for the given `material` and `cellvalues`. 
+`x` is the cell's coordinates, `ae` the element degree of freedom values, and 
+`dofrange::NamedTuple` containing the local dof range for each field. 
+As for the element routines, `ae`, is filled with `NaN` unless the global degree 
+of freedom vector is given to the [`setup_assembly`](@ref) function.
 """
 create_cell_state(args...) = nothing
-create_cell_state(material, cellvalues, x, ae, dh_fh) = create_cell_state(material, cellvalues, x, ae) # Backwards comp
 
 """
-    _create_cell_state(cell, material, cellvalues, a, ae)
+    _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr)
 
-Internal function to extract the relevant quantities from the 
-`CellIterator`, `cell`: Pass these into the 
-`create_cell_state` function that the user should specify. 
+Internal function to reinit and extract the relevant quantities from the 
+`cell::CellCache`, reinit cellvalues, update `ae` from `a`, and 
+pass these into the `create_cell_state` function that the user should specify. 
 """
-function _create_cell_state(cell, material, cellvalues, a, ae, dh)
+function _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr)
+    reinit!(cell, cellnr)
     x = getcoordinates(cell)
-    isnothing(cellvalues) || reinit!(cellvalues, x)
+    reinit!(cellvalues, x)
     _copydofs!(ae, a, celldofs(cell))
-    return create_cell_state(material, cellvalues, x, ae, dh)
-end
-
-
-"""
-    create_states(dh::DofHandler, material=nothing, cellvalues=nothing, a=nothing)
-
-Create the state variables for the given `dh`, `material`, `cellvalues`, and global 
-dof vector `a`. `material` and `cellvalues` can be a Dict{String}, in which case they 
-should have the same keys, corresponding to cellsets in the grid. 
-This follows the same structure as for creating a `CellBuffer`.
-The function `create_cell_state` is called for each cell. 
-"""
-function create_states(dh::DofHandler, material=nothing, cellvalues=nothing, a=nothing)
-    ae = zeros(length(celldofs(dh, 1)))
-    return map(cell->_create_cell_state(cell, material, cellvalues, a, ae, dh), CellIterator(dh))
+    return create_cell_state(material, cellvalues, x, ae, dofrange)
 end
 
 """
-    create_states(dh::MixedDofHandler, material=nothing, cellvalues=nothing, a=nothing)
+    create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
 
-Create the state variables for the given `dh`, `material`, `cellvalues`, and global dof vector `a`. 
-
-`material` and `cellvalues` follow the same input structure as to `setup_cellbuffer`. 
-I.e., they can be tuples with the same length as `fh.fieldhandlers`. 
-Note that if `cellvalues::Tuple` is desired to be passed into the `create_cell_state`
-function, it must be wrapped in an outer ntuple with the same length as `fh.fieldhandlers`.
-(But using a `NamedTuple` is recommended to avoid this problem). 
-
-For multiple materials, `material::Dict{String}`, and `cellvalues` can optionally be that as well, 
-but then they must have the same keys. This follows the same structure as for creating a `CellBuffer`.
-The function `create_cell_state` is called for each cell. 
-
-The order of each call to `create_cell_state` is fixed for a given input, i.e. the loops are only 
-over sorted `Set`s and `Dict` keys. (Useful if using `StableRNGs.jl` for random variations to obtain
-reproducible results)
+Create a `Dict` of states for the cells in `cellset`, where the user should 
+define the [`create_cell_state`](@ref) function for their `material` (and corresponding `cellvalues`)
+`dofrange::NamedTuple` is passed onto `create_cell_state` and contains the local dof ranges for each field. 
 """
-function create_states(dh::MixedDofHandler, materials=nothing, cellvalues=nothing, a=nothing, cellset=nothing)
-    return create_states_for_set(dh::MixedDofHandler, materials, cellvalues, a, cellset)
+function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
+    ae = zeros(ndofs_per_cell(sdh))
+    cell = CellCache(sdh.dh)
+    return Dict(cellnr => _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr) for cellnr in cellset)
 end
 
-# Special dispatches for multiple materials in each DofHandler/FieldHandler
-# Returns Dict{String,Dict{Int}} with cellsets as "outer" keys and cellid as "inner" keys
-function create_states(dh::DofHandler, materials::Dict{String}, cellvalues=nothing, a=nothing)
-    return _dict_create_states(dh, materials, cellvalues, a)
-end
-function create_states(dh::MixedDofHandler, materials::Dict{String}, cellvalues=nothing, a=nothing)
-    return _dict_create_states(dh, materials, cellvalues, a)
-end
-function _dict_create_states(dh, materials, cellvalues, a)
-    setnames = keys(materials)
-    _cellvalues = _makedict(cellvalues, setnames)
-    return Dict(
-        setname=>create_states_for_set(dh, materials[setname], _cellvalues[setname], a, getcellset(dh,setname))
-        for setname in sort(collect(setnames)))
-end
+"""
+    update_states!(old_states, new_states)
 
-# Functions that return a Dict{Int,State}
-function create_states_for_set(dh::DofHandler, material, cellvalues, a, cellset)
-    ae = zeros(length(celldofs(dh, first(cellset))))    # Here also ok to use (dh, 1), could use Ferrite.ndofs_per_cell
-    return Dict(cellid(cell)=>_create_cell_state(cell, material, cellvalues, a, ae, dh) for cell in CellIterator(dh, sort(collect(cellset))))
-end
-function create_states_for_set(dh::MixedDofHandler, materials, cellvalues, a, cellset)
-    num_fh = length(dh.fieldhandlers)
-    materials_ = _maketuple(materials, num_fh)
-    cellvalues_ = _maketuple(cellvalues, num_fh)
-    return ntuple(i->create_states_fh(dh, dh.fieldhandlers[i], materials_[i], cellvalues_[i], a, cellset), num_fh)
-end
+Update `old_states` with the values from `new_states`. This is typically done after a converged time increment.
 
-function create_states_fh(dh::MixedDofHandler, fh::FieldHandler, material, cellvalues, a, cellset)
-    set = sort(collect(intersect_nothing(fh.cellset, cellset)))
-    ae = zeros(length(celldofs(dh, first(set))))    # Could use Ferrite.ndofs_per_cell, but not documented
-    return Dict(cellid(cell)=>_create_cell_state(cell, material, cellvalues, a, ae, fh) for cell in CellIterator(dh, set))
+This method tries to avoid allocating new values where possible. 
+Currently, if [`create_cell_state`](@ref) returns `T` or `Vector{T}` where `isbitstype(T)`, this works.
+
+If needed/wanted, it should be relatively easy to provide an interface to make it possible to have allocation free 
+for custom cell states.
+""" 
+function update_states!(old_states::T, new_states::T) where T<:Union{Dict{String,<:Dict{Int}}, Dict{Int,<:Vector}}
+    for (key, new_s) in new_states
+        update_states!(old_states[key], new_s)
+    end
 end
+function update_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing}}
+    return nothing 
+end
+@inline function update_states!(old_states::T, new_states::T) where T<:Union{Vector{ET},Dict{Int,ET}} where ET
+    copy_states!(Val(isbitstype(ET)), old_states, new_states)
+end
+@inline copy_states!(::Val{true},  old_states, new_states) = copy!(old_states,new_states)
+@inline copy_states!(::Val{false}, old_states, new_states) = copy!(old_states,deepcopy(new_states))
+
+#= # Something like this with replacing old_states[key] = deepcopy(new_s) with 
+# copy_states!(old_states, key, new_s) to dispatch on new_s could work, 
+# but otherwise directy copy!(dst, deepcopy(src)) seems better
+function copy_states!(::Val{false}, old_states, new_states)
+    for (key, new_s) in pairs(new_states)
+        old_states[key] = deepcopy(new_s)
+    end
+end
+=#
+
+#= # Not used anymore (required if states are stored as vectors at top level instad of Dict{Int})
+function update_states!(old_states::T, new_states::T) where T<:Vector{<:Vector}
+    for (old_s, new_s) in zip(old_states, new_states)
+        update_states!(old_s, new_s)
+    end
+end
+=#

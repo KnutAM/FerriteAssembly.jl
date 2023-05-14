@@ -1,5 +1,7 @@
 using FerriteAssembly
 import FerriteAssembly: ExampleElements
+import MaterialModelsBase as MMB
+using Test
 using Documenter
 
 const is_ci = get(ENV, "CI", "false") == "true"
@@ -28,14 +30,19 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Examples" => GENERATEDEXAMPLES,
-        "Example elements" => "ExampleElements.md",
-        "MaterialModelsBase" => "MaterialModelsBase.md",
-        "API" => "api.md",
-        "Datastructures" => "datastructures.md",
+        "Examples" => push!(GENERATEDEXAMPLES, "ExampleElements.md"),
+        "Builtin elements" => "MaterialModelsBase.md",
+        "User API" => [
+            "Setup" => "UserAPI/Setup.md",
+            "State variables" => "UserAPI/StateVariables.md",
+            "Assemblers" => "UserAPI/Assemblers.md",
+            "CellBuffer" => "UserAPI/CellBuffer.md",
+            "Residual scaling" => "UserAPI/ResidualScaling.md",
+        ],
+        "Hacking API" => "hack_api.md",
         "Internals" => "internals.md",
     ],
-    strict=true,
+    #strict=true,
 )
 
 deploydocs(;

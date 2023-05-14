@@ -1,13 +1,6 @@
 # generate examples
 import Literate
 
-function replace_include_function(filename::String)
-    pat = "include(\"$filename\")"
-    rep = read(joinpath(@__DIR__, "src", "literate", filename), String)
-    return str -> replace(str, pat=>rep)
-end
-
-
 function build_examples(examples)
     EXAMPLEDIR = joinpath(@__DIR__, "src", "literate")
     GENERATEDDIR = joinpath(@__DIR__, "src", "examples")
@@ -35,9 +28,7 @@ function build_examples(examples)
         code_clean = join(filter(x->!endswith(x,"#hide"),split(code, r"\n|\r\n")), line_ending_symbol)
 
         mdpost(str) = replace(str, "@__CODE__" => code_clean)
-        prepost = example!="plasticity.jl" ? identity :
-            replace_include_function("J2Plasticity.jl") ∘ replace_include_function("MaterialModelsBaseElement.jl")
-        Literate.markdown(input, GENERATEDDIR, preprocess = prepost, postprocess = mdpost)
+        Literate.markdown(input, GENERATEDDIR, postprocess = mdpost)
         Literate.notebook(input, GENERATEDDIR, execute = is_ci) # Don't execute locally
     end
 

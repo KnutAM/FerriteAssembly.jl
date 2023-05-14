@@ -1,75 +1,64 @@
 # # Multiple materials
-# This example shows how to use two different materials on a 
-# grid with the same cells everywhere. Hence, the only difference 
-# is the type of material and the state variables. 
-# We start by including the necessary packages, as well as the 
-# [`J2Plasticity.jl`](J2Plasticity.jl) and 
-# [`MaterialModelsBaseElement.jl`](MaterialModelsBaseElement.jl)
-# files from the previous example. 
+# *How to assemble with different materials on different parts of the grid*\
+# Specifically, how to
+# * Setup multiple [`AssemblyDomain`](@ref)s
+# * Run threaded assembly
+# 
+# ## Material modeling 
+# In addition to `J2Plasticity`, we setup a portion of the domain to use the `ElasticMaterial`
+# that is also defined in [`J2Plasticity.jl`](J2Plasticity.jl) file.
 using Tensors, MaterialModelsBase, Ferrite, FerriteAssembly
 include("J2Plasticity.jl");
-include("MaterialModelsBaseElement.jl");
 
-# Then, we also define an elastic material 
-struct ElasticMaterial{T<:SymmetricTensor{4,3}} <: AbstractMaterial
-    D::T
-end
-function ElasticMaterial(;E, ν)
-    D, _, _ = elastic_conversion(E, ν)
-    return ElasticMaterial(D)
-end;
-
-# This material requires not state, so `MaterialModelsBase.jl`'s `NoMaterialState`
-# will be created by default. Hence, we only need to define the `material_response`
-function MaterialModelsBase.material_response(
-    material::ElasticMaterial, ϵ::SymmetricTensor{2,3}, state, 
-    Δt, cache=get_cache(material), args...; kwargs...)
-    σ = material.D ⊡ ϵ
-    return σ, material.D, NoMaterialState()
-end;
-
-# The same `element_routine!` as before can be used, defined in 
-# [`MaterialModelsBaseElement.jl`](MaterialModelsBaseElement.jl).
-# Hence, we just need to define the materials, grid, cellvalues etc.
-materials = Dict(
-    "elastic" => ElasticMaterial(E=200.0e9, ν=0.3),
-    "plastic" => J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9));
-grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)));
+# ## Standard `Ferrite.jl` setup
+# We start by setting up the 
+grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)))
 cellvalues = CellVectorValues(
-    QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}());
-dh = DofHandler(grid); add!(dh, :u, 3); close!(dh); # Create dofhandler
-K = create_sparsity_pattern(dh);
-r = zeros(ndofs(dh));
+    QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
+dh = DofHandler(grid); add!(dh, :u, 3); close!(dh) # Create dofhandler
+K = create_sparsity_pattern(dh)
+r = zeros(ndofs(dh))
+a = zeros(ndofs(dh));
 
-# We then define the cellsets where with the same key as each material in `materials`
+# ## Setting up `AssemblyDomain`s
+# In order to setup a simulation with multiple domains, we must use the 
+# [`AssemblyDomain`](@ref) structure to setup the simulation.
+# We start by creating the **elastic domain**,
 addcellset!(grid, "elastic", x -> x[1] <= 5.0+eps())
-addcellset!(grid, "plastic", setdiff(1:getncells(grid), getcellset(grid,"elastic")));
+cellset_el = getcellset(grid, "elastic")
+material_el = ElasticMaterial(E=200.0e9, ν=0.3)
+domain_el = AssemblyDomain("elast", dh, material_el, cellvalues; cellset=cellset_el);
 
-# The `create_states` function will then create the correct datastructure for the 
-# states, (one Dict{Int} for each `material`)
-states = create_states(dh, materials, cellvalues);
+# followed by the **plastic domain**
+cellset_pl = setdiff(1:getncells(grid), cellset_el)
+material_pl = J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9)
+domain_pl = AssemblyDomain("plast", dh, material_pl, cellvalues; cellset=cellset_pl);
 
-# If desired, we can create a cache based on `MaterialModelsBase`, even though not used in this 
-# example (we could also skip passing this to `setup_cellbuffer`)
-caches = Dict(key=>get_cache(mat) for (key,mat) in materials);
+# And then we can set up the assembly, where `threading=true` makes it multithreaded. 
+buffers, new_states, old_states = setup_assembly([domain_el, domain_pl]; threading=true);
+# For multiple domains, `buffers`, `old_states`, and `new_states` are `Dict{String}` 
+# with keys according to the names given to each `AssemblyDomain`. 
 
-# Then we create the cell buffers
-buffers = setup_cellbuffer(dh, cellvalues, materials, nothing, caches);
-
-# And then we define the displacements and the assembler, before assembling
-a = zeros(ndofs(dh))
+# ## Doing the assembly
+# The structure of `buffers`, `old_states`, and `new_states` is important for postprocessing, 
+# but these are passed directly for doing assembly:
 assembler = start_assemble(K, r)
-doassemble!(assembler, buffers, states, dh, a);
+doassemble!(assembler, new_states, buffers; a=a, old_states=old_states);
+
+# ## Updating state variables
+# Updating the state variables after convergence in the current time step works as for single domains,
+update_states!(old_states, new_states);
 
 # Although the material behaviors are different, #src
 # there are no differences in the responses as the displacements are zero   #src
 # Hence, we can verify that we get the same stiffness in both cases     #src
 # Running a test to be sure #src
 using Test #hide
-K_ref = create_sparsity_pattern(dh); #hide
-r_ref = zeros(ndofs(dh)); #hide
-states_ref = create_states(dh, materials["elastic"], cellvalues); #hide
+K_ref = create_sparsity_pattern(dh) #hide
+r_ref = zeros(ndofs(dh)) #hide
 a_ref = zeros(ndofs(dh)) #hide
-assembler_ref = start_assemble(K_ref,r_ref) #hide
-doassemble!(assembler_ref, buffers["elastic"], states_ref, dh, a_ref); #hide
-@test K ≈ K_ref; #hide
+buffer, new_states, old_states = setup_assembly(dh, material_el, cellvalues) #hide
+assembler_ref = start_assemble(K_ref, r_ref)
+doassemble!(assembler_ref, new_states, buffer; a=a_ref, old_states=old_states) #hide
+@test K ≈ K_ref    #hide
+nothing;           #hide

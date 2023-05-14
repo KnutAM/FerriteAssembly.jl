@@ -18,36 +18,11 @@ end
 _copydofs!(edofs::Vector, ::Nothing, args...) = fill!(edofs, NaN)
 
 """
-    _maketuple(t, n)
+    fast_getindex(collection)
 
-If `t` is a tuple, check that length(t)=n and return `t`. 
-Otherwise, return a tuple of length `n` with `t` as every element
+If the output is known from the element type of the collection, this can be returned 
+directly. Currently, this is implemented for `AbstractDict` with `Nothing` as type,
+which takes away overhead when state variables are not used. 
 """
-function _maketuple(t::Tuple, n::Int)
-    length(t) == n || throw(DimensionMismatch("length(t)=$(length(t))!=n=$n"))
-    return t
-end
-_maketuple(t, n::Int) = ntuple(Returns(t), n)
-
-"""
-    _makedict(d, d_keys)
-
-If `d::Dict` then check that it has all keys in `d_keys` (if not throw KeyError).
-Otherwise, return a `Dict` with keys `d_keys` and `d` as every element
-"""
-_makedict(d, d_keys) = Dict(key=>d for key in d_keys)
-function _makedict(d::Dict, d_keys)
-    all(key->in(key, keys(d)), d_keys) || throw(KeyError("d is missing keys"))
-    return d
-end
-
-"""
-    intersect_nothing(a, b)
-
-A faster intersect if `cellset::Nothing`, otherwise calls Base.intersect
-"""
-@inline intersect_nothing(a, ::Nothing) = a
-@inline intersect_nothing(a, b) = intersect(a, b)
-
-_hasfieldname(fh::FieldHandler, name::Symbol) = !isnothing(findfirst(field->field.name==name, fh.fields))
-_hasfieldname(dh::Ferrite.AbstractDofHandler, field_name::Symbol) = field_name ∈ Ferrite.getfieldnames(dh)
+@inline fast_getindex(::AbstractDict{<:Any,Nothing}, key) = nothing
+@inline fast_getindex(x, key) = getindex(x, key)

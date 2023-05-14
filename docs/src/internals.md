@@ -2,13 +2,12 @@
 Note that the internal API may change without being considered a breaking change!
 
 ```@docs
+FerriteAssembly.create_states
 FerriteAssembly.assemble_cell!
-FerriteAssembly.inner_doassemble!
-FerriteAssembly.assemble_cell_reinited!
 FerriteAssembly._copydofs!
-FerriteAssembly._maketuple
-FerriteAssembly._makedict
 FerriteAssembly.reinit!
-FerriteAssembly.intersect_nothing
 FerriteAssembly._create_cell_state
+FerriteAssembly.CellBuffer
+FerriteAssembly.AutoDiffCellBuffer
+FerriteAssembly.fast_getindex
 ```

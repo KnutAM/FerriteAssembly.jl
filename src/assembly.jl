@@ -1,238 +1,90 @@
 """
-    create_threaded_assemblers(K, r; nthreads=Threads.nthreads())
-
-Convenience function for creating a `nthreads` long vector with the 
-output of `start_assemble` as elements
-"""
-create_threaded_assemblers(K, r; nthreads=Threads.nthreads()) = [start_assemble(K,r) for _ in 1:nthreads]
-
-""" 
     doassemble!(
-        assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 
-        s::AbstractVector, dh::DofHandler, 
-        a=nothing, aold=nothing, Δt=NaN, scaling=nothing; cellset=1:ncells
-        )
+        assembler, new_states::Dict{Int}, buffer::AbstractDomainBuffer; 
+        a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
 
-Sequential assembly of cells with the `dh::DofHandler`.
-* `assembler` is obtained from `Ferrite.jl`'s `start_assemble(K,r)` function
-* `cellbuffer` contains buffers for the specific cell. 
-  See  [`CellBuffer`](@ref) for more info. 
-* `s` is a collection (vector, dict, etc.) of state variables, where indexing 
-  by `cellnr` gives the state variables for that cell. 
-* `a` and `aold` are the current and old unknowns (can be set to `nothing` if not used)
-* `Δt` is the time increment passed into each element routine
-* `scaling` allows including element data in order to scale the residuals, 
-  see [Residual scaling](@ref)
+Use `assembler` to assemble a single domain described by `buffer`, and update `new_states` if dictated by the assembler. 
+
+    doassemble!(
+        assembler, new_states::Dict{String}, buffers::Dict{String,AbstractDomainBuffer}; 
+        a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+
+Use `assembler` to assemble the domains described by `buffers`, and update `new_states` if dictated by the assembler.
+
+The keyword arguments work as follows:
+- `a, aold`: Global degree of freedom vectors. If `nothing`, `NaN` values are passed to the element routine.
+- `old_states`: Old state variables. If `nothing`, [`get_old_state`](@ref FerriteAssembly.get_old_state) 
+  will always return the initial state. 
+- `Δt`: The value returned by [`get_time_increment`](@ref FerriteAssembly.get_time_increment)
 """
-function doassemble!(
-    assembler::Ferrite.AbstractSparseAssembler, cellbuffer::AbstractCellBuffer, 
-    states, dh::DofHandler, a=nothing, aold=nothing, Δt=NaN, scaling=nothing; 
-    cellset=1:Ferrite.getncells(dh)
-    )
-    for cellnr in cellset
-        assemble_cell!(assembler, cellbuffer, dh, cellnr, a, aold, states[cellnr], Δt, scaling)
+function doassemble!(assembler, new_states, buffer::DomainBuffer; kwargs...)
+    sequential_assemble_domain!(assembler, new_states, buffer; kwargs...)
+end
+function doassemble!(assembler, new_states, buffer::ThreadedDomainBuffer; kwargs...)
+    if can_thread(assembler)
+        threaded_assemble_domain!(TaskLocals(assembler), new_states, buffer; kwargs...)
+    else
+        sequential_assemble_domain!(assembler, new_states, buffer; kwargs...)
     end
 end
 
-""" 
-    doassemble!(
-        assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-        cellbuffers::Vector{<:AbstractCellBuffer}, states, 
-        dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
-        a=nothing, aold=nothing, Δt=NaN, 
-        scalings::Vector=create_threaded_scalings(nothing);
-        cellset=nothing
-        )
+# Assemble multiple domains
+function doassemble!(assembler, new_states, buffers::Dict{String,<:DomainBuffer}; kwargs...)
+    sequential_assemble_domains!(assembler, new_states, buffers; kwargs...)
+end
 
-Threaded assembly of cells with the `dh::DofHandler`.
-* `assemblers` are assemblers for each thread, which can be obtained
-  with the [`create_threaded_assemblers`](@ref) function. 
-* `cellbuffers` contains buffers for the specific cell,
-  for each thread. This can be created by [`create_threaded_CellBuffers`](@ref). 
-  See also [`CellBuffer`](@ref) for more info.
-* `states`, `a`, `aold`, and `Δt` are the same as for the 
-  sequential `doassemble!`
-* `colored_sets` are cellsets for each color
-"""
-function doassemble!(
-    assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-    cellbuffers::Vector{<:AbstractCellBuffer}, states, 
-    dh::DofHandler, colored_sets::Vector{Vector{Int}}, 
-    a=nothing, aold=nothing, Δt=NaN, 
-    scalings::Vector=create_threaded_scalings(nothing); 
-    cellset=nothing
-    )
-    check_threaded_dimensions(assemblers, cellbuffers, scalings)
-    for colorset in colored_sets
-        Threads.@threads :static for cellnr in intersect_nothing(colorset, cellset)
+function doassemble!(assembler, new_states, buffers::Dict{String,<:ThreadedDomainBuffer}; kwargs...)
+    if can_thread(assembler)
+        threaded_assemble_domains!(TaskLocals(assembler), new_states, buffers; kwargs...)
+    else
+        sequential_assemble_domains!(assembler, new_states, buffers; kwargs...)
+    end
+end
+function sequential_assemble_domains!(assembler, new_states, buffers::Dict{String}; old_states=nothing, kwargs...)
+    for key in keys(new_states)
+        skip_this_domain(assembler, key) && continue
+        domain_old_states = isnothing(old_states) ? nothing : fast_getindex(old_states, key)
+        sequential_assemble_domain!(assembler, new_states[key], buffers[key]; old_states=domain_old_states, kwargs...)
+    end
+end
+function threaded_assemble_domains!(assembler::TaskLocals, new_states, buffers::Dict{String,<:ThreadedDomainBuffer}; old_states=nothing, kwargs...)
+    for key in keys(new_states)
+        skip_this_domain(get_base(assembler), key) && continue
+        domain_old_states = isnothing(old_states) ? nothing : fast_getindex(old_states, key)
+        threaded_assemble_domain!(assembler, new_states[key], buffers[key]; old_states=domain_old_states, kwargs...)
+    end
+end
+
+function sequential_assemble_domain!(assembler, new_states, buffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    cellbuffer = isa(buffer, DomainBuffer) ? buffer.cellbuffer : get_base(buffer.cellbuffers)
+    update_time!(cellbuffer, Δt)
+    for cellnr in buffer.cellset
+        assemble_cell!(assembler, new_states, cellbuffer, buffer.sdh, cellnr, a, aold, old_states)
+    end
+end
+
+function threaded_assemble_domain!(assembler::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    cellbuffers = buffer.cellbuffers #::TaskLocals
+    update_time!(get_base(cellbuffers), Δt)
+    scatter!(cellbuffers)
+    scatter!(assembler)
+    for cellset in buffer.colors
+        Threads.@threads :static for cellnr in cellset
             id = Threads.threadid()
-            assemble_cell!(assemblers[id], cellbuffers[id], dh, cellnr, a, aold, states[cellnr], Δt, scalings[id])
+            assemble_cell!(get_local(assembler, id), new_states, get_local(cellbuffers, id), buffer.sdh, cellnr, a, aold, old_states)
         end
     end
+    gather!(cellbuffers)
+    gather!(assembler)
 end
 
 """
-    doassemble!(
-        assembler::Ferrite.AbstractSparseAssembler, 
-        cellbuffers::Tuple, states::Tuple, 
-        dh::MixedDofHandler, 
-        a=nothing, aold=nothing, Δt=NaN, scaling=nothing;
-        kwargs...
-        )
-
-Sequential assembly of cells with the `dh::MixedDofHandler`.
-* `cellbuffers` contains buffers for the specific cell in each `FieldHandler`
-  in `dh.fieldhandlers` See  [`CellBuffer`](@ref) for more info. 
-* `states` is a tuple which contains a collection of state variables, 
-  one vector for each `FieldHandler` in `dh.fieldhandlers`. 
-  Each element in the collection, i.e. `states[cellnr]`, contains the 
-  state variables for one `Cell` with global number `cellnr`. 
-  Unless all cells have the same type of the state, it might make sense to use a 
-  Dict{Int,State} where the key refers to the global number. 
-* `assembler`, `a`, `aold`, and `Δt` are the same as for the `DofHandler` case. 
-"""
-function doassemble!(
-    assembler::Ferrite.AbstractSparseAssembler, 
-    cellbuffers::Tuple, states::Tuple, 
-    dh::MixedDofHandler, 
-    a=nothing, aold=nothing, Δt=NaN, scaling=nothing; kwargs...
-    )
-    for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
-        inner_doassemble!(assembler, cellbuffer, state, dh, fh, a, aold, Δt, scaling; kwargs...)
-    end
-end
-
-""" 
-    doassemble!(
-        assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-        cellbuffers::Tuple, 
-        states::Tuple, 
-        dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
-        a::AbstractVector, aold::AbstractVector, Δt::Number, 
-        scalings::Vector=create_threaded_scalings(nothing);
-        kwargs...)
-
-Threaded assembly of cells with the `dh::MixedDofHandler`.
-* `assemblers` and `colored_sets` are the same as for the threaded `DofHandler` case.
-* `states` are the same as for the sequential `MixedDofHandler` case.
-* `cellbuffers` contains vectors `Vector{AbstractCellBuffer}` for the cell type in 
-  each `FieldHandler` in `dh.fieldhandlers`. The vector element corresponds to each 
-  thread. This can be created by [`create_threaded_CellBuffers`](@ref). 
-  See also [`CellBuffer`](@ref) for more info.
-* `a`, `aold`, and `Δt` are the same as for the `DofHandler` case.
-"""
-function doassemble!(
-    assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-    cellbuffers::Tuple, 
-    states::Tuple, 
-    dh::MixedDofHandler, colored_sets::Vector{Vector{Int}}, 
-    a=nothing, aold=nothing, Δt=NaN, 
-    scalings::Vector=create_threaded_scalings(nothing);
-    kwargs...
-    )
-    for (fh, cellbuffer, state) in zip(dh.fieldhandlers, cellbuffers, states)
-        inner_doassemble!(assemblers, cellbuffer, state, dh, fh, colored_sets, a, aold, Δt, scalings; kwargs...)
-    end
-end
-
-function doassemble!(
-    assemblers::Union{Vector{<:Ferrite.AbstractSparseAssembler}, Ferrite.AbstractSparseAssembler},
-    cellbuffers::Dict{String},
-    states::Dict{String},
-    dh::Ferrite.AbstractDofHandler,
-    args...)
-    for (key,cellbuffer) in cellbuffers
-        doassemble!(assemblers, cellbuffer, states[key], dh, args...; cellset=getcellset(dh, key))
-    end
-end
-
-"""
-    inner_doassemble!(
-        assembler, cellbuffer::AbstractCellBuffer, states, 
-        dh::MixedDofHandler, fh::FieldHandler, a, aold, Δt
-        )
-
-Sequential assembly of cells corresponding to the given `fh` 
-from `dh.fieldhandlers`. 
-Internal function that is called from the sequential version 
-of `doassemble!` for the `MixedDofHandler`
-"""
-function inner_doassemble!(
-    assembler, cellbuffer::AbstractCellBuffer, 
-    states, dh::MixedDofHandler, fh::FieldHandler, 
-    a, aold, Δt, scaling; cellset=nothing
-    )
-    for cellnr in intersect_nothing(fh.cellset, cellset)
-        assemble_cell!(assembler, cellbuffer, dh, fh, cellnr, a, aold, states[cellnr], Δt, scaling)
-    end
-end
-
-"""
-    inner_doassemble!(
-        assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-        cellbuffers::Vector{<:AbstractCellBuffer}, states, 
-        dh::MixedDofHandler, fh::FieldHandler, 
-        colored_sets::Vector{Vector{Int}}, 
-        a, aold, Δt, scalings::Vector;
-        )
-
-Parallel assembly of cells corresponding to the given `fh` from 
-`dh.fieldhandlers`.
-Internal function that is called from the parallel version of 
-`doassemble!` for the `MixedDofHandler`
-"""
-function inner_doassemble!(
-    assemblers::Vector{<:Ferrite.AbstractSparseAssembler},
-    cellbuffers::Vector{<:AbstractCellBuffer}, states, 
-    dh::MixedDofHandler, fh::FieldHandler, colored_sets::Vector{Vector{Int}}, 
-    a, aold, Δt, scalings::Vector; 
-    cellset=nothing
-    )
-    check_threaded_dimensions(assemblers, cellbuffers, scalings)
-    for colorset in colored_sets
-        Threads.@threads :static for cellnr in intersect_nothing(intersect(colorset, fh.cellset), cellset)
-            id = Threads.threadid()
-            assemble_cell!(assemblers[id], cellbuffers[id], dh, fh, cellnr, a, aold, states[cellnr], Δt, scalings[id])
-        end
-    end
-end
-
-"""
-    assemble_cell!(assembler, cellbuffer, dh::DofHandler, cellnr, a, aold, state, Δt)
-    assemble_cell!(assembler, cellbuffer, dh::MixedDofHandler, fh::FieldHandler, cellnr, a, aold, state, Δt)
+    assemble_cell!(assembler, new_states, cellbuffer, sdh::SubDofHandler, cellnr, a, aold, old_states)
 
 Internal function to that reinitializes the `cellbuffer` and calls [`assemble_cell_reinited!`](@ref).
 """
-function assemble_cell!(assembler, cellbuffer, dh::DofHandler, cellnr, a, aold, state, Δt, scaling)
-    reinit!(cellbuffer, dh, cellnr, a, aold)
-    assemble_cell_reinited!(assembler, cellbuffer, dh, state, Δt, scaling)
-end
-
-function assemble_cell!(assembler, cellbuffer, dh::MixedDofHandler, fh::FieldHandler, cellnr, a, aold, state, Δt, scaling)
-    reinit!(cellbuffer, dh, cellnr, a, aold)
-    assemble_cell_reinited!(assembler, cellbuffer, fh, state, Δt, scaling)
-end 
-
-"""
-    assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt, scaling)
-
-Internal function that assembles the cell described by the reinitialized `cellbuffer`. This function is called 
-in all cases: Parallel or sequential and `DofHandler` or `MixedDofHandler`
-"""
-function assemble_cell_reinited!(assembler, cellbuffer, dh_fh::Union{DofHandler,FieldHandler}, state, Δt, scaling)
-    Ke = get_Ke(cellbuffer)
-    re = get_re(cellbuffer)
-    ae = get_ae(cellbuffer)
-    material = get_material(cellbuffer)
-    cellvalues = get_cellvalues(cellbuffer)
-    element_routine!(Ke, re, state, ae, material, cellvalues, dh_fh, Δt, cellbuffer)
-    update_scaling!(scaling, re, dh_fh, cellbuffer)
-    dofs = celldofs(cellbuffer)
-    assemble!(assembler, dofs, Ke, re)
-end
-
-function check_threaded_dimensions(assemblers, cellbuffers, scalings)
-    if !(length(assemblers) == length(cellbuffers) == length(scalings) == Threads.nthreads())
-        throw(DimensionMismatch("assemblers, cellbuffers, and scalings must have as many elements as there are threads"))
-    end
+function assemble_cell!(assembler, new_states, cellbuffer, sdh::SubDofHandler, cellnr, a, aold, old_states)
+    reinit!(cellbuffer, sdh.dh, cellnr, a, aold, old_states)
+    cell_state = fast_getindex(new_states, cellnr)
+    assemble_cell_reinited!(assembler, cell_state, cellbuffer)
 end

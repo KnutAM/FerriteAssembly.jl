@@ -19,7 +19,9 @@
     function get_mdh(ip)
         grid = get_grid();
         dh = MixedDofHandler(grid)
-        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:getncells(grid)))))
+        n_half = getncells(grid)÷2
+        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:n_half))))
+        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect((n_half+1):getncells(grid)))))
         close!(dh);
         return dh
     end
@@ -85,10 +87,8 @@
     struct ThermalMaterial end  # For dispatch only, material parameters hard coded in original example
 
     function FerriteAssembly.element_routine!(
-        Ke::AbstractMatrix, re::AbstractVector, state,
-        ae::AbstractVector, material::ThermalMaterial, cellvalues, 
-        dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer
-        )
+            Ke::AbstractMatrix, re::AbstractVector, state, ae::AbstractVector, 
+            material::ThermalMaterial, cellvalues, buffer)
         assemble_element!(Ke, re, cellvalues)
         re .*= -1   # re = fint-fext
         return nothing
@@ -97,10 +97,8 @@
     struct ThermalMaterialAD end
 
     function FerriteAssembly.element_residual!(
-        re::AbstractVector, state,
-        ae::AbstractVector, material::ThermalMaterialAD, cellvalues, 
-        dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer::CellBuffer
-        )
+            re::AbstractVector, state, ae::AbstractVector, 
+            material::ThermalMaterialAD, cellvalues, buffer)
         n_basefuncs = getnbasefunctions(cellvalues)
         # Loop over quadrature points
         for q_point in 1:getnquadpoints(cellvalues)
@@ -127,8 +125,8 @@
     cv, _, dh = setup_heatequation(DofHandler)
     reinit!(cv, getcoordinates(dh.grid,1))
     mtrl = ThermalMaterialAD()
-    cellbuffer = setup_cellbuffer(dh, cv, mtrl)
-    cellbuffer_ad = FA.setup_ad_cellbuffer([nothing,],dh,cv,mtrl)
+    cellbuffer = FerriteAssembly.setup_cellbuffer(false, FerriteAssembly.SubDofHandler(dh), cv, mtrl, [nothing], (u=dof_range(dh, :u),), nothing)
+    cellbuffer_ad = FerriteAssembly.AutoDiffCellBuffer(cellbuffer)
     ae = FerriteAssembly.get_ae(cellbuffer)
     re = FerriteAssembly.get_re(cellbuffer)
     Ke = FerriteAssembly.get_Ke(cellbuffer)
@@ -136,58 +134,119 @@
     Ke_ref, fe_ref = copy.((Ke, re))
     for cb in (cellbuffer, cellbuffer_ad)
         fill!.((ae,re,Ke), 0)
-        FerriteAssembly.element_routine!(Ke, re, nothing, ae, mtrl, cv, dh, 0.0, cellbuffer)
+        FerriteAssembly.element_routine!(Ke, re, nothing, ae, mtrl, cv, cellbuffer)
         @test Ke ≈ Ke_ref 
         @test re ≈ -fe_ref # as ae=0
     end
     weak = EE.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> 1.0*(∇δu ⋅ ∇u) - δu*1.0)
     materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), weak=weak, mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
+    
+    function setup_assembly_test(dh, material, cv; autodiff_cb=false, threaded=false)
+        BufferType = threaded ? FerriteAssembly.ThreadedDomainBuffer : FerriteAssembly.DomainBuffer
+        if isa(material, Dict) && isa(dh, DofHandler)
+            setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
+            ad1 = FerriteAssembly.AssemblyDomain("A", dh, material["A"], cv; cellset=setA)
+            ad2 = FerriteAssembly.AssemblyDomain("B", dh, material["B"], cv; cellset=setB)
+            buffer, new_states, old_states = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, threading=threaded)
+            @test isa(buffer, Dict{String,<:BufferType})
+            @test isa(old_states, Dict{String,<:Dict{Int}})
+            return buffer, new_states, old_states
+        elseif isa(material, Dict) && isa(dh, MixedDofHandler)
+            sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
+            sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
+            set1 = getcellset(sdh1)
+            setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
+
+            ad1 = FerriteAssembly.AssemblyDomain("sdh1A", sdh1, material["A"], cv; cellset=intersect(setA, set1))
+            ad2 = FerriteAssembly.AssemblyDomain("sdh1B", sdh1, material["B"], cv; cellset=intersect(setB, set1))
+            # For ad3 and ad4; add the full set to check correct intersection with sdh2's cellset internally. 
+            ad3 = FerriteAssembly.AssemblyDomain("sdh2A", sdh2, material["A"], cv; cellset=setA)
+            ad4 = FerriteAssembly.AssemblyDomain("sdh2B", sdh2, material["B"], cv; cellset=setB)
+            buffer, new_states, old_states = setup_assembly([ad1, ad2, ad3, ad4]; autodiffbuffer=autodiff_cb, threading=threaded)
+            @test isa(buffer, Dict{String,<:BufferType})
+            @test isa(old_states, Dict{String,<:Dict{Int}})
+            return buffer, new_states, old_states
+        elseif isa(dh, MixedDofHandler)
+            sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
+            sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
+            set1 = getcellset(sdh1); set2 = getcellset(sdh2)
+            ad1 = FerriteAssembly.AssemblyDomain("sdh1", sdh1, material, cv; cellset=set1)
+            ad2 = FerriteAssembly.AssemblyDomain("sdh2", sdh2, material, cv; cellset=set2)
+            buffer, new_states, old_states = setup_assembly([ad1, ad2]; autodiffbuffer=autodiff_cb, threading=threaded)
+            @test isa(buffer, Dict{String,<:BufferType})
+            @test isa(old_states, Dict{String,<:Dict{Int}})
+            return buffer, new_states, old_states
+        else
+            buffer, new_states, old_states = setup_assembly(dh, material, cv; autodiffbuffer=autodiff_cb, threading=threaded)
+            @test isa(buffer, BufferType)
+            @test isa(old_states, Dict{Int})
+            return buffer, new_states, old_states
+        end
+    end
+    
     for DH in (DofHandler, MixedDofHandler)
         for mattype in (:same, :ad, :mixed, :weak)
             material = materials[mattype]
             
             cv, K, dh = setup_heatequation(DH)
-            for scaling in (nothing, ElementResidualScaling(dh, 1))
+            for scaling in (FerriteAssembly.NoScaling(), ElementResidualScaling(dh, 1))
                 r = zeros(ndofs(dh))
                 a = mattype==:same ? nothing : copy(r)  # If AD, dofs required
-                states = create_states(dh, material)
-
+                
                 @testset "$DH, $mattype, sequential" begin
-                    cellbuffer = setup_cellbuffer(dh, cv, material)
-                    cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,setup_ad_cellbuffer(states,dh,cv,material))
-                    for cb in cbs
+                    autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
+                    for autodiff_cb in autdiff_cbs
+                        fill!(K, 0); 
+                        r .= rand(length(r)) # To ensure that it is actually changed
                         reset_scaling!(scaling)
-                        assembler = start_assemble(K, r)
-                        if isnothing(scaling)
-                            doassemble!(assembler, cb, states, dh, a)
-                        else
-                            doassemble!(assembler, cb, states, dh, a, nothing, NaN, scaling)
-                        end
+                        buffer, new_states, old_states = setup_assembly_test(dh, material, cv; autodiff_cb=autodiff_cb)
+                        ferrite_assembler = start_assemble(K, r)
+                        assembler = isa(scaling, FerriteAssembly.NoScaling) ? ferrite_assembler : FerriteAssembly.KeReAssembler(ferrite_assembler; scaling=scaling)
+                        doassemble!(assembler, new_states, buffer; a=a, old_states=old_states)
                         isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign
                         @test K_ref ≈ K 
-                        mattype != :example && @test r_ref ≈ r # f not included in example material
+                        @test r_ref ≈ r
+                        if mattype == :ad    
+                            # Assemble only r (requires element_residual!)
+                            r .= rand(length(r)) # To ensure that it is both reset and then changed during assembly
+                            reset_scaling!(scaling)
+                            assembler = FerriteAssembly.ReAssembler(r; scaling=scaling)
+                            doassemble!(assembler, new_states, buffer; a=a, old_states=old_states)
+                            isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign 
+                            @test r_ref ≈ r
+                        end
                     end
                 end
                 @testset "$DH, $mattype, threaded" begin
-                    cellbuffer = setup_cellbuffer(dh, cv, material)
-                    cbs = isa(material,ThermalMaterial) ? (cellbuffer,) : (cellbuffer,setup_ad_cellbuffer(states,dh,cv,material))
-                    for cb in cbs
+                    autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
+                    for autodiff_cb in autdiff_cbs
+                        fill!(K, 0); 
+                        r .= rand(length(r)) # To ensure that it is actually changed
                         reset_scaling!(scaling)
-                        cellbuffers = create_threaded_CellBuffers(cb)
-                        assemblers = create_threaded_assemblers(K, r)
-                        colors = create_coloring(dh.grid)
-                        if isnothing(scaling)
-                            doassemble!(assemblers, cellbuffers, states, dh, colors, a)
-                        else
-                            scalings = create_threaded_scalings(scaling)
-                            doassemble!(assemblers, cellbuffers, states, dh, colors, a, nothing, NaN, scalings)
+                        ferrite_assembler = start_assemble(K, r)
+                        assembler = isa(scaling, FerriteAssembly.NoScaling) ? ferrite_assembler : FerriteAssembly.KeReAssembler(ferrite_assembler; scaling=scaling)
+                        buffer, new_states, old_states = setup_assembly_test(dh, material, cv; autodiff_cb=autodiff_cb, threaded=true)
+                        # Quick check that test script works and that it is actually colored
+                        TDB = FerriteAssembly.ThreadedDomainBuffer
+                        @test isa(buffer, Union{Dict{String,<:TDB}, TDB})
+                        
+                        doassemble!(assembler, new_states, buffer; a=a, old_states=old_states)
+                        if isa(scaling, ElementResidualScaling)
+                            @test scaling.factors[:u] ≈ sum(abs, r)
+                        end
+                        @test K_ref ≈ K
+                        @test r_ref ≈ r
+                        
+                        if mattype == :ad
+                            r .= rand(length(r)) # To ensure that it is actually changed
+                            reset_scaling!(scaling)
+                            assembler = FerriteAssembly.ReAssembler(r; scaling=scaling)
+                            doassemble!(assembler, new_states, buffer; a=a, old_states=old_states)
                             if isa(scaling, ElementResidualScaling)
-                                scaling = sum(scalings)
                                 @test scaling.factors[:u] ≈ sum(abs, r)
                             end
+                            @test r_ref ≈ r
                         end
-                        @test K_ref ≈ K 
-                        @test r_ref ≈ r
                     end
                 end
             end

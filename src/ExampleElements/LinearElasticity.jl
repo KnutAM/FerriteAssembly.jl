@@ -32,7 +32,7 @@ function ElasticPlaneStrain(;E=2.e3, ν=0.3)
     return ElasticPlaneStrain(2G*I4dev + K*I4vol)
 end
 
-function FerriteAssembly.element_routine!(Ke, re, state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, dh_fh, Δt, buffer)
+function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
@@ -46,6 +46,19 @@ function FerriteAssembly.element_routine!(Ke, re, state, ae, material::ElasticPl
                 ∇Nu = shape_symmetric_gradient(cv, q_point, j)
                 Ke[j,i] += (∇δNu_C ⊡ ∇Nu)*dΩ # Since Ke is symmetric, we calculate Ke' to index faster
             end
+        end
+    end
+end
+
+function FerriteAssembly.element_residual!(re, new_state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, buffer)
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        ϵ = function_symmetric_gradient(cv, q_point, ae)
+        σ = material.C ⊡ ϵ
+        ## Assemble residual contributions
+        for i in 1:getnbasefunctions(cv)
+            ∇δNu = shape_symmetric_gradient(cv, q_point, i)
+            re[i] += (∇δNu ⊡ σ )*dΩ
         end
     end
 end

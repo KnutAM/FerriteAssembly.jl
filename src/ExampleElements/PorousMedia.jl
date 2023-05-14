@@ -59,10 +59,11 @@ function PoroElasticPlaneStrain(;E=2.e3, ν=0.3, k=0.05, α=1.0, β=1/2e3)
     return PoroElasticPlaneStrain(C, k, α, β)
 end
 
-function FerriteAssembly.element_residual!(re, state, ae, material::PoroElasticPlaneStrain, cv::NamedTuple, dh_fh, Δt, buffer)
+function FerriteAssembly.element_residual!(re, new_state, ae, material::PoroElasticPlaneStrain, cv::NamedTuple, buffer)
     ae_old = FerriteAssembly.get_aeold(buffer)
-    udofs = dof_range(dh_fh, :u)
-    pdofs = dof_range(dh_fh, :p)
+    Δt = FerriteAssembly.get_time_increment(buffer)
+    udofs = dof_range(buffer, :u)
+    pdofs = dof_range(buffer, :p)
 
     ## Assemble stiffness and force vectors
     for q_point in 1:getnquadpoints(cv[:u])   
