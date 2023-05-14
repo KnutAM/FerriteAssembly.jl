@@ -10,12 +10,20 @@ function get_dh_cv(grid, ::Val{true})
 end
 
 function assemble_test(dh, cv, m, a, aold, Δt)
+    buffer, new_states, old_states = setup_assembly(dh, m, cv; a=a)
+    
+    # Assemble both K and r
     K = create_sparsity_pattern(dh)
     r = zeros(ndofs(dh))
-    buffer, new_states, old_states = setup_assembly(dh, m, cv; a=a)
     assembler = start_assemble(K, r)
     doassemble!(assembler, new_states, buffer; a=a, aold=aold, old_states=old_states, Δt=Δt)
-    return K, r
+    
+    # Assemble only r
+    r_direct = zeros(ndofs(dh))
+    r_assembler = ReAssembler(r_direct)
+    doassemble!(r_assembler, new_states, buffer; a=a, aold=aold, old_states=old_states, Δt=Δt)
+    
+    return K, r, r_direct
 end
 
 function test_equality(m1, m2, is_vector::Val)
@@ -24,8 +32,12 @@ function test_equality(m1, m2, is_vector::Val)
     a = rand(ndofs(dh))
     aold = rand(ndofs(dh))
     Δt = rand()
-    K1, r1 = assemble_test(dh, cv, m1, a, aold, Δt)
-    K2, r2 = assemble_test(dh, cv, m2, a, aold, Δt)
+    K1, r1, r1_direct = assemble_test(dh, cv, m1, a, aold, Δt)
+    K2, r2, r2_direct = assemble_test(dh, cv, m2, a, aold, Δt)
+    
+    # Check equivalence between assembling stiffness and residual vs just residual
+    @test r1 ≈ r1_direct # (element_routine! vs element_residual!)
+    @test r2 ≈ r2_direct # (in some cases, the same routine is actually called.)
     @test r1 ≈ r2
     @test K1 ≈ K2
 end
