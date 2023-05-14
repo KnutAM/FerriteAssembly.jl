@@ -1,8 +1,6 @@
 using Tensors, MaterialModelsBase, Ferrite, FerriteAssembly
 
-include("J2Plasticity.jl")
-
-include("MaterialModelsBaseElement.jl")
+include("J2Plasticity.jl");
 
 material = J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9);
 grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)));
@@ -12,13 +10,16 @@ dh = DofHandler(grid); add!(dh, :u, 3); close!(dh); # Create dofhandler
 K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
-states = create_states(dh, material, cellvalues);
-
-buffer = setup_cellbuffer(dh, cellvalues, material, nothing, get_cache(material));
+buffer, new_states, old_states = setup_assembly(dh, material, cellvalues);
 
 a = zeros(ndofs(dh))
-assembler = start_assemble(K,r)
-doassemble!(assembler, buffer, states, dh, a);
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer; a=a, old_states=old_states);
+
+assembler = start_assemble(K, r)
+doassemble!(assembler, new_states, buffer; a=a, old_states=old_states, Δt=1.0);
+
+update_states!(old_states, new_states);
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

@@ -79,3 +79,22 @@ function MaterialModelsBase.material_response(
         return σ, D, MaterialState(ϵᵖ, σ, k)
     end
 end;
+
+# Elastic material 
+# Then, we also define an elastic material 
+struct ElasticMaterial{T<:SymmetricTensor{4,3}} <: AbstractMaterial
+    D::T
+end
+function ElasticMaterial(;E, ν)
+    D, _, _ = elastic_conversion(E, ν)
+    return ElasticMaterial(D)
+end;
+
+# This material requires not state, so `MaterialModelsBase.jl`'s `NoMaterialState`
+# will be created by default. Hence, we only need to define the `material_response`
+function MaterialModelsBase.material_response(
+    material::ElasticMaterial, ϵ::SymmetricTensor{2,3}, state, 
+    Δt, cache=get_cache(material), args...; kwargs...)
+    σ = material.D ⊡ ϵ
+    return σ, material.D, NoMaterialState()
+end;

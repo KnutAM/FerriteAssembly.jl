@@ -2,13 +2,14 @@ using Ferrite, FerriteAssembly, BenchmarkTools
 dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); add!(dh, :u, 1); close!(dh)
 cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
 
-struct ThermalMaterial end;
+struct ThermalMaterial
+    k::Float64 # Thermal conductivity
+    f::Float64 # Volumetric heat source
+end
 
-function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector, state,
-    ae::AbstractVector, material::ThermalMaterial, cellvalues::CellScalarValues,
-    dh_fh, Δt, buffer::CellBuffer
-    )
+function FerriteAssembly.element_routine!(Ke, re, state, ae,
+        material::ThermalMaterial, cellvalues, buffer
+        )
     n_basefuncs = getnbasefunctions(cellvalues)
     # Loop over quadrature points
     for q_point in 1:getnquadpoints(cellvalues)
@@ -17,41 +18,40 @@ function FerriteAssembly.element_routine!(
             δN  = shape_value(cellvalues, q_point, i)
             ∇δN = shape_gradient(cellvalues, q_point, i)
             # Add body load contribution to re
-            re[i] += -δN * dΩ
+            re[i] += -material.f*δN * dΩ
             # Loop over trial shape functions
             for j in 1:n_basefuncs
                 ∇N = shape_gradient(cellvalues, q_point, j)
                 # Add contribution to Ke
-                Ke[i, j] += (∇δN ⋅ ∇N) * dΩ
+                Ke[i, j] += material.k*(∇δN ⋅ ∇N) * dΩ
             end
         end
     end
 end;
 
+buffer, states = setup_assembly(dh, ThermalMaterial(1.0, 1.0), cellvalues);
+
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
 
-states = create_states(dh);
+assembler = start_assemble(K, r)
+doassemble!(assembler, states, buffer);
+K1 = deepcopy(K); #hide
 
-cellbuffer = setup_cellbuffer(dh, cellvalues, ThermalMaterial());
+threaded_buffer, _ = setup_assembly(dh, ThermalMaterial(1.0, 1.0), cellvalues; threading=true);
 
-assembler = start_assemble(K,r)
-doassemble!(assembler, cellbuffer, states, dh);
+assembler = start_assemble(K, r)
+doassemble!(assembler, states, threaded_buffer);
+K2 = deepcopy(K); #hide
 
-colors = create_coloring(dh.grid);
+struct ThermalMaterialAD
+    k::Float64 # Thermal conductivity
+    f::Float64 # Volumetric heat source
+end
 
-cellbuffers = create_threaded_CellBuffers(cellbuffer)
-assemblers = create_threaded_assemblers(K, r);
-
-doassemble!(assemblers, cellbuffers, states, dh, colors);
-
-struct ThermalMaterialAD end
-
-function FerriteAssembly.element_residual!(
-    re::AbstractVector, state,
-    ae::AbstractVector, material::ThermalMaterialAD, cellvalues,
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, buffer
-    )
+function FerriteAssembly.element_residual!(re, state, ae,
+        material::ThermalMaterialAD, cellvalues, buffer
+        )
     n_basefuncs = getnbasefunctions(cellvalues)
     # Loop over quadrature points
     for q_point in 1:getnquadpoints(cellvalues)
@@ -63,21 +63,31 @@ function FerriteAssembly.element_residual!(
             δN  = shape_value(cellvalues, q_point, i)
             ∇δN = shape_gradient(cellvalues, q_point, i)
             # re = fint - fext
-            re[i] += (∇δN ⋅ ∇u - δN) * dΩ
+            re[i] += (material.k*(∇δN ⋅ ∇u) - material.f*δN) * dΩ
         end
     end
 end;
 
+buffer_ad, states_ad = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues);
+
 a = zeros(ndofs(dh))
-cellbuffer2 = setup_cellbuffer(dh, cellvalues, ThermalMaterialAD())
-assembler = start_assemble(K,r)
-doassemble!(assembler, cellbuffer2, states, dh, a);
+assembler = start_assemble(K, r)
+doassemble!(assembler, states_ad, buffer_ad; a=a);
+K3 = deepcopy(K); #hide
 
-@btime doassemble!(assembler, $cellbuffer, $states, $dh) setup=(assembler=start_assemble(K,r));
-@btime doassemble!(assembler, $cellbuffer2, $states, $dh) setup=(assembler=start_assemble(K,r));
+#@btime doassemble!($assembler, $states, $buffer; a=$a)
+#@btime doassemble!($assembler, $states_ad, $buffer_ad; a=$a)
 
-cellbuffer3 = setup_ad_cellbuffer(states, dh, cellvalues, ThermalMaterialAD())
-@btime doassemble!(assembler, $cellbuffer3, $states, $dh) setup=(assembler=start_assemble(K,r));
+buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues; autodiffbuffer=true)
+#@btime doassemble!($assembler, $states_ad, $buffer_ad2; a=$a)
+                                                            #hide
+assembler = start_assemble(K, r)                            #hide
+doassemble!(assembler, states_ad, buffer_ad2; a=a);         #hide
+K4 = deepcopy(K);                                           #hide
+                                                            #hide
+using Test                                      #hide
+@test K1 ≈ K2 ≈ K3 ≈ K4                         #hide
+nothing;                                        #hide
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 
