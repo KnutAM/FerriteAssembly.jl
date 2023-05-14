@@ -56,7 +56,7 @@ function ThreadedDomainBuffer(sdh::SubDofHandler, cellset, colors::Vector, cellb
     cellbuffers = TaskLocals(cellbuffer)
     return ThreadedDomainBuffer(sdh, cellset_intersect, colors_intersect, cellbuffers)
 end
-get_material(buffer::ThreadedDomainBuffer) = get_material(get_base(buffer.cellbuffer))
+get_material(buffer::ThreadedDomainBuffer) = get_material(get_base(buffer.cellbuffers))
 get_material(buffers::Dict{String,<:AbstractDomainBuffer}, name::String) = get_material(buffers[name]) # Note: Not typestable!
 
 Ferrite.getcellset(b::Union{DomainBuffer, ThreadedDomainBuffer}) = b.cellset
