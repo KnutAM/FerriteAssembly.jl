@@ -29,7 +29,8 @@ function FerriteAssembly.element_routine!(Ke, re, state, ae,
     end
 end;
 
-buffer, states = setup_assembly(dh, ThermalMaterial(1.0, 1.0), cellvalues);
+material = ThermalMaterial(1.0, 1.0)
+buffer, states = setup_assembly(dh, material, cellvalues);
 
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
@@ -68,7 +69,8 @@ function FerriteAssembly.element_residual!(re, state, ae,
     end
 end;
 
-buffer_ad, states_ad = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues);
+material_ad = ThermalMaterialAD(1.0, 1.0)
+buffer_ad, states_ad = setup_assembly(dh, material_ad, cellvalues);
 
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
@@ -78,7 +80,7 @@ K3 = deepcopy(K); #hide
 @btime doassemble!($assembler, $states, $buffer; a=$a)
 @btime doassemble!($assembler, $states_ad, $buffer_ad; a=$a)
 
-buffer_ad2, _, _ = setup_assembly(dh, ThermalMaterialAD(1.0, 1.0), cellvalues; autodiffbuffer=true)
+buffer_ad2, _, _ = setup_assembly(dh, material_ad, cellvalues; autodiffbuffer=true)
 @btime doassemble!($assembler, $states_ad, $buffer_ad2; a=$a)
                                                             #hide
 assembler = start_assemble(K, r)                            #hide
