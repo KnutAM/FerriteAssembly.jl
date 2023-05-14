@@ -1,9 +1,7 @@
 @testset "LocalScaling" begin
     function are_scalings_equal(s1::ElementResidualScaling, s2::ElementResidualScaling)
         for (key,val) in s1.factors
-            if s2.factors[key] != val
-                return false
-            end
+            (s2.factors[key] ≈ val) || return false
         end
         return true
     end
