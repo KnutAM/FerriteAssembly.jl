@@ -70,10 +70,10 @@ function threaded_assemble_domain!(assemblers::TaskLocals, new_states, buffer::T
     scatter!(cellbuffers)
     scatter!(assemblers)
     num_tasks = Threads.nthreads()
-    queue_length = typemax(Int)# 2*num_tasks
+    #queue_length = typemax(Int)# 2*num_tasks
     for saved_set_chunks in buffer.saved_set_chunks
-        set_chunks = Channel{Vector{Int}}(queue_length)
-        #set_chunks = ChunkIterator(saved_set_chunks)
+        #set_chunks = Channel{Vector{Int}}(queue_length)
+        set_chunks = ChunkIterator(saved_set_chunks)
         # Base.Experimental.@sync exits immediately on exception (allow Ctrl+C)
         Base.Experimental.@sync begin 
             # Expected that this first task will run until set_chunks is full.
@@ -82,7 +82,7 @@ function threaded_assemble_domain!(assemblers::TaskLocals, new_states, buffer::T
             # `set_chunk`, the thread working on that task will work on filling up the buffer again.
             # Once the first item is added, all other tasks can continue and only the one whose thread 
             # is filling up has to wait for the filling up to be completed.
-            # ChunkIterator can replace the following, but for some reason it is not faster...
+            #= ChunkIterator can replace the following, but for some reason it is not faster...
             Threads.@spawn begin
                 for set_chunk in saved_set_chunks
                     put!(set_chunks, set_chunk)

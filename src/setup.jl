@@ -55,7 +55,7 @@ function ThreadedDomainBuffer(sdh::SubDofHandler, cellset, colors::Vector, cellb
     cellset_intersect = sort!(collect(intersect(cellset, getcellset(sdh))))
     colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset_intersect), colors)
     cellbuffers = TaskLocals(cellbuffer)
-    chunk_size = 8
+    chunk_size = 32
     saved_set_chunks = [
         [set[(chunk_size*(i-1)+1):(min(chunk_size*i, length(set)))] for i in 1:ceil(Int, length(set)/chunk_size)]
         for set in colors_intersect]
