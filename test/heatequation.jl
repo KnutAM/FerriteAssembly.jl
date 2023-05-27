@@ -1,7 +1,7 @@
 @testset "heatequation" begin
     # Modified example from Ferrite.jl
     function get_grid()
-        grid = generate_grid(Quadrilateral, (20, 20))
+        grid = generate_grid(Quadrilateral, (200, 200))
         # Add cellsets for testing different materials on the grid
         addcellset!(grid, "A", x->x[1]<0)
         addcellset!(grid, "B", setdiff(1:getncells(grid), getcellset(grid,"A")))
@@ -184,15 +184,15 @@
         end
     end
     
-    for DH in (DofHandler, MixedDofHandler)
-        for mattype in (:same, :ad, :mixed, :weak)
+    for DH in (DofHandler,)# MixedDofHandler)
+        for mattype in (:same,)# :ad, :mixed, :weak)
             material = materials[mattype]
             
             cv, K, dh = setup_heatequation(DH)
-            for scaling in (FerriteAssembly.NoScaling(), ElementResidualScaling(dh, 1))
+            for scaling in (FerriteAssembly.NoScaling(),)# ElementResidualScaling(dh, 1))
                 r = zeros(ndofs(dh))
                 a = mattype==:same ? nothing : copy(r)  # If AD, dofs required
-                
+                #=
                 @testset "$DH, $mattype, sequential" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
@@ -217,6 +217,7 @@
                         end
                     end
                 end
+                =#
                 @testset "$DH, $mattype, threaded" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs

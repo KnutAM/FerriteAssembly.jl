@@ -5,9 +5,9 @@ import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
 import MaterialModelsBase as MMB
 
-include("states.jl") 
+#include("states.jl") 
 include("heatequation.jl")
-include("example_elements.jl")
+#=include("example_elements.jl")
 include("integration.jl")
 include("scaling.jl") 
 

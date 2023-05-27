@@ -47,6 +47,7 @@ struct ThreadedDomainBuffer{SDH<:SubDofHandler, CB<:AbstractCellBuffer} <: Abstr
     sdh::SDH 
     cellset::Vector{Int}
     colors::Vector{Vector{Int}}
+    saved_set_chunks::Vector{Vector{Vector{Int}}}
     cellbuffers::TaskLocals{CB,CB}
 end
 # Threaded
@@ -54,7 +55,11 @@ function ThreadedDomainBuffer(sdh::SubDofHandler, cellset, colors::Vector, cellb
     cellset_intersect = sort!(collect(intersect(cellset, getcellset(sdh))))
     colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset_intersect), colors)
     cellbuffers = TaskLocals(cellbuffer)
-    return ThreadedDomainBuffer(sdh, cellset_intersect, colors_intersect, cellbuffers)
+    chunk_size = 8
+    saved_set_chunks = [
+        [set[(chunk_size*(i-1)+1):(min(chunk_size*i, length(set)))] for i in 1:ceil(Int, length(set)/chunk_size)]
+        for set in colors_intersect]
+    return ThreadedDomainBuffer(sdh, cellset_intersect, colors_intersect, saved_set_chunks, cellbuffers)
 end
 get_material(buffer::ThreadedDomainBuffer) = get_material(get_base(buffer.cellbuffers))
 get_material(buffers::Dict{String,<:AbstractDomainBuffer}, name::String) = get_material(buffers[name]) # Note: Not typestable!
@@ -84,7 +89,7 @@ Returns the `buffer`, `old_states`, and `new_states` to be used in [`doassemble!
 The state variables are created by calling the user-defined [`create_cell_state`](@ref) function. 
 Available keyword arguments
 - `a=nothing`: Give the global dof vector to pass element dofs, `ae`, to `create_cell_state` (`NaN`-values otherwise)
-- `threaded=Val(false)`: Set to `Val(true)` to setup threaded assembly. More elaborate settings may be added in the future. 
+- `threading=Val(false)`: Set to `Val(true)` to setup threaded assembly. More elaborate settings may be added in the future. 
 - `autodiffbuffer=Val(false)`: Set to `true` or `Val(true)` (for type stable construction) to use `AutoDiffCellBuffer`
   instead of `CellBuffer`.
 - `user_data=nothing`: The `user_data` is passed to each `AbstractCellBuffer` by reference (when threaded)
