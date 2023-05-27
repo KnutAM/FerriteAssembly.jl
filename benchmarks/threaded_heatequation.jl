@@ -1,7 +1,6 @@
 using Ferrite
 using FerriteAssembly
 import FerriteAssembly.ExampleElements: StationaryFourier
-using BenchmarkTools
 
 const THREADING = Val(Threads.nthreads()>1)
 
@@ -21,4 +20,4 @@ end
 
 K, r, new_states, buffer = setup()
 assembler = start_assemble(K, r)
-@time doassemble!(assembler, new_states, buffer)
+doassemble!(assembler, new_states, buffer)
