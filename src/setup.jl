@@ -55,12 +55,34 @@ function ThreadedDomainBuffer(sdh::SubDofHandler, cellset, colors::Vector, cellb
     cellset_intersect = sort!(collect(intersect(cellset, getcellset(sdh))))
     colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset_intersect), colors)
     cellbuffers = TaskLocals(cellbuffer)
-    chunk_size = 32
-    saved_set_chunks = [
-        [set[(chunk_size*(i-1)+1):(min(chunk_size*i, length(set)))] for i in 1:ceil(Int, length(set)/chunk_size)]
-        for set in colors_intersect]
+    saved_set_chunks = [create_chunks(set) for set in colors_intersect]
     return ThreadedDomainBuffer(sdh, cellset_intersect, colors_intersect, saved_set_chunks, cellbuffers)
 end
+
+function create_chunks(set::Vector{Int}; num_tasks = Threads.nthreads())
+    # Create a reasonable default chunking, which accounts for the number of cells and threads 
+    max_chunk_size = 100   # Adding more will not help performance anyways
+    num_cells = length(set)
+    if num_cells <= 4*num_tasks
+        chunk_size = (num_cells-1) ÷ num_tasks + 1
+    else 
+        chunk_size = max(min(max_chunk_size, round(Int,sqrt(num_cells/(2*num_tasks)))), 4)
+    end
+    num_chunks = num_cells÷chunk_size
+    num_missing = mod(num_cells, chunk_size) # How many chunks that will not have the full number 
+    chunks = Vector{Int}[]
+    # TODO: Better with the biggest tasks first (and have others left for balancing)
+    i1 = 1
+    for _ in 1:num_chunks
+        Δi = num_missing>0 ? 1 : 0 # To distribute the lower numbers
+        i2 = i1 + (chunk_size-1) - Δi
+        push!(chunks, set[i1:i2])
+        i1 = i2+1
+        num_missing = max(num_missing-1, 0)
+    end
+    return chunks
+end
+
 get_material(buffer::ThreadedDomainBuffer) = get_material(get_base(buffer.cellbuffers))
 get_material(buffers::Dict{String,<:AbstractDomainBuffer}, name::String) = get_material(buffers[name]) # Note: Not typestable!
 

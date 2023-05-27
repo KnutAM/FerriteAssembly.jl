@@ -63,52 +63,22 @@ function sequential_assemble_domain!(assembler, new_states, buffer; a=nothing, a
     end
 end
 
-threaded_assemble_domain!(args...; kwargs...) = threaded_assemble_domain1!(args...; kwargs...)
+threaded_assemble_domain!(args...; kwargs...) = threaded_assemble_domain4!(args...; kwargs...)
 
-# Current 
-function threaded_assemble_domain!(assemblers::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+# Current (does not support threaded due to :static scheduling)
+function threaded_assemble_domain1!(assembler::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
     cellbuffers = buffer.cellbuffers #::TaskLocals
-    sdh = buffer.sdh # SubDofHandler
     update_time!(get_base(cellbuffers), Δt)
     scatter!(cellbuffers)
-    scatter!(assemblers)
-    num_tasks = Threads.nthreads()
-    #queue_length = typemax(Int)# 2*num_tasks
-    for saved_set_chunks in buffer.saved_set_chunks
-        #set_chunks = Channel{Vector{Int}}(queue_length)
-        set_chunks = ChunkIterator(saved_set_chunks)
-        # Base.Experimental.@sync exits immediately on exception (allow Ctrl+C)
-        Base.Experimental.@sync begin 
-            # Expected that this first task will run until set_chunks is full.
-            # Thereafter, the thread running that task will work on assembling below, 
-            # until `set_chunks` is empty. When one task is put on hold due to no available 
-            # `set_chunk`, the thread working on that task will work on filling up the buffer again.
-            # Once the first item is added, all other tasks can continue and only the one whose thread 
-            # is filling up has to wait for the filling up to be completed.
-            #= ChunkIterator can replace the following, but for some reason it is not faster...
-            Threads.@spawn begin
-                for set_chunk in saved_set_chunks
-                    put!(set_chunks, set_chunk)
-                end
-                close(set_chunks)
-            end 
-            # =#
-            
-            for taskid in 1:num_tasks
-                cellbuffer = get_local(cellbuffers, taskid)
-                assembler = get_local(assemblers, taskid)
-                Threads.@spawn begin
-                    for set_chunk in set_chunks
-                        for cellnr in set_chunk
-                            assemble_cell!(assembler, new_states, cellbuffer, sdh, cellnr, a, aold, old_states)
-                        end
-                    end
-                end #spawn
-            end #taskid
-        end #sync
-    end #colors
+    scatter!(assembler)
+    for cellset in buffer.colors
+        Threads.@threads :static for cellnr in cellset
+            id = Threads.threadid()
+            assemble_cell!(get_local(assembler, id), new_states, get_local(cellbuffers, id), buffer.sdh, cellnr, a, aold, old_states)
+        end
+    end
     gather!(cellbuffers)
-    gather!(assemblers)
+    gather!(assembler)
 end
 
 # Channel implementation
@@ -174,7 +144,7 @@ function threaded_assemble_domain3!(assemblers::TaskLocals, new_states, buffer::
     gather!(assemblers)
 end
 
-function threaded_assemble_domain3!(assemblers::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+function threaded_assemble_domain4!(assemblers::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
     cellbuffers = buffer.cellbuffers #::TaskLocals
     sdh = buffer.sdh # SubDofHandler
     update_time!(get_base(cellbuffers), Δt)
