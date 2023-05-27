@@ -63,6 +63,9 @@ function sequential_assemble_domain!(assembler, new_states, buffer; a=nothing, a
     end
 end
 
+threaded_assemble_domain!(args...; kwargs...) = threaded_assemble_domain1!(args...; kwargs...)
+
+# Current 
 function threaded_assemble_domain!(assemblers::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
     cellbuffers = buffer.cellbuffers #::TaskLocals
     sdh = buffer.sdh # SubDofHandler
@@ -96,6 +99,98 @@ function threaded_assemble_domain!(assemblers::TaskLocals, new_states, buffer::T
                 assembler = get_local(assemblers, taskid)
                 Threads.@spawn begin
                     for set_chunk in set_chunks
+                        for cellnr in set_chunk
+                            assemble_cell!(assembler, new_states, cellbuffer, sdh, cellnr, a, aold, old_states)
+                        end
+                    end
+                end #spawn
+            end #taskid
+        end #sync
+    end #colors
+    gather!(cellbuffers)
+    gather!(assemblers)
+end
+
+# Channel implementation
+function threaded_assemble_domain2!(assemblers::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    cellbuffers = buffer.cellbuffers #::TaskLocals
+    sdh = buffer.sdh # SubDofHandler
+    update_time!(get_base(cellbuffers), Δt)
+    scatter!(cellbuffers)
+    scatter!(assemblers)
+    num_tasks = Threads.nthreads()
+    queue_length = typemax(Int)# 2*num_tasks
+    for saved_set_chunks in buffer.saved_set_chunks
+        set_chunks = Channel{Vector{Int}}(queue_length)
+        # Base.Experimental.@sync exits immediately on exception (allow Ctrl+C)
+        Base.Experimental.@sync begin 
+            Threads.@spawn begin
+                for set_chunk in saved_set_chunks
+                    put!(set_chunks, set_chunk)
+                end
+                close(set_chunks)
+            end 
+            for taskid in 1:num_tasks
+                cellbuffer = get_local(cellbuffers, taskid)
+                assembler = get_local(assemblers, taskid)
+                Threads.@spawn begin
+                    for set_chunk in set_chunks
+                        for cellnr in set_chunk
+                            assemble_cell!(assembler, new_states, cellbuffer, sdh, cellnr, a, aold, old_states)
+                        end
+                    end
+                end #spawn
+            end #taskid
+        end #sync
+    end #colors
+    gather!(cellbuffers)
+    gather!(assemblers)
+end
+
+function threaded_assemble_domain3!(assemblers::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    cellbuffers = buffer.cellbuffers #::TaskLocals
+    sdh = buffer.sdh # SubDofHandler
+    update_time!(get_base(cellbuffers), Δt)
+    scatter!(cellbuffers)
+    scatter!(assemblers)
+    num_tasks = Threads.nthreads()
+    for saved_set_chunks in buffer.saved_set_chunks
+        set_chunks = ChunkIterator(saved_set_chunks)
+        Base.Experimental.@sync begin 
+            for taskid in 1:num_tasks
+                cellbuffer = get_local(cellbuffers, taskid)
+                assembler = get_local(assemblers, taskid)
+                Threads.@spawn begin
+                    for set_chunk in set_chunks
+                        for cellnr in set_chunk
+                            assemble_cell!(assembler, new_states, cellbuffer, sdh, cellnr, a, aold, old_states)
+                        end
+                    end
+                end #spawn
+            end #taskid
+        end #sync
+    end #colors
+    gather!(cellbuffers)
+    gather!(assemblers)
+end
+
+function threaded_assemble_domain3!(assemblers::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+    cellbuffers = buffer.cellbuffers #::TaskLocals
+    sdh = buffer.sdh # SubDofHandler
+    update_time!(get_base(cellbuffers), Δt)
+    scatter!(cellbuffers)
+    scatter!(assemblers)
+    num_tasks = Threads.nthreads()
+    for saved_set_chunks in buffer.saved_set_chunks
+        set_chunks = ChunkIterator(saved_set_chunks)
+        Base.Experimental.@sync begin 
+            for taskid in 1:num_tasks
+                cellbuffer = get_local(cellbuffers, taskid)
+                assembler = get_local(assemblers, taskid)
+                Threads.@spawn begin
+                    while true
+                        set_chunk = get_chunk(set_chunks)
+                        isempty(set_chunk) && break
                         for cellnr in set_chunk
                             assemble_cell!(assembler, new_states, cellbuffer, sdh, cellnr, a, aold, old_states)
                         end

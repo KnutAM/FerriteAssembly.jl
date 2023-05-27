@@ -32,3 +32,18 @@ function Base.iterate(ci::ChunkIterator, state=nothing)
 end
 Base.length(ci::ChunkIterator) = length(ci.chunks)
 Base.eltype(::ChunkIterator{T}) where T = Vector{T}
+
+# Non-iterator implementation
+function get_chunk(ci::ChunkIterator{T}) where T
+    lock(ci)
+    try
+        if length(ci.chunks) <= ci.index
+            return T[]
+        else
+            ci.index += 1
+            return @inbounds ci.chunks[ci.index]
+        end
+    finally
+        unlock(ci)
+    end
+end
