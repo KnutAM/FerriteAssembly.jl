@@ -5,24 +5,13 @@ import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
 import MaterialModelsBase as MMB
 
-@testset "set_chunks" begin
-    for approx_num_points in (10,100,1000)
-        for num_tasks in (1,2,4,8,16,32)        
-            set = unique!([rand(1:(approx_num_points*10)) for _ in 1:approx_num_points])
-            merged_chunks = Set{Int}()
-            for set_chunk in FerriteAssembly.create_chunks(set; num_tasks=num_tasks)
-                union!(merged_chunks, set_chunk)
-            end
-            @test merged_chunks == Set(set)
-        end
-    end
-end
-
 include("states.jl") 
+include("threading_utils.jl")
 include("heatequation.jl")
 include("example_elements.jl")
 include("integration.jl")
-include("scaling.jl") 
+include("scaling.jl")
+
 
 @testset "Errors" begin
     printstyled("=== Testing will give expected error messages, ok if tests pass! ===\n"; color=:green, bold=true)

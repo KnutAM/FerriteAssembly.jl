@@ -3,7 +3,7 @@ using Ferrite, ForwardDiff
 
 include("SubDofHandler.jl") # Temporary solutions until Ferrite is updated
 include("TaskLocals.jl")    # Task-local storage model 
-include("ChunkIterator.jl") # Thread-safe iteration over chunks of cells
+include("TaskChunks.jl") # Thread-safe iteration over chunks of cells
 include("utils.jl")
 
 include("scaling.jl")

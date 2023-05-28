@@ -71,7 +71,7 @@ function threaded_assemble_domain!(assemblers::TaskLocals, new_states, buffer::T
     scatter!(assemblers)
     num_tasks = Threads.nthreads()
     for saved_set_chunks in buffer.saved_set_chunks
-        set_chunks = ChunkIterator(saved_set_chunks)
+        set_chunks = TaskChunks(saved_set_chunks)
         Base.Experimental.@sync begin 
             for taskid in 1:num_tasks
                 cellbuffer = get_local(cellbuffers, taskid)

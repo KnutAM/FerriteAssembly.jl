@@ -55,51 +55,9 @@ function ThreadedDomainBuffer(sdh::SubDofHandler, cellset, colors::Vector, cellb
     cellset_intersect = sort!(collect(intersect(cellset, getcellset(sdh))))
     colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset_intersect), colors)
     cellbuffers = TaskLocals(cellbuffer)
+    # See TaskChunks.jl for create_chunks
     saved_set_chunks = [create_chunks(set) for set in colors_intersect]
     return ThreadedDomainBuffer(sdh, cellset_intersect, colors_intersect, saved_set_chunks, cellbuffers)
-end
-
-function create_chunks(set::Vector{Int}; num_tasks = Threads.nthreads()) #::Vector{Vector{Int}}
-    # Split `set` into chunks of indices to be assembled
-    # Each task takes one chunk if indices, assemble them, and asks for a new chunk
-    # The "standard" threading behavior is obtained by making one chunk per thread,
-    # this would be ideal if all indices take equal time to assemble. 
-    # The opposite would be one index in each chunk, which ensures very good load distribution.
-    # However, overhead is large as asking for new chunks require a lock to prevent race conditions. 
-
-    # This function tries to make a reasonable default chunking, 
-    # which accounts for the number of cells and threads
-    # Some checks are made here in addition to unit tests to ensure correct distribution.
-    # Errors in that would otherwise cause wrong values silently during assembly.
-    num_cells = length(set)
-    if num_cells < num_tasks
-        chunk_size = 0
-    elseif num_tasks == 1
-        chunk_size = num_cells
-    else
-        max_chunk_size = 100
-        # Not well-considered heuristic, but gives somewhat reasonable values by looking at them
-        chunk_size = max(min(max_chunk_size, round(Int,sqrt(num_cells/(2*num_tasks)))), 1)
-    end
-    num_chunks = num_cells÷(chunk_size+1) + 1
-    num_missing = num_cells - num_chunks*chunk_size # How many chunks that will not have the full number 
-    # Check to be sure
-    if num_cells != (chunk_size*num_chunks + num_missing) || (num_missing > num_chunks)
-        @show num_cells, num_tasks, chunk_size, num_chunks, num_missing
-        error("This should not happen and is a bug")
-    end
-    chunks = Vector{Int}[]
-    i1 = 1
-    for _ in 1:num_chunks
-        Δi = num_missing>0 ? 1 : 0 # To distribute the lower numbers
-        i2 = i1 + (chunk_size-1) + Δi
-        push!(chunks, set[i1:i2])
-        i1 = i2+1
-        num_missing = max(num_missing-1, 0)
-    end
-    # Check to be sure
-    sum(length, chunks)==num_cells || error("This should not happen and is a bug")
-    return chunks
 end
 
 get_material(buffer::ThreadedDomainBuffer) = get_material(get_base(buffer.cellbuffers))
