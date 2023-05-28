@@ -51,9 +51,11 @@ end
     @testset "get_material" begin
         material = zeros(1) #dummy
         buffer, new_states, old_states = setup_assembly(dh, material, cv; threading=Val(false))
-        buffer_threaded, _, _ = setup_assembly(dh, material, cv; threading=Val(false))
+        buffer_threaded, _, _ = setup_assembly(dh, material, cv; threading=Val(true))
+        buffers, _ = setup_assembly([AssemblyDomain("a", dh, material, cv)]; threading=Val(false))
         @test material === FerriteAssembly.get_material(buffer)
         @test material === FerriteAssembly.get_material(buffer_threaded)
+        @test material === FerriteAssembly.get_material(buffers, "a")
     end
 end
 

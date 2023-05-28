@@ -24,10 +24,8 @@ function create_chunks(set::Vector{Int}; num_tasks = Threads.nthreads()) #::Vect
     num_chunks = num_cells÷(chunk_size+1) + 1
     num_missing = num_cells - num_chunks*chunk_size # How many chunks that will not have the full number 
     # Check to be sure
-    if num_cells != (chunk_size*num_chunks + num_missing) || (num_missing > num_chunks)
-        @show num_cells, num_tasks, chunk_size, num_chunks, num_missing
-        error("This should not happen and is a bug")
-    end
+    num_cells == (chunk_size*num_chunks + num_missing) || error("This is a bug")
+    num_missing <= num_chunks || error("This is a bug")
     chunks = Vector{Int}[]
     i1 = 1
     for _ in 1:num_chunks
@@ -38,7 +36,7 @@ function create_chunks(set::Vector{Int}; num_tasks = Threads.nthreads()) #::Vect
         num_missing = max(num_missing-1, 0)
     end
     # Check to be sure
-    sum(length, chunks)==num_cells || error("This should not happen and is a bug")
+    sum(length, chunks)==num_cells || error("This is a bug")
     return chunks
 end
 
