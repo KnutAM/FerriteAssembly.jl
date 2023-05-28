@@ -6,10 +6,12 @@ import FerriteAssembly.ExampleElements as EE
 import MaterialModelsBase as MMB
 
 include("states.jl") 
+include("threading_utils.jl")
 include("heatequation.jl")
 include("example_elements.jl")
 include("integration.jl")
-include("scaling.jl") 
+include("scaling.jl")
+
 
 @testset "Errors" begin
     printstyled("=== Testing will give expected error messages, ok if tests pass! ===\n"; color=:green, bold=true)
@@ -49,9 +51,11 @@ end
     @testset "get_material" begin
         material = zeros(1) #dummy
         buffer, new_states, old_states = setup_assembly(dh, material, cv; threading=Val(false))
-        buffer_threaded, _, _ = setup_assembly(dh, material, cv; threading=Val(false))
+        buffer_threaded, _, _ = setup_assembly(dh, material, cv; threading=Val(true))
+        buffers, _ = setup_assembly([AssemblyDomain("a", dh, material, cv)]; threading=Val(false))
         @test material === FerriteAssembly.get_material(buffer)
         @test material === FerriteAssembly.get_material(buffer_threaded)
+        @test material === FerriteAssembly.get_material(buffers, "a")
     end
 end
 

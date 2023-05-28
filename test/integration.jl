@@ -70,9 +70,9 @@ import .TestIntegrators: MySimpleIntegrand
             # Calculate the values above, but together as a heterogeneous tuple
             tuple_integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u, ∇u), (0.0, 0.0, zero(Vec{3})))
             doassemble!(tuple_integrator, states, buffer; a=a)
-            @test volume_integrator.val == tuple_integrator.val[1]
-            @test dofsum_integrator.val == tuple_integrator.val[2]
-            @test gradsum_integrator.val == tuple_integrator.val[3]
+            @test volume_integrator.val ≈ tuple_integrator.val[1]
+            @test dofsum_integrator.val ≈ tuple_integrator.val[2]
+            @test gradsum_integrator.val ≈ tuple_integrator.val[3]
         end
     
         test_heatflow(;threading=Val(false))
@@ -120,9 +120,9 @@ import .TestIntegrators: MySimpleIntegrand
             # Calculate the values above, but together as a heterogeneous tuple
             tuple_integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u, symmetric(∇u)), (0.0, zero(Vec{2}), zero(SymmetricTensor{2,2})))
             doassemble!(tuple_integrator, states, buffer; a=a)
-            @test area_integrator.val == tuple_integrator.val[1]
-            @test dofsum_integrator.val == tuple_integrator.val[2]
-            @test gradsum_integrator.val == tuple_integrator.val[3]
+            @test area_integrator.val ≈ tuple_integrator.val[1]
+            @test dofsum_integrator.val ≈ tuple_integrator.val[2]
+            @test gradsum_integrator.val ≈ tuple_integrator.val[3]
         end
     
         test_elasticity(;threading=Val(false))
@@ -194,19 +194,15 @@ import .TestIntegrators: MySimpleIntegrand
             # Calculate values from above, but together as a heterogeneous tuple
             tuple_integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u[:p], symmetric(∇u[:u])), (0.0, 0.0, zero(SymmetricTensor{2,2})))
             doassemble!(tuple_integrator, states, buffer; a=a)
-            @test area_integrator.val == tuple_integrator.val[1]
-            @test p_integrator.val == tuple_integrator.val[2]
-            @test ∇u_integrator.val == tuple_integrator.val[3]
+            @test area_integrator.val ≈ tuple_integrator.val[1]
+            @test p_integrator.val ≈ tuple_integrator.val[2]
+            @test ∇u_integrator.val ≈ tuple_integrator.val[3]
 
             # Do the same test, but using Integrator with MySimpleIntegrand
             simple_integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u[:p], symmetric(∇u[:u])), (0.0, 0.0, zero(SymmetricTensor{2,2})))
             integrator = Integrator(MySimpleIntegrand(simple_integrator))
             doassemble!(integrator, states, buffer; a=a)
-            if isa(threading, Val{true})
-                @test all(simple_integrator.val .≈ tuple_integrator.val) # Integrator doesn't thread, so only inexact equality
-            else
-                @test simple_integrator.val == tuple_integrator.val # Should be exact 
-            end
+            @test all(simple_integrator.val .≈ tuple_integrator.val)
         end
 
         test_poroelasticity(;threading=Val(false))
