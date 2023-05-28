@@ -63,23 +63,31 @@ function create_chunks(set::Vector{Int}; num_tasks = Threads.nthreads())
     # Create a reasonable default chunking, which accounts for the number of cells and threads 
     max_chunk_size = 100   # Adding more will not help performance anyways
     num_cells = length(set)
-    if num_cells <= 4*num_tasks
-        chunk_size = (num_cells-1) ÷ num_tasks + 1
-    else 
-        chunk_size = max(min(max_chunk_size, round(Int,sqrt(num_cells/(2*num_tasks)))), 4)
+    if num_cells < num_tasks
+        chunk_size = 0
+    elseif num_tasks == 1
+        chunk_size = num_cells
+    else
+        chunk_size = max(min(max_chunk_size, round(Int,sqrt(num_cells/(2*num_tasks)))), 1)
     end
-    num_chunks = num_cells÷chunk_size
-    num_missing = mod(num_cells, chunk_size) # How many chunks that will not have the full number 
+    num_chunks = num_cells÷(chunk_size+1) + 1
+    num_missing = num_cells - num_chunks*chunk_size # How many chunks that will not have the full number 
+    # Check to be sure
+    if num_cells != (chunk_size*num_chunks + num_missing) || (num_missing > num_chunks)
+        @show num_cells, num_tasks, chunk_size, num_chunks, num_missing
+        error("This should not happen and is a bug")
+    end
     chunks = Vector{Int}[]
-    # TODO: Better with the biggest tasks first (and have others left for balancing)
     i1 = 1
     for _ in 1:num_chunks
         Δi = num_missing>0 ? 1 : 0 # To distribute the lower numbers
-        i2 = i1 + (chunk_size-1) - Δi
+        i2 = i1 + (chunk_size-1) + Δi
         push!(chunks, set[i1:i2])
         i1 = i2+1
         num_missing = max(num_missing-1, 0)
     end
+    # Check to be sure
+    sum(length, chunks)==num_cells || error("This should not happen and is a bug")
     return chunks
 end
 

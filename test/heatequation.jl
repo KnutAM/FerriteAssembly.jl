@@ -184,15 +184,15 @@
         end
     end
     
-    for DH in (DofHandler,)# MixedDofHandler)
-        for mattype in (:same,)# :ad, :mixed, :weak)
+    for DH in (DofHandler, MixedDofHandler)
+        for mattype in (:same, :ad, :mixed, :weak)
             material = materials[mattype]
             
             cv, K, dh = setup_heatequation(DH)
-            for scaling in (FerriteAssembly.NoScaling(),)# ElementResidualScaling(dh, 1))
+            for scaling in (FerriteAssembly.NoScaling(), ElementResidualScaling(dh, 1))
                 r = zeros(ndofs(dh))
                 a = mattype==:same ? nothing : copy(r)  # If AD, dofs required
-                #=
+
                 @testset "$DH, $mattype, sequential" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
@@ -217,7 +217,7 @@
                         end
                     end
                 end
-                =#
+                
                 @testset "$DH, $mattype, threaded" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
@@ -230,7 +230,7 @@
                         # Quick check that test script works and that it is actually colored
                         TDB = FerriteAssembly.ThreadedDomainBuffer
                         @test isa(buffer, Union{Dict{String,<:TDB}, TDB})
-                        
+
                         doassemble!(assembler, new_states, buffer; a=a, old_states=old_states)
                         if isa(scaling, ElementResidualScaling)
                             @test scaling.factors[:u] ≈ sum(abs, r)
