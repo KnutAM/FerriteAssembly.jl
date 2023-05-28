@@ -23,22 +23,23 @@ using `FerriteNeumann.jl`.
 struct LinearElastic{Dim,T,N}
     C::SymmetricTensor{4,Dim,T,N}
 end
-function ElasticPlaneStrain(;E=2.e3, ν=0.3)
+function LinearElastic(::Val{Dim}=Val(3);E=2.e3, ν=0.3) where Dim
     G = E / 2(1 + ν)
     K = E / 3(1 - 2ν)
-    I2 = one(SymmetricTensor{2,2})
+    I2 = one(SymmetricTensor{2,Dim})
     I4vol = I2⊗I2
-    I4dev = minorsymmetric(otimesu(I2,I2)) - I4vol / 3
+    I4dev = one(SymmetricTensor{4,Dim}) - I4vol / 3
     return LinearElastic(2G*I4dev + K*I4vol)
 end
-function LinearElastic(;E=2.e3, ν=0.3)
-    G = E / 2(1 + ν)
-    K = E / 3(1 - 2ν)
-    I2 = one(SymmetricTensor{2,3})
-    I4vol = I2⊗I2
-    I4dev = one(SymmetricTensor{4,3}) - I4vol / 3
-    return LinearElastic(2G*I4dev + K*I4vol)
-end
+LinearElastic(::Val{:planestrain}; kwargs...) = LinearElastic(Val(2); kwargs...)
+ElasticPlaneStrain(;kwargs...) = LinearElastic(Val(:planestrain); kwargs...)
+# Plane stress not implemented
+#ElasticPlaneStress(;kwargs...) = LinearElastic(Val(:planestress); kwargs...)
+#function LinearElastic(::Val{:planestress}; kwargs...)
+#    error("Implement me")
+#end
+# Type-unstable switch could be made for convenience
+# LinearElastic(type::Symbol; kwargs...) = LinearElastic(Val(type); kwargs...)
 
 function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::LinearElastic, cv::CellVectorValues, buffer)
     for q_point in 1:getnquadpoints(cv)
