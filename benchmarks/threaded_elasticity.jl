@@ -3,14 +3,14 @@ using FerriteAssembly
 import FerriteAssembly.ExampleElements: LinearElastic
 
 setup(threaded=Val(Threads.nthreads()>1)) = setup_threaded(threaded)
-function setup_threaded(threaded::Val)
-    grid = generate_grid(Hexahedron, (20,20,20))
+function setup_threaded(threaded::Val; n=20)
+    grid = generate_grid(Hexahedron, (10*n,n,n), zero(Vec{3}), Vec((10.0, 1.0, 1.0)))
     ip = Ferrite.default_interpolation(getcelltype(grid))
-    qr = QuadratureRule{3,RefCube}(5)
+    qr = QuadratureRule{3,RefCube}(2)
     dh = DofHandler(grid); add!(dh, :u, 3, ip); close!(dh)
     cv = CellVectorValues(qr, ip)
 
-    buffer, new_states = setup_assembly(dh, LinearElastic(E=210e9, ν=0.3), cv; threading=threaded)
+    buffer, new_states = setup_assembly(dh, LinearElastic(E=200e9, ν=0.3), cv; threading=threaded)
     K = create_sparsity_pattern(dh)
     r = zeros(ndofs(dh))
     
