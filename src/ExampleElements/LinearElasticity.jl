@@ -20,8 +20,8 @@ with the corresponding weak form,
 The external loading on the right hand side is not included in the element, but can be implemented 
 using `FerriteNeumann.jl`.  
 """
-struct ElasticPlaneStrain{T}
-    C::SymmetricTensor{4,2,T,9}
+struct LinearElastic{Dim,T,N}
+    C::SymmetricTensor{4,Dim,T,N}
 end
 function ElasticPlaneStrain(;E=2.e3, ν=0.3)
     G = E / 2(1 + ν)
@@ -29,10 +29,18 @@ function ElasticPlaneStrain(;E=2.e3, ν=0.3)
     I2 = one(SymmetricTensor{2,2})
     I4vol = I2⊗I2
     I4dev = minorsymmetric(otimesu(I2,I2)) - I4vol / 3
-    return ElasticPlaneStrain(2G*I4dev + K*I4vol)
+    return LinearElastic(2G*I4dev + K*I4vol)
+end
+function LinearElastic(;E=2.e3, ν=0.3)
+    G = E / 2(1 + ν)
+    K = E / 3(1 - 2ν)
+    I2 = one(SymmetricTensor{2,3})
+    I4vol = I2⊗I2
+    I4dev = one(SymmetricTensor{4,3}) - I4vol / 3
+    return LinearElastic(2G*I4dev + K*I4vol)
 end
 
-function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, buffer)
+function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::LinearElastic, cv::CellVectorValues, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
@@ -50,7 +58,7 @@ function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::Elast
     end
 end
 
-function FerriteAssembly.element_residual!(re, new_state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, buffer)
+function FerriteAssembly.element_residual!(re, new_state, ae, material::LinearElastic, cv::CellVectorValues, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
