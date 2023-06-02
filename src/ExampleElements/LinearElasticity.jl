@@ -20,19 +20,28 @@ with the corresponding weak form,
 The external loading on the right hand side is not included in the element, but can be implemented 
 using `FerriteNeumann.jl`.  
 """
-struct ElasticPlaneStrain{T}
-    C::SymmetricTensor{4,2,T,9}
+struct LinearElastic{Dim,T,N}
+    C::SymmetricTensor{4,Dim,T,N}
 end
-function ElasticPlaneStrain(;E=2.e3, ν=0.3)
+function LinearElastic(::Val{Dim}=Val(3);E=2.e3, ν=0.3) where Dim
     G = E / 2(1 + ν)
     K = E / 3(1 - 2ν)
-    I2 = one(SymmetricTensor{2,2})
+    I2 = one(SymmetricTensor{2,Dim})
     I4vol = I2⊗I2
-    I4dev = minorsymmetric(otimesu(I2,I2)) - I4vol / 3
-    return ElasticPlaneStrain(2G*I4dev + K*I4vol)
+    I4dev = one(SymmetricTensor{4,Dim}) - I4vol / 3
+    return LinearElastic(2G*I4dev + K*I4vol)
 end
+LinearElastic(::Val{:planestrain}; kwargs...) = LinearElastic(Val(2); kwargs...)
+ElasticPlaneStrain(;kwargs...) = LinearElastic(Val(:planestrain); kwargs...)
+# Plane stress not implemented
+#ElasticPlaneStress(;kwargs...) = LinearElastic(Val(:planestress); kwargs...)
+#function LinearElastic(::Val{:planestress}; kwargs...)
+#    error("Implement me")
+#end
+# Type-unstable switch could be made for convenience
+# LinearElastic(type::Symbol; kwargs...) = LinearElastic(Val(type); kwargs...)
 
-function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, buffer)
+function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::LinearElastic, cv::CellVectorValues, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
@@ -50,7 +59,7 @@ function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::Elast
     end
 end
 
-function FerriteAssembly.element_residual!(re, new_state, ae, material::ElasticPlaneStrain, cv::CellVectorValues, buffer)
+function FerriteAssembly.element_residual!(re, new_state, ae, material::LinearElastic, cv::CellVectorValues, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)

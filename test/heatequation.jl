@@ -1,7 +1,7 @@
 @testset "heatequation" begin
     # Modified example from Ferrite.jl
     function get_grid()
-        grid = generate_grid(Quadrilateral, (20, 20))
+        grid = generate_grid(Quadrilateral, (200, 200))
         # Add cellsets for testing different materials on the grid
         addcellset!(grid, "A", x->x[1]<0)
         addcellset!(grid, "B", setdiff(1:getncells(grid), getcellset(grid,"A")))
@@ -192,7 +192,7 @@
             for scaling in (FerriteAssembly.NoScaling(), ElementResidualScaling(dh, 1))
                 r = zeros(ndofs(dh))
                 a = mattype==:same ? nothing : copy(r)  # If AD, dofs required
-                
+
                 @testset "$DH, $mattype, sequential" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
@@ -217,6 +217,7 @@
                         end
                     end
                 end
+                
                 @testset "$DH, $mattype, threaded" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
@@ -229,7 +230,7 @@
                         # Quick check that test script works and that it is actually colored
                         TDB = FerriteAssembly.ThreadedDomainBuffer
                         @test isa(buffer, Union{Dict{String,<:TDB}, TDB})
-                        
+
                         doassemble!(assembler, new_states, buffer; a=a, old_states=old_states)
                         if isa(scaling, ElementResidualScaling)
                             @test scaling.factors[:u] ≈ sum(abs, r)

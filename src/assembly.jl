@@ -63,19 +63,33 @@ function sequential_assemble_domain!(assembler, new_states, buffer; a=nothing, a
     end
 end
 
-function threaded_assemble_domain!(assembler::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
+function threaded_assemble_domain!(assemblers::TaskLocals, new_states, buffer::ThreadedDomainBuffer; a=nothing, aold=nothing, old_states=nothing, Δt=NaN)
     cellbuffers = buffer.cellbuffers #::TaskLocals
+    sdh = buffer.sdh # SubDofHandler
     update_time!(get_base(cellbuffers), Δt)
     scatter!(cellbuffers)
-    scatter!(assembler)
-    for cellset in buffer.colors
-        Threads.@threads :static for cellnr in cellset
-            id = Threads.threadid()
-            assemble_cell!(get_local(assembler, id), new_states, get_local(cellbuffers, id), buffer.sdh, cellnr, a, aold, old_states)
-        end
-    end
+    scatter!(assemblers)
+    num_tasks = Threads.nthreads()
+    for saved_set_chunks in buffer.saved_set_chunks
+        set_chunks = TaskChunks(saved_set_chunks)
+        Base.Experimental.@sync begin 
+            for taskid in 1:num_tasks
+                cellbuffer = get_local(cellbuffers, taskid)
+                assembler = get_local(assemblers, taskid)
+                Threads.@spawn begin
+                    while true
+                        set_chunk = get_chunk(set_chunks)
+                        isempty(set_chunk) && break
+                        for cellnr in set_chunk
+                            assemble_cell!(assembler, new_states, cellbuffer, sdh, cellnr, a, aold, old_states)
+                        end
+                    end
+                end #spawn
+            end #taskid
+        end #sync
+    end #colors
     gather!(cellbuffers)
-    gather!(assembler)
+    gather!(assemblers)
 end
 
 """
