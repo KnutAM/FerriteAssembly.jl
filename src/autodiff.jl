@@ -29,13 +29,28 @@ struct AutoDiffCellBuffer{CB<:CellBuffer,ER<:ElementResidual,JC} <: AbstractCell
     cfg::JC # JacobianConfig
 end
 
+
+"""
+    unwrap_material(m)
+
+Unwrap a material that has been wrapped in another struct before using for automatic differentiation. 
+This function is called when setting up the AutoDiffCellBuffer, and all calls to 
+`element_routine_ad!` should use the unwrapped material from the cellbuffer. Note that 
+1. This is *advanced* and *experimental* features
+2. The material is not unwrapped automatically when calling `element_routine_ad!`, this is on purpose 
+   to avoid having defined `unwrap_material` for the user wrapper unintentionally and then be surprised
+   that the wrapper is not propagated into `element_residual!`. 
+3. To support wrapped wrappers, overload as `unwrap_material(m::MyWrapper) = unwrap_material(m.material)`
+"""
+unwrap_material(m) = m
+
 """
     AutoDiffCellBuffer(cb::CellBuffer)
 
 """
 function AutoDiffCellBuffer(cb::CellBuffer)
     cellstate = deepcopy(get_old_state(cb)) # to be safe, copy shouldn't be required. 
-    material = get_material(cb)
+    material = unwrap_material(get_material(cb))
     cellvalues = get_cellvalues(cb)
     er = ElementResidual(cellstate, material, cellvalues, cb)
     cfg = create_jacobian_config(er)

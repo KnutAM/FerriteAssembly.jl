@@ -66,6 +66,7 @@ it is possible to overload `element_residual!` instead of `element_routine!`. Se
 """
 function element_residual! end
 
+include("CustomStiffness.jl")
 include("MaterialModelsBase.jl")
 include("ExampleElements/ExampleElements.jl")
 

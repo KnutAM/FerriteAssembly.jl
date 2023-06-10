@@ -1,5 +1,5 @@
 using Ferrite, FerriteAssembly
-using SparseArrays
+using LinearAlgebra, SparseArrays
 using Test
 import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
@@ -11,6 +11,7 @@ include("heatequation.jl")
 include("example_elements.jl")
 include("integration.jl")
 include("scaling.jl")
+include("CustomStiffness.jl")
 
 
 @testset "Errors" begin
