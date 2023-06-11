@@ -75,7 +75,7 @@ unwrap_material_for_ad(m) = m
 """
 function AutoDiffCellBuffer(cb::CellBuffer)
     cellstate = deepcopy(get_old_state(cb)) # to be safe, copy shouldn't be required. 
-    material = unwrap_material(get_material(cb))
+    material = unwrap_material_for_ad(get_material(cb))
     cellvalues = get_cellvalues(cb)
     er = ElementResidual(cellstate, material, cellvalues, cb)
     cfg = create_jacobian_config(er)
