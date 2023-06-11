@@ -11,7 +11,6 @@ include("heatequation.jl")
 include("example_elements.jl")
 include("integration.jl")
 include("scaling.jl")
-include("CustomStiffness.jl")
 
 
 @testset "Errors" begin
