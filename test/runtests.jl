@@ -1,5 +1,5 @@
 using Ferrite, FerriteAssembly
-using LinearAlgebra, SparseArrays
+using SparseArrays
 using Test
 import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
