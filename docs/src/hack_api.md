@@ -21,6 +21,7 @@ FerriteAssembly.create_local
 FerriteAssembly.scatter!
 FerriteAssembly.gather!
 FerriteAssembly.get_local
+FerriteAssembly.get_locals
 FerriteAssembly.get_base
 ```
 
@@ -45,4 +46,9 @@ support the following functions
 ```@docs
 FerriteAssembly.update_scaling!
 FerriteAssembly.reset_scaling!
+```
+
+## Threading model (internal)
+```@docs
+FerriteAssembly.TaskChunks
 ```

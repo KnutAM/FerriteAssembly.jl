@@ -27,6 +27,13 @@ Get the `i`th `local` variable from `tl`
 get_local(tl::TaskLocals, i::Int) = tl.locals[i]
 
 """
+    get_locals(tl::TaskLocals)
+
+Get the vector of locals in `tl`
+"""
+get_locals(tl) = tl.locals
+
+"""
     get_base(tl::TaskLocals)
 
 Get the `base` variable from `tl`

@@ -12,7 +12,7 @@ mutable struct CellBuffer{sdim,T,CV,DR,MT,ST,UD,CC} <: AbstractCellBuffer
     cellid::Int                       # Current cell nr (updated in reinit!)
     const dofrange::DR                # dof range for each field (NamedTuple)
     # User defined types
-    const material::MT                # User material definition (used for dispatch)
+    material::MT                      # User material definition (used for dispatch)
     old_state::ST                     # Old state variables for the cell (updated in reinit!)
     const user_data::UD               # User data for the cell (used for additional information)
     const cache::CC                   # Cache for the cell (user type) (deepcopy for each thread)
@@ -179,6 +179,11 @@ function Ferrite.reinit!(c::CellBuffer, dh::Ferrite.AbstractDofHandler, cellnum:
     fill!(c.Ke, 0)
     fill!(c.re, 0)
     return nothing  # Ferrite's reinit! doesn't return 
+end
+
+# Advanced features
+function modify_material!(fun, cb::CellBuffer)
+    cb.material = fun(cb.material)
 end
 
 # End of required functions for a custom CellBuffer

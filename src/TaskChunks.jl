@@ -45,7 +45,7 @@ end
 """
     TaskChunks(chunks)
 
-This is strictly an internal implementation detail for now.
+This is **strictly** an internal implementation detail for now.
 It is used to provide a variant of `Base.Channel`, but 
 where data is not removed, the index is just incremented.
 """

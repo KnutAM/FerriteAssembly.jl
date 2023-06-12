@@ -43,6 +43,14 @@ if used in performance sensitive locations.
 """
 get_material(buffer::DomainBuffer) = get_material(buffer.cellbuffer)
 
+"""
+    modify_material!(fun, buffer)
+
+Modify the material(s) in the buffer returned by `setup_assembly`
+as `m = fun(m)`. Note that `typeof(m)==typeof(fun(m))` must hold true.
+"""
+modify_material!(fun, buffer::DomainBuffer) = modify_material!(fun, buffer.cellbuffer)
+
 struct ThreadedDomainBuffer{SDH<:SubDofHandler, CB<:AbstractCellBuffer} <: AbstractDomainBuffer
     sdh::SDH 
     cellset::Vector{Int}
@@ -62,6 +70,18 @@ end
 
 get_material(buffer::ThreadedDomainBuffer) = get_material(get_base(buffer.cellbuffers))
 get_material(buffers::Dict{String,<:AbstractDomainBuffer}, name::String) = get_material(buffers[name]) # Note: Not typestable!
+
+function modify_material!(fun, buffer::ThreadedDomainBuffer)
+    modify_material!(fun, get_base(buffer.cellbuffers))
+    for cellbuffer in get_locals(buffer.cellbuffers)
+        modify_material!(fun, cellbuffer)
+    end
+end
+function modify_material!(fun, buffers::Dict{String,<:AbstractDomainBuffer})
+    for (_, buffer) in buffers
+        modify_material!(fun, buffer)
+    end
+end
 
 Ferrite.getcellset(b::Union{DomainBuffer, ThreadedDomainBuffer}) = b.cellset
 

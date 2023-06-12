@@ -38,6 +38,7 @@ makedocs(;
             "Assemblers" => "UserAPI/Assemblers.md",
             "CellBuffer" => "UserAPI/CellBuffer.md",
             "Residual scaling" => "UserAPI/ResidualScaling.md",
+            "Advanced features" => "UserAPI/AdvancedFeatures.md",
         ],
         "Hacking API" => "hack_api.md",
         "Internals" => "internals.md",

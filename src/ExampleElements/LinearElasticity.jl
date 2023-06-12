@@ -18,8 +18,11 @@ with the corresponding weak form,
    + \int_\Omega \boldsymbol{\delta u} \cdot \boldsymbol{b} \mathrm{d}\Omega
 ```
 The external loading on the right hand side is not included in the element, but can be implemented 
-using `FerriteNeumann.jl`.  
+using `FerriteNeumann.jl`.  (Note that this constructor returns `LinearElastic`, which just stores the 
+correct stiffness tensor for the case of isotropic plane strain)
 """
+ElasticPlaneStrain(;kwargs...) = LinearElastic(Val(:planestrain); kwargs...)
+
 struct LinearElastic{Dim,T,N}
     C::SymmetricTensor{4,Dim,T,N}
 end
@@ -32,7 +35,6 @@ function LinearElastic(::Val{Dim}=Val(3);E=2.e3, ν=0.3) where Dim
     return LinearElastic(2G*I4dev + K*I4vol)
 end
 LinearElastic(::Val{:planestrain}; kwargs...) = LinearElastic(Val(2); kwargs...)
-ElasticPlaneStrain(;kwargs...) = LinearElastic(Val(:planestrain); kwargs...)
 # Plane stress not implemented
 #ElasticPlaneStress(;kwargs...) = LinearElastic(Val(:planestress); kwargs...)
 #function LinearElastic(::Val{:planestress}; kwargs...)
