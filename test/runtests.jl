@@ -11,7 +11,7 @@ include("heatequation.jl")
 include("example_elements.jl")
 include("integration.jl")
 include("scaling.jl")
-
+include("advanced_features.jl")
 
 @testset "Errors" begin
     printstyled("=== Testing will give expected error messages, ok if tests pass! ===\n"; color=:green, bold=true)
