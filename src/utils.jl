@@ -11,8 +11,10 @@ Equivalent to `edofs .= gdofs[inds]`
 Fill `edofs` with NaN
 """
 function _copydofs!(edofs::Vector, gdofs::Vector, inds::Vector{Int})
+    checkbounds(edofs, 1:length(inds))
     for (i,j) in enumerate(inds)
-        edofs[i] = gdofs[j]
+        gdof = gdofs[j] # checkbounds + @inbounds is slower
+        @inbounds edofs[i] = gdof # checkbounds is cheap for 1:length(inds)
     end
 end
 _copydofs!(edofs::Vector, ::Nothing, args...) = fill!(edofs, NaN)

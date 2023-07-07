@@ -21,7 +21,7 @@ end
 """
     CellBuffer(
         numdofs::Int, numnodes::Int, ::Val{sdim}, 
-        cellvalues, material, cell_load=nothing, cache=nothing) -> CellBuffer
+        cellvalues, material, state, dofrange, user_data=nothing) -> CellBuffer
 
 Create a cell cache for an element with `numdofs` degrees of freedom and
 `numnodes` nodes with dimension `sdim`.
@@ -167,10 +167,8 @@ The element stiffness, `c.Ke`, and residual, `c.re`, are also zeroed.
 """
 function Ferrite.reinit!(c::CellBuffer, dh::Ferrite.AbstractDofHandler, cellnum::Int, anew, aold, old_states)
     c.cellid = cellnum
-    # `update_old_state!` could be made overloadable to make it error for certain state types 
-    update_old_state!(::Any, ::Nothing) = nothing # Allow nothing to avoid having to pass old state if not needed. 
-    update_old_state!(cb, _old_states) = (cb.old_state = fast_getindex(_old_states, cellnum))
-    update_old_state!(c, old_states)
+    # Allows passing old_states as nothing if not required
+    old_states !== nothing && (c.old_state = fast_getindex(old_states, cellnum))
     celldofs!(c.dofs, dh, cellnum)
     getcoordinates!(c.coords, dh.grid, cellnum)
     reinit!(c.cellvalues, c.coords)
