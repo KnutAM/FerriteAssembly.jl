@@ -4,12 +4,14 @@ using Test
 import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
 import MaterialModelsBase as MMB
+using Logging
 
 include("states.jl") 
 include("threading_utils.jl")
 include("heatequation.jl")
 include("example_elements.jl")
 include("integration.jl")
+include("load_handler.jl")
 include("scaling.jl")
 include("advanced_features.jl")
 

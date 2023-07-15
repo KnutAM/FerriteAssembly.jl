@@ -1,26 +1,30 @@
 module FerriteAssembly
 using Ferrite, ForwardDiff
 
-include("SubDofHandler.jl") # Temporary solutions until Ferrite is updated
-include("TaskLocals.jl")    # Task-local storage model 
-include("TaskChunks.jl") # Thread-safe iteration over chunks of cells
-include("utils.jl")
+include("Utils/SubDofHandler.jl")       # Temporary solutions until Ferrite is updated
+include("Multithreading/TaskLocals.jl") # Task-local storage model 
+include("Multithreading/TaskChunks.jl") # Thread-safe iteration over chunks of cells
+include("Utils/utils.jl")
 
-include("scaling.jl")
+include("Utils/scaling.jl")
 include("states.jl")
 include("CellBuffer.jl")
-include("autodiff.jl")
+include("Autodiff/autodiff.jl")
 
-include("Assemblers.jl")
-include("Integrators.jl")
+include("Workers/Assemblers.jl")
+include("Workers/Integrators.jl")
 include("setup.jl")
 include("assembly.jl")
+
+include("LoadHandler/LoadHandler.jl")
 
 export setup_assembly, AssemblyDomain
 export doassemble!, update_states!
 export ReAssembler, KeReAssembler
 export Integrator, SimpleIntegrator
 export ElementResidualScaling, reset_scaling!
+export LoadHandler
+export Neumann, BodyLoad
 
 """
     element_routine!(
@@ -66,7 +70,7 @@ it is possible to overload `element_residual!` instead of `element_routine!`. Se
 """
 function element_residual! end
 
-include("MaterialModelsBase.jl")
+include("Utils/MaterialModelsBase.jl")
 include("ExampleElements/ExampleElements.jl")
 
 end
