@@ -23,8 +23,7 @@ export doassemble!, update_states!
 export ReAssembler, KeReAssembler
 export Integrator, SimpleIntegrator
 export ElementResidualScaling, reset_scaling!
-export LoadHandler
-export Neumann, BodyLoad
+export LoadHandler, Neumann, BodyLoad
 
 """
     element_routine!(
