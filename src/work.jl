@@ -1,3 +1,70 @@
+
+function work!(worker, buffers::Dict{String,DomainBuffer}; kwargs...)
+    for buffer in values(buffers)
+        work_domain_sequential!(worker, buffer; kwargs...)
+    end
+end
+function work!(worker, buffer::DomainBuffer; kwargs...)
+    work_domain_sequential!(worker, buffer; kwargs...)
+end
+function work!(worker, buffers::Dict{String,ThreadedDomainBuffer}; kwargs...)
+    if can_thread(worker)
+        workers = TaskLocals(worker)
+        for buffer in values(buffers)
+            work_domain_threaded!(workers, buffer; kwargs...)
+        end
+    else
+        for buffer in values(buffers)
+            work_domain_sequential!(worker, buffer; kwargs...)
+        end
+    end
+end
+function work!(worker, buffer::ThreadedDomainBuffer; kwargs...)
+    if can_thread(worker)
+        workers = TaskLocals(worker)
+        work_domain_threaded!(workers, buffer; kwargs...)
+    else
+        work_domain_sequential!(worker, buffer; kwargs...)
+    end
+end
+
+function work_domain_sequential!(worker, domainbuffer; kwargs...)
+    itembuffer = get_itembuffer(domainbuffer)
+    for cellnr in getcellset(domainbuffer)
+        reinit!(itembuffer, cellnr, domainbuffer; kwargs...)
+        work_single!(worker, itembuffer)
+    end
+end
+
+function work_domain_threaded!(workers, domainbuffer; kwargs...)
+    itembuffers = get_itembuffer(domainbuffer) #::TaskLocals
+    scatter!(itembuffers)
+    scatter!(workers)
+    num_tasks = get_num_tasks(domainbuffer) # Default to Threads.nthreads()
+    for chunk_vector in get_chunk_vectors(domainbuffer)
+        taskchunks = TaskChunks(chunk_vector)
+        Base.Experimental.@sync begin 
+            for taskid in 1:num_tasks
+                itembuffer = get_local(itembuffers, taskid)
+                worker = get_local(workers, taskid)
+                Threads.@spawn begin
+                    while true
+                        taskchunk = get_chunk(taskchunks) # Vector{Int}
+                        isempty(taskchunk) && break
+                        for cellnr in taskchunk
+                            reinit!(itembuffer, domainbuffer, cellnr; kwargs...)
+                            work_single!(worker, itembuffer)
+                        end # cellnr
+                    end #chunk
+                end #spawn
+            end #taskid
+        end #sync
+    end #chunk_vectors
+    gather!(itembuffers)
+    gather!(workers)
+end
+
+
 """
     doassemble!(
         assembler, new_states::Dict{Int}, buffer::AbstractDomainBuffer; 

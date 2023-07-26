@@ -13,9 +13,10 @@ mutable struct CellBuffer{sdim,T,CV,DR,MT,ST,UD,CC} <: AbstractCellBuffer
     const dofrange::DR                # dof range for each field (NamedTuple)
     # User defined types
     material::MT                      # User material definition (used for dispatch)
+    new_state::ST                     # State variables re-pointed to current cell during reinit!
     old_state::ST                     # Old state variables for the cell (updated in reinit!)
     const user_data::UD               # User data for the cell (used for additional information)
-    const cache::CC                   # Cache for the cell (user type) (deepcopy for each thread)
+    const user_cache::UC                   # Cache for the cell (user type) (deepcopy for each thread)
 end
 
 """
@@ -40,7 +41,7 @@ function CellBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, cellvalues, materi
     return CellBuffer(
         zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
         zeros(Int, numdofs), zeros(Vec{sdim}, numnodes), 
-        cellvalues, Δt, cellid, dofrange, material, state, user_data, cache)
+        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache)
 end
 
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
@@ -157,7 +158,7 @@ allocations in the element routine. Returns `nothing` by default.
 allocate_cell_cache(::Any, ::Any) = nothing
 
 """
-    Ferrite.reinit!(c::CellBuffer, dh::AbstractDofHandler, cellnum::Int, anew, aold)
+    Ferrite.reinit!(c::CellBuffer, dh::AbstractDofHandler, cellnum::Int; anew=nothing, aold=nothing)
 
 Reinitialize the `c::CellBuffer` for cell number `cellnum`.
 The global degree of freedom vectors `anew` (current) and `aold` are used
@@ -165,14 +166,16 @@ to update the cell degree of freedom vectors in `c`.
 If the global vectors are instead `::Nothing`, the corresponding cell values are set to `NaN`
 The element stiffness, `c.Ke`, and residual, `c.re`, are also zeroed. 
 """
-function Ferrite.reinit!(c::CellBuffer, dh::Ferrite.AbstractDofHandler, cellnum::Int, anew, aold, old_states)
+function Ferrite.reinit!(c::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; anew=nothing, aold=nothing)
+    dh = getdh(db)
+    grid = Ferrite.get_grid(dh)
     c.cellid = cellnum
-    # Allows passing old_states as nothing if not required
-    old_states !== nothing && (c.old_state = fast_getindex(old_states, cellnum))
+    c.old_state = get_old_state(db, cellnum)
+    c.new_state = get_new_state(db, cellnum)
     celldofs!(c.dofs, dh, cellnum)
-    getcoordinates!(c.coords, dh.grid, cellnum)
+    getcoordinates!(c.coords, grid, cellnum)
     reinit!(c.cellvalues, c.coords)
-    _copydofs!(c.ae, anew, c.dofs)     # ae_new .= a_new[dofs]
+    _copydofs!(c.ae,     anew, c.dofs) # ae_new .= a_new[dofs]
     _copydofs!(c.ae_old, aold, c.dofs) # ae_old .= a_old[dofs]
     fill!(c.Ke, 0)
     fill!(c.re, 0)
