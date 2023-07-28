@@ -1,11 +1,3 @@
-# Assemblers need to the following:
-# `TaskLocals` interface
-# `assemble_cell_reinited!(assembler, state, cellbuffer)`
-
-# Defaults: Suffices to use this in if-else blocks to avoid too many dispatch layers (improve readability)
-can_thread(::Any) = false # Opt-in for threading
-need_colors(::Any) = true # Opt-out of using colors
-skip_this_domain(::Any, ::String) = false # opt-in to skip domains (used for integration)
 
 # Ferrite.AbstractSparseAssembler
 const FerriteSparseAssemblers = Union{Ferrite.AssemblerSparsityPattern, Ferrite.AssemblerSymmetricSparsityPattern}
@@ -16,19 +8,13 @@ gather!( ::FerriteSparseAssemblers, ::FerriteSparseAssemblers) = nothing
 can_thread(::FerriteSparseAssemblers) = true
 need_colors(::FerriteSparseAssemblers) = true
 
-"""
-    assemble_cell_reinited!(assembler::Ferrite.AbstractSparseAssembler, cell_state, cellbuffer)
-
-Calculate the local element stiffness, `Ke`, and the local residual, `re`, with
-`element_routine!` for the cell described by the reinitialized `cellbuffer`.
-Assemble these into the global matrix and vector in `assembler`. 
-"""
-function assemble_cell_reinited!(assembler::Ferrite.AbstractSparseAssembler, cell_state, cellbuffer)
+function work_single_cell!(assembler::Ferrite.AbstractSparseAssembler, cellbuffer)
     Ke = get_Ke(cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
+    cell_state = get_new_state(cellbuffer)
     material = get_material(cellbuffer)
-    cellvalues = get_cellvalues(cellbuffer)
+    cellvalues = get_values(cellbuffer)
     element_routine!(Ke, re, cell_state, ae, material, cellvalues, cellbuffer)
     assemble!(assembler, celldofs(cellbuffer), Ke, re)
 end
@@ -67,29 +53,15 @@ gather!(base::ReAssembler, task::ReAssembler) = gather!(base.scaling, task.scali
 can_thread(::ReAssembler) = true
 need_colors(::ReAssembler) = true # To be clear
 
-# assemble! routine
-function assemble_contributions!(ra::ReAssembler, buffer::AbstractCellBuffer)
-    re = get_re(buffer)
-    update_scaling!(ra.scaling, re, buffer)
-    assemble!(ra.r, celldofs(buffer), re)
-end
-
-"""
-    assemble_cell_reinited!(assembler::ReAssembler, cell_state, cellbuffer)
-
-Calculate the local residual, `re`, with `element_residual!` for the cell described 
-by the reinitialized `cellbuffer`. Assemble `re` into the global vector in `assembler`. 
-In addition, `ReAssembler` supports the extra option
-- Residual scaling factor, e.g. `ElementResidualScaling`
-"""
-function assemble_cell_reinited!(assembler::ReAssembler, cell_state, cellbuffer)
+function work_single_cell!(assembler::ReAssembler, cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
+    cell_state = get_new_state(cellbuffer)
     material = get_material(cellbuffer)
-    cellvalues = get_cellvalues(cellbuffer)
+    cellvalues = get_values(cellbuffer)
     element_residual!(re, cell_state, ae, material, cellvalues, cellbuffer)
-    
-    assemble_contributions!(assembler, cellbuffer)
+    update_scaling!(assembler.scaling, re, cellbuffer)
+    assemble!(assembler.r, celldofs(cellbuffer), re)
 end
 
 """
@@ -164,22 +136,13 @@ function assemble_contributions!(assembler::KeReAssembler{<:Any,<:ConstraintHand
     apply_assemble!(assembler.a, assembler.ch, celldofs(buffer), Ke, re; apply_zero=assembler.apply_zero)
 end
 
-"""
-    assemble_cell_reinited!(assembler::KeReAssembler, cell_state, cellbuffer)
-
-Calculate the local element stiffness, `Ke`, and the local residual, `re`, with
-`element_routine!` for the cell described by the reinitialized `cellbuffer`.
-Assemble these into the global matrix and vector in `assembler`. 
-In addition, `KeReAssembler` supports the extra options
-- Local application of constraints: `Ferrite.apply_assemble!`
-- Residual scaling factor, e.g. `ElementResidualScaling`
-"""
-function assemble_cell_reinited!(assembler::KeReAssembler, cell_state, cellbuffer)
+function work_single_cell!(assembler::KeReAssembler, cellbuffer)
     Ke = get_Ke(cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
+    cell_state = get_new_state(cellbuffer)
     material = get_material(cellbuffer)
-    cellvalues = get_cellvalues(cellbuffer)
+    cellvalues = get_values(cellbuffer)
     element_routine!(Ke, re, cell_state, ae, material, cellvalues, cellbuffer)
     assemble_contributions!(assembler, cellbuffer)
 end

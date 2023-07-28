@@ -1,4 +1,6 @@
-# Temporary until included in Ferrite. 
+# ================================================= #
+# SubDofHandler                                     #
+# ================================================= #
 struct SubDofHandler{DH,FH}
     dh::DH
     fh::FH
@@ -24,5 +26,8 @@ function create_dofrange(sdh::SubDofHandler)
     return NamedTuple((n => dof_range(sdh, n) for n in Ferrite.getfieldnames(sdh)))
 end
 
-# Try to reinit! each element in the NamedTuple (should be replaced by MultiCellValues)
+# ================================================= #
+# reinit!(::NamedTuple, args...)                    #
+# ================================================= #
+# Should be replaced by MultiCellValues
 Ferrite.reinit!(vals::NamedTuple, args...) = map(v->reinit!(v, args...), values(vals))

@@ -35,10 +35,14 @@ get_locals(tl) = tl.locals
 
 """
     get_base(tl::TaskLocals)
+    get_base(x::Any)
 
-Get the `base` variable from `tl`
+Get the `base` variable from `tl`, or, 
+for an `x` that is not a `TaskLocals`,
+return itself
 """
 get_base(tl::TaskLocals) = tl.base
+get_base(x) = x
 
 function scatter!(tl::TaskLocals)
     map(Base.Fix2(scatter!, tl.base), tl.locals)

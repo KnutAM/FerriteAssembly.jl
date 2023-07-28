@@ -30,7 +30,7 @@ r = zeros(ndofs(dh));
 
 # ## Setting up the assembly
 # Using the `setup_assembly` function, 
-buffer, new_states, old_states = setup_assembly(dh, material, cellvalues);
+buffer = setup_domainbuffer(GridDomain(dh, material, cellvalues));
 # we setup the `buffer`, old state variables, and new state variables. 
 # The state variables are created via the [`create_cell_state`](@ref FerriteAssembly.create_cell_state) 
 # function that is already defined for `MaterialModelsBase.AbstractMaterial`
@@ -40,18 +40,20 @@ buffer, new_states, old_states = setup_assembly(dh, material, cellvalues);
 # and do the assembly
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
-doassemble!(assembler, new_states, buffer; a=a, old_states=old_states);
+work!(assembler, buffer; anew=a);
 
 # If we would have a rate-dependent material, such that the time increment mattered,
 # we can also supply that (but that is not required in this example)
+set_time_increment!(buffer, 1.0)
 assembler = start_assemble(K, r)
-doassemble!(assembler, new_states, buffer; a=a, old_states=old_states, Δt=1.0);
+work!(assembler, buffer; anew=a);
 
 # ## Updating state variables
 # In a full FE-program we iterate until convergence to find `a`. When converged,
 # we go to the next time step, and would like to set the old state equal to the 
 # current state, which we can do by calling 
-update_states!(old_states, new_states);
+update_states!(buffer);
 
-# If we would like to access the states in any cell, old_states and new_states can be 
-# indexed with the cell number. 
+# If we would like to access the states in any cell, we can request that from the buffer
+cell_state = FerriteAssembly.get_new_state(buffer, 1)
+display(typeof(cell_state))

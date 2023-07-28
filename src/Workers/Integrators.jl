@@ -36,9 +36,10 @@ The order of the inputs is chosen to follow the element routines
 """
 function integrate_cell! end
 
-function assemble_cell_reinited!(assembler::Integrator, cell_state, cellbuffer)
-    cv = get_cellvalues(cellbuffer)
+function work_single_cell!(assembler::Integrator, cellbuffer)
+    cv = get_values(cellbuffer)
     m = get_material(cellbuffer)
+    cell_state = get_new_state(cellbuffer)
     ae = get_ae(cellbuffer)
     integrate_cell!(assembler.val, cell_state, ae, m, cv, cellbuffer)
 end
@@ -102,8 +103,9 @@ need_colors(::SimpleIntegrator) = false
 skip_this_domain(::SimpleIntegrator{<:Function,<:Any,Nothing}, ::String) = false
 skip_this_domain(ig::SimpleIntegrator{<:Function,<:Any,<:Set}, name::String) = name ∉ ig.domains
 
-function assemble_cell_reinited!(assembler::SimpleIntegrator, cell_state, cellbuffer)
-    cv = get_cellvalues(cellbuffer)
+function work_single_cell!(assembler::SimpleIntegrator, cellbuffer)
+    cv = get_values(cellbuffer)
+    cell_state = get_new_state(cellbuffer)
     ae = get_ae(cellbuffer)
     simple_integrate_cell!(assembler, cell_state, ae, cv, cellbuffer)
 end

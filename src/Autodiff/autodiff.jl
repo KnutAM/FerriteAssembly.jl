@@ -38,26 +38,28 @@ include("autodiff_unwrap.jl") # Experimental feature, include to remove large do
 function AutoDiffCellBuffer(cb::CellBuffer)
     cellstate = deepcopy(get_old_state(cb)) # to be safe, copy shouldn't be required. 
     material = unwrap_material_for_ad(get_material(cb))
-    cellvalues = get_cellvalues(cb)
+    cellvalues = get_values(cb)
     er = ElementResidual(cellstate, material, cellvalues, cb)
     cfg = create_jacobian_config(er)
     return AutoDiffCellBuffer(cb, er, cfg)
 end
 
-for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_cellvalues, 
-        :get_aeold, :get_old_state, :get_time_increment, :get_user_data, :get_cache)
+for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_values, :get_time_increment, 
+        :get_aeold, :get_new_state, :get_old_state, :get_user_data, :get_cache)
     eval(quote
         $op(cb::AutoDiffCellBuffer) = $op(cb.cb)
     end)
 end
-update_time!(c::AutoDiffCellBuffer, Δt) = update_time!(c.cb, Δt)
+reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.cb, args...; kwargs...)
+
+set_time_increment!(c::AutoDiffCellBuffer, Δt) = set_time_increment!(c.cb, Δt)
 modify_material!(fun, c::AutoDiffCellBuffer) = modify_material!(fun, c.cb)
 function create_local(c::AutoDiffCellBuffer)
     cb = create_local(c.cb)
     AutoDiffCellBuffer(cb, deepcopy(c.er), deepcopy(c.cfg))
 end
 
-for op = (:celldofs, :getcoordinates, :reinit!, :dof_range, :getfieldnames)
+for op = (:celldofs, :getcoordinates, :dof_range, :getfieldnames)
     eval(quote
         Ferrite.$op(cb::AutoDiffCellBuffer, args...) = Ferrite.$op(cb.cb, args...)
     end)

@@ -18,7 +18,7 @@ Note that `create_cell_state` is already implemented for `<:AbstractMaterial`.
 function FerriteAssembly.element_routine!(
     Ke, re, state_new::Vector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
-    cache = FerriteAssembly.get_cache(buffer)
+    cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     state_old = FerriteAssembly.get_old_state(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
@@ -51,7 +51,7 @@ for a `MaterialModelsBase.AbstractMaterial`
 function FerriteAssembly.element_residual!(
     re, state_new::Vector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
-    cache = FerriteAssembly.get_cache(buffer)
+    cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     state_old = FerriteAssembly.get_old_state(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)

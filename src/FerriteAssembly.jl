@@ -1,29 +1,41 @@
 module FerriteAssembly
 using Ferrite, ForwardDiff
 
-include("Utils/SubDofHandler.jl")       # Temporary solutions until Ferrite is updated
 include("Multithreading/TaskLocals.jl") # Task-local storage model 
 include("Multithreading/TaskChunks.jl") # Thread-safe iteration over chunks of cells
-include("Utils/utils.jl")
 
+include("Utils/FerriteAddons.jl")       # Temporary solutions until Ferrite is updated
+include("Utils/utils.jl")
 include("Utils/scaling.jl")
 include("states.jl")
-include("CellBuffer.jl")
+
+include("ItemBuffers/AbstractItemBuffer.jl")
+
+include("DomainBuffers.jl")
+include("setup.jl")
+
+include("ItemBuffers/CellBuffer.jl")
+include("ItemBuffers/FaceBuffer.jl")
 include("Autodiff/autodiff.jl")
 
+include("work.jl")
 include("Workers/Assemblers.jl")
 include("Workers/Integrators.jl")
-include("setup.jl")
-include("assembly.jl")
+
 
 include("LoadHandler/LoadHandler.jl")
 
-export setup_assembly, AssemblyDomain
-export doassemble!, update_states!
-export ReAssembler, KeReAssembler
-export Integrator, SimpleIntegrator
-export ElementResidualScaling, reset_scaling!
+
+# Setup 
+export GridDomain, setup_domainbuffer, setup_domainbuffers
+# Main functions to use during simulations
+export work!, update_states!, set_time_increment!
+# Workers
+export ReAssembler, KeReAssembler   # Assemblers
+export Integrator, SimpleIntegrator # Integrators
+# Builtin convenience 
 export LoadHandler, Neumann, BodyLoad
+export ElementResidualScaling, reset_scaling!
 
 """
     element_routine!(
@@ -46,7 +58,7 @@ The following variables can be obtained from `buffer`.
 * [`celldofs(buffer)`](@ref Ferrite.celldofs)
 * [`cellid(buffer)`](@ref Ferrite.cellid)
 * [`get_user_data(buffer)`](@ref FerriteAssembly.get_user_data)
-* [`get_cache(buffer)`](@ref FerriteAssembly.get_cache)
+* [`get_user_cache(buffer)`](@ref FerriteAssembly.get_user_cache)
 """
 element_routine!(args...) = element_routine_ad!(args...)    # If not defined, try to use automatic differentiation
 

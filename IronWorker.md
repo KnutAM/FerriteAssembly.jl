@@ -13,12 +13,11 @@ At setup, or changes to dh/grid,
 
 At each new timestep/changes to iteration settings
 * Update values in `buffer`, e.g.:
-   * `update_time_increment!(buffer, Δt)`
+   * `set_time_increment!(buffer, Δt)`
    * `update_states!(buffer)` # old = new
-   * `update_material!(buffer, f)` # Seldom required
 For each assembly work or similar
 * Create worker, e.g.: `worker = start_assemble(K, r)`
-* Do the work: `work!(worker, buffer; a=a, aold=aold)`
+* Do the work: `work!(worker, buffer; anew=a, aold=aold)`
 Can also have more, e.g. looping over faces, but for std cases, 
 this could be handled by the `LoadHandler`.
 

@@ -65,78 +65,89 @@ end
         # MatA: 
         # - Check correct values before and after update
         # - Check unaliased old and new after update_states!
-        buffer, new_states, old_states = setup_assembly(dh, MatA(), cv)
+        buffer = setup_domainbuffer(GridDomain(dh, MatA(), cv))
+        new_states = FerriteAssembly.get_new_state(buffer)
+        old_states = FerriteAssembly.get_old_state(buffer)
         @test isa(old_states, Dict{Int,Vector{StateA}})
         @test old_states == new_states
         @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
-        doassemble!(r_assembler, new_states, buffer; old_states=old_states)
+        work!(r_assembler, buffer)
         @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)] # Unchanged
         for cellnr in 1:getncells(grid)
             @test new_states[cellnr] == [StateA(cellnr, i) for i in 1:getnquadpoints(cv)]  # Updated
         end
-        update_states!(old_states, new_states)
+        update_states!(buffer)
         @test old_states == new_states          # Correctly updated values
         new_states[1][1] = StateA(0,0)
         @test old_states[1][1] == StateA(1,1)   # But not aliased
-        allocs = @allocated update_states!(old_states, new_states)
+        allocs = @allocated update_states!(buffer)
         @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
 
         # MatB (not bitstype)
         # - Check correct values before and after update
         # - Check unaliased old and new after update_states!
-        buffer, new_states, old_states = setup_assembly(dh, MatB{Dim}(), cv)
+        buffer = setup_domainbuffer(GridDomain(dh, MatB{Dim}(), cv))
+        new_states = FerriteAssembly.get_new_state(buffer)
+        old_states = FerriteAssembly.get_old_state(buffer)
         @test isa(old_states, Dict{Int,StateB{Dim}})
         @test old_states == new_states
         @test old_states[1] == StateB(-1, [zero(Vec{Dim}) for i in 1:getnquadpoints(cv)])
-        doassemble!(kr_assembler, new_states, buffer; old_states=old_states)
+        work!(kr_assembler, buffer)
         @test old_states[1] == StateB(-1, [zero(Vec{Dim}) for i in 1:getnquadpoints(cv)]) # Unchanged
         for cellnr in 1:getncells(grid)
             coords = getcoordinates(grid, cellnr)
             x_values = [spatial_coordinate(cv, i, coords) for i in 1:getnquadpoints(cv)]
             @test new_states[cellnr] == StateB(cellnr, x_values)                          # Updated
         end
-        update_states!(old_states, new_states)
+        update_states!(buffer)
         @test old_states == new_states                  # Correctly updated values
         cellnr = rand(1:getncells(grid))
         coords = getcoordinates(grid, cellnr)
         x_values = [spatial_coordinate(cv, i, coords) for i in 1:getnquadpoints(cv)]
         new_states[cellnr] = StateB(0, -x_values)
         @test old_states[cellnr] == StateB(cellnr, x_values)   # But not aliased
-        allocs = @allocated update_states!(old_states, new_states)
+        allocs = @allocated update_states!(buffer)
         @test allocs > 0 # Vector{T} where !isbitstype(T) is expected to allocate. 
         # If this fails after improvements, that is just good, but then the docstring should be updated. 
 
         # MatC (accumulation), using threading as well
         colors = create_coloring(grid)
-        buffer, new_states, old_states = setup_assembly(dh, MatC(), cv; colors=colors)
+        buffer = setup_domainbuffer(GridDomain(dh, MatC(), cv; colors=colors))
+        new_states = FerriteAssembly.get_new_state(buffer)
+        old_states = FerriteAssembly.get_old_state(buffer)
         @test isa(old_states, Dict{Int,Vector{StateC}})
         @test old_states == new_states
         @test old_states[1][1] == StateC(0)
-        doassemble!(kr_assembler, new_states, buffer; old_states=old_states)
+        work!(kr_assembler, buffer)
         @test old_states[1][1] == StateC(0)
         @test new_states[1][1] == StateC(1) # Added 1
-        update_states!(old_states, new_states)
+        update_states!(buffer)
         @test old_states[1][1] == StateC(1) # Updated
         new_states[1][1] = StateC(0)        # Set new_states to zero to test aliasing and update in next assembly
         @test old_states[1][1] == StateC(1) # But not aliased
-        doassemble!(kr_assembler, new_states, buffer; old_states=old_states)
+        work!(kr_assembler, buffer)
         @test new_states[1][1] == StateC(2) # Added 1 from old_states[1][1] (not from new_states[1][1] which was StateC(0))
         for cellnr in 1:getncells(grid)
             @test new_states[cellnr][2] == StateC(2) # Check that all are updated
         end
-        allocs = @allocated update_states!(old_states, new_states)
+        allocs = @allocated update_states!(buffer)
         @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
     end
 
+    dh = DofHandler(generate_grid(Triangle, (2,2))); add!(dh, :u, 1); close!(dh);
+    
     # Smoke-test of update_states! for nothing states (and check no allocations)
-    snew = Dict(i=>nothing for i in 1:10)
-    sold = deepcopy(snew)
-    update_states!(sold, snew) # Compile
-    allocs = @allocated update_states!(sold, snew)
+    cv = CellScalarValues(QuadratureRule{2,RefTetrahedron}(2), Lagrange{2,RefTetrahedron,1}())
+    buffer = setup_domainbuffer(GridDomain(dh, nothing, cv))
+    @test isa(FerriteAssembly.get_new_state(buffer), Dict{Int,Nothing})
+    update_states!(buffer) # Compile
+    allocs = @allocated update_states!(buffer)
     @test allocs == 0
-    snew = Dict(string(k)=>Dict(i=>nothing for i in k:2:10) for k in 1:2)
-    sold = deepcopy(snew)
-    update_states!(sold, snew) # Compile
-    allocs = @allocated update_states!(sold, snew)
+
+    gda = GridDomain(dh, nothing, cv; set=1:getncells(dh.grid)÷2)
+    gdb = GridDomain(dh, nothing, cv; set=setdiff!(Set(1:getncells(dh.grid)), gda.set))
+    buffers = setup_domainbuffers(Dict("a"=>gda, "b"=>gdb))
+    update_states!(buffers) # Compile
+    allocs = @allocated update_states!(buffers)
     @test allocs == 0
 end

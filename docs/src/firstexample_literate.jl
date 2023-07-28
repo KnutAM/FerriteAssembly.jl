@@ -42,8 +42,8 @@ end;
 
 # We first call `setup_assembly` to setup all the variables required to assemble:
 material = ThermalMaterial(1.0, 1.0)
-buffer, states = setup_assembly(dh, material, cellvalues);
-# (states are not used in this example, but must be passed anyways.)
+grid_domain = GridDomain(dh, material, cellvalues)
+buffer = setup_domainbuffer(grid_domain);
 
 # We can now create the global residual vectors and stiffness matrix
 K = create_sparsity_pattern(dh)
@@ -51,17 +51,17 @@ r = zeros(ndofs(dh));
 
 # And then assemble them.
 assembler = start_assemble(K, r)
-doassemble!(assembler, states, buffer);
+work!(assembler, buffer);
 K1 = deepcopy(K); #hide
 
 # ### Threaded assembly
-# To do the assembly in the example above threaded, we just tell `setup_assembly` that:
-threaded_buffer, _ = setup_assembly(dh, ThermalMaterial(1.0, 1.0), cellvalues; threading=true);
+# To do the assembly in the example above threaded, we just tell `setup_domainbuffer` that:
+threaded_buffer = setup_domainbuffer(grid_domain; threading=true);
 # This creates a default coloring of the grid, but custom coloring can also be given.
 
-# We can call `doassemble!` as before
+# We can call `work!` as before
 assembler = start_assemble(K, r)
-doassemble!(assembler, states, threaded_buffer);
+work!(assembler, threaded_buffer);
 K2 = deepcopy(K); #hide
 
 # ### Automatic differentiation
@@ -96,25 +96,26 @@ end;
 
 # We then create an instance of this material, and setup the assembly,
 material_ad = ThermalMaterialAD(1.0, 1.0)
-buffer_ad, states_ad = setup_assembly(dh, material_ad, cellvalues);
+grid_domain_ad = GridDomain(dh, material_ad, cellvalues)
+buffer_ad = setup_domainbuffer(grid_domain_ad);
 
 # In this case we need the `ae` input and must therefore define `a`:
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
-doassemble!(assembler, states_ad, buffer_ad; a=a);
+work!(assembler, buffer_ad; anew=a);
 K3 = deepcopy(K); #hide
 
 # However, explicitly defining the element stiffness was a lot faster and has less allocations
-@btime doassemble!($assembler, $states, $buffer; a=$a)
-@btime doassemble!($assembler, $states_ad, $buffer_ad; a=$a)
+@btime work!($assembler, $buffer; anew=$a)
+@btime work!($assembler, $buffer_ad; anew=$a)
 
 # By using the special [`FerriteAssembly.AutoDiffCellBuffer`](@ref) that caches some variables for
 # automatic differentiation, we can significantly improve the performance.
-buffer_ad2, _, _ = setup_assembly(dh, material_ad, cellvalues; autodiffbuffer=true)
-@btime doassemble!($assembler, $states_ad, $buffer_ad2; a=$a)
+buffer_ad2 = setup_domainbuffer(grid_domain_ad; autodiffbuffer=true)
+@btime work!($assembler, $buffer_ad2; anew=$a)
                                                             #hide
 assembler = start_assemble(K, r)                            #hide
-doassemble!(assembler, states_ad, buffer_ad2; a=a);         #hide
+work!(assembler, buffer_ad2; anew=a);                       #hide
 K4 = deepcopy(K);                                           #hide
                                                             #hide
 # Test that all methods give the same stiffness #src

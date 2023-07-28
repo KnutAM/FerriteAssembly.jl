@@ -10,18 +10,18 @@ function get_dh_cv(grid, ::Val{true})
 end
 
 function assemble_test(dh, cv, m, a, aold, Δt)
-    buffer, new_states, old_states = setup_assembly(dh, m, cv; a=a)
-    
+    buffer = setup_domainbuffer(GridDomain(dh, m, cv); anew=a)
+    set_time_increment!(buffer, Δt)
     # Assemble both K and r
     K = create_sparsity_pattern(dh)
     r = zeros(ndofs(dh))
     assembler = start_assemble(K, r)
-    doassemble!(assembler, new_states, buffer; a=a, aold=aold, old_states=old_states, Δt=Δt)
+    work!(assembler, buffer; anew=a, aold=aold)
     
     # Assemble only r
     r_direct = zeros(ndofs(dh))
     r_assembler = ReAssembler(r_direct)
-    doassemble!(r_assembler, new_states, buffer; a=a, aold=aold, old_states=old_states, Δt=Δt)
+    work!(r_assembler, buffer; anew=a, aold=aold)
     
     return K, r, r_direct
 end
