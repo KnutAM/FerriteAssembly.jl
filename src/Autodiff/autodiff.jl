@@ -59,11 +59,12 @@ function create_local(c::AutoDiffCellBuffer)
     AutoDiffCellBuffer(cb, deepcopy(c.er), deepcopy(c.cfg))
 end
 
-for op = (:celldofs, :getcoordinates, :dof_range, :getfieldnames)
+for op = (:celldofs, :getcoordinates, :getfieldnames)
     eval(quote
         Ferrite.$op(cb::AutoDiffCellBuffer, args...) = Ferrite.$op(cb.cb, args...)
     end)
 end
+Ferrite.dof_range(cb::AutoDiffCellBuffer, name::Symbol) = Ferrite.dof_range(cb.cb, name)
 
 function element_routine_ad!(Ke, re, state, ae, material, cellvalues, ad_buffer::AutoDiffCellBuffer)
     buffer = ad_buffer.cb
