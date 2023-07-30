@@ -1,14 +1,17 @@
 using Ferrite, FerriteAssembly, BenchmarkTools
 dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); add!(dh, :u, 1); close!(dh)
 cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
+K = create_sparsity_pattern(dh)
+r = zeros(ndofs(dh));
 
 struct ThermalMaterial
     k::Float64 # Thermal conductivity
     f::Float64 # Volumetric heat source
 end
+material = ThermalMaterial(1.0, 1.0)
 
 function FerriteAssembly.element_routine!(Ke, re, state, ae,
-        material::ThermalMaterial, cellvalues, buffer
+        material::ThermalMaterial, cellvalues, cellbuffer
         )
     n_basefuncs = getnbasefunctions(cellvalues)
     # Loop over quadrature points
@@ -29,14 +32,11 @@ function FerriteAssembly.element_routine!(Ke, re, state, ae,
     end
 end;
 
-material = ThermalMaterial(1.0, 1.0)
-grid_domain = GridDomain(dh, material, cellvalues)
+grid_domain = DomainSpec(dh, material, cellvalues)
 buffer = setup_domainbuffer(grid_domain);
 
-K = create_sparsity_pattern(dh)
-r = zeros(ndofs(dh));
+assembler = start_assemble(K, r);
 
-assembler = start_assemble(K, r)
 work!(assembler, buffer);
 K1 = deepcopy(K); #hide
 
@@ -50,9 +50,10 @@ struct ThermalMaterialAD
     k::Float64 # Thermal conductivity
     f::Float64 # Volumetric heat source
 end
+material_ad = ThermalMaterialAD(1.0, 1.0)
 
 function FerriteAssembly.element_residual!(re, state, ae,
-        material::ThermalMaterialAD, cellvalues, buffer
+        material::ThermalMaterialAD, cellvalues, cellbuffer
         )
     n_basefuncs = getnbasefunctions(cellvalues)
     # Loop over quadrature points
@@ -70,23 +71,22 @@ function FerriteAssembly.element_residual!(re, state, ae,
     end
 end;
 
-material_ad = ThermalMaterialAD(1.0, 1.0)
-grid_domain_ad = GridDomain(dh, material_ad, cellvalues)
+grid_domain_ad = DomainSpec(dh, material_ad, cellvalues)
 buffer_ad = setup_domainbuffer(grid_domain_ad);
 
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
-work!(assembler, buffer_ad; anew=a);
+work!(assembler, buffer_ad; a=a);
 K3 = deepcopy(K); #hide
 
-@btime work!($assembler, $buffer; anew=$a)
-@btime work!($assembler, $buffer_ad; anew=$a)
+@btime work!($assembler, $buffer; a=$a)
+@btime work!($assembler, $buffer_ad; a=$a)
 
 buffer_ad2 = setup_domainbuffer(grid_domain_ad; autodiffbuffer=true)
-@btime work!($assembler, $buffer_ad2; anew=$a)
+@btime work!($assembler, $buffer_ad2; a=$a)
                                                             #hide
 assembler = start_assemble(K, r)                            #hide
-work!(assembler, buffer_ad2; anew=a);                       #hide
+work!(assembler, buffer_ad2; a=a);                          #hide
 K4 = deepcopy(K);                                           #hide
                                                             #hide
 using Test                                      #hide

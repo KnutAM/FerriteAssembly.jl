@@ -2,7 +2,7 @@
 # This example shows how to assemble a plastic material following the 
 # [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl)
 # interface with `FerriteAssembly.jl`. The 
-# [`element_routine!`](@ref FerriteAssembly.element_routine!(Ke, re, state_new::Vector{<:MMB.AbstractMaterialState}, ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer))
+# [`element_routine!`](@ref FerriteAssembly.element_routine!(Ke, re, state::Vector{<:MMB.AbstractMaterialState}, ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer))
 # function implementation for any `MaterialModelsBase.AbstractMaterial` is already defined. \\
 # Specifically, how to
 # * Assemble materials with state variables
@@ -30,7 +30,7 @@ r = zeros(ndofs(dh));
 
 # ## Setting up the assembly
 # Using the `setup_assembly` function, 
-buffer = setup_domainbuffer(GridDomain(dh, material, cellvalues));
+buffer = setup_domainbuffer(DomainSpec(dh, material, cellvalues));
 # we setup the `buffer`, old state variables, and new state variables. 
 # The state variables are created via the [`create_cell_state`](@ref FerriteAssembly.create_cell_state) 
 # function that is already defined for `MaterialModelsBase.AbstractMaterial`
@@ -40,13 +40,13 @@ buffer = setup_domainbuffer(GridDomain(dh, material, cellvalues));
 # and do the assembly
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
-work!(assembler, buffer; anew=a);
+work!(assembler, buffer; a=a);
 
 # If we would have a rate-dependent material, such that the time increment mattered,
 # we can also supply that (but that is not required in this example)
 set_time_increment!(buffer, 1.0)
 assembler = start_assemble(K, r)
-work!(assembler, buffer; anew=a);
+work!(assembler, buffer; a=a);
 
 # ## Updating state variables
 # In a full FE-program we iterate until convergence to find `a`. When converged,
@@ -55,5 +55,5 @@ work!(assembler, buffer; anew=a);
 update_states!(buffer);
 
 # If we would like to access the states in any cell, we can request that from the buffer
-cell_state = FerriteAssembly.get_new_state(buffer, 1)
+cell_state = FerriteAssembly.get_state(buffer, 1)
 display(typeof(cell_state))

@@ -10,19 +10,19 @@ dh = DofHandler(grid); add!(dh, :u, 3); close!(dh); # Create dofhandler
 K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
-buffer = setup_domainbuffer(GridDomain(dh, material, cellvalues));
+buffer = setup_domainbuffer(DomainSpec(dh, material, cellvalues));
 
 a = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
-work!(assembler, buffer; anew=a);
+work!(assembler, buffer; a=a);
 
 set_time_increment!(buffer, 1.0)
 assembler = start_assemble(K, r)
-work!(assembler, buffer; anew=a);
+work!(assembler, buffer; a=a);
 
 update_states!(buffer);
 
-cell_state = FerriteAssembly.get_new_state(buffer, 1)
+cell_state = FerriteAssembly.get_state(buffer, 1)
 display(typeof(cell_state))
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
