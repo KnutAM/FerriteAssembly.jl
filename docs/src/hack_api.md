@@ -26,13 +26,10 @@ FerriteAssembly.get_base
 
 ## Assembler interface
 Different types of assemblers can be created in addition to those already defined by the package.
-The interface for creating an assembler is that the assembler must support the `TaskLocals` API, 
-as well as the method, 
-`FerriteAssembly.work_single_cell!(assembler, buffer::AbstractCellBuffer)`,
-The following methods for builtin assemblers can be used as examples
-```@docs
-FerriteAssembly.work_single_cell!
-```
+The interface for creating an assembler is that the assembler must support the `TaskLocals` API, as well as the method, 
+`FerriteAssembly.work_single_cell!(assembler, buffer::AbstractCellBuffer)`
+(methods defined for the for builtin assemblers can be used as examples).
+
 In addition, the following functions are used to determine properties/requirements for the assembler. 
 - `can_thread(assembler)::Bool`: Is multithreading supported, if `false`, sequential assembly will run even if the a `ThreadedDomainBuffer` is used. If not defined, defaults to `false`. 
 - `skip_this_domain(assembler, name::String)::Bool`: When running multiple domains, should the domain with key `name` be skipped? Defaults to `false`. 
@@ -45,7 +42,3 @@ FerriteAssembly.update_scaling!
 FerriteAssembly.reset_scaling!
 ```
 
-## Threading model (internal)
-```@docs
-FerriteAssembly.TaskChunks
-```

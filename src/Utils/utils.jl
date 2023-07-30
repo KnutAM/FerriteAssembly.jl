@@ -41,3 +41,8 @@ function intersect_cellset_sort(set::Union{AbstractSet{FaceIndex},AbstractVector
     end
     return sort!(intersected_set; by=first)
 end
+
+function overlaps_with_cellset(set::Union{AbstractSet,AbstractVector}, cellset)
+    return any(x -> first(x) ∈ cellset, set)
+end
+overlaps_with_cellset(::Nothing, cellset) = !isempty(cellset)

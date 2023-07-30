@@ -36,68 +36,48 @@ struct Neumann{FVI,FUN}
 end
 
 # Internal
-struct NeumannData{FV,FUN}
-    fieldname::Symbol   # Only for information 
-    dofrange::UnitRange{Int}
-    facevalues::FV 
-    faceset::Set{FaceIndex}
+struct NeumannMaterial{FUN}
     f::FUN
+    dr::UnitRange{Int}
 end
-
-function NeumannData(dh::DofHandler, spec::Neumann)
-    cell = getcells(dh.grid, first(first(spec.faceset)))
-    NeumannData(dh, spec, spec.faceset, cell)
-end
-
-function NeumannData(dh_fh::Union{DofHandler,FieldHandler}, spec::Neumann, faceset::Set{FaceIndex}, ::C) where C<:Ferrite.AbstractCell
-    dofrange = dof_range(dh_fh, spec.fieldname)
-    ip = Ferrite.getfieldinterpolation(dh_fh, Ferrite.find_field(dh_fh, spec.fieldname))
-    ip_geo = Ferrite.default_interpolation(C)
-    fv = get_facevalues(spec.fv_info, ip, ip_geo, spec.f)
-    return NeumannData(spec.fieldname, dofrange, fv, faceset, spec.f)
-end
-
-function add_neumann!(nbcs::Vector, nbc::Neumann, dh::DofHandler)
-    push!(nbcs, NeumannData(dh, nbc))
-end
-
-function add_neumann!(nbcs::Vector, nbc::Neumann, dh::MixedDofHandler)
-    contribution = false
-    for fh in dh.fieldhandlers
-        faceset = intersect_with_cellset(nbc.faceset, fh.cellset)
-        if !isempty(faceset) && nbc.fieldname ∈ Ferrite.getfieldnames(fh)
-            contribution = true
-            cell = getcells(dh.grid, first(first(faceset)))
-            push!(nbcs, NeumannData(fh, nbc, faceset, cell))
-        end
-    end
-    contribution || @warn "No contributions added to the NeumannHandler"
-end
-
-function intersect_with_cellset(faceset::Set{FaceIndex}, cellset)
-    return Set(face for face in faceset if first(face) in cellset)
-end
-
-function apply_neumann!(f::Vector{T}, nbc::NeumannData, dh, time) where T
-    dofs = collect(nbc.dofrange)
-    fe = zeros(T, length(dofs))
-    for face in FaceIterator(dh, nbc.faceset)
-        calculate_neumann_contribution!(fe, face, nbc.facevalues, time, nbc.f)
-        assemble!(f, view(celldofs(face), dofs), fe)
-    end
-end
-
-function calculate_neumann_contribution!(fe::Vector, face::FaceCache, fv::FaceValues, time, f)
-    fill!(fe, 0)
-    reinit!(fv, face)
+function face_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::FaceValues, facebuffer)
+    checkbounds(fe, m.dr)
+    t = get_time_increment(facebuffer) # Abuse...
     for q_point in 1:getnquadpoints(fv)
         dΓ = getdetJdV(fv, q_point)
-        x = spatial_coordinate(fv, q_point, getcoordinates(face))
+        x = spatial_coordinate(fv, q_point, getcoordinates(facebuffer))
         n = getnormal(fv, q_point)
-        b = f(x, time, n)
-        for i in 1:getnbasefunctions(fv)
+        b = m.f(x, t, n)
+        for (i, I) in pairs(m.dr)
             δu = shape_value(fv, q_point, i)
-            fe[i] += (δu ⋅ b) * dΓ
+            @inbounds fe[I] += (δu ⋅ b) * dΓ
         end
     end
+end
+
+function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::DofHandler)
+    return add_neumann!(nbcs, nbc, SubDofHandler(dh))
+end
+
+function add_neumann!(nbcs::Dict{String,DomainBuffer}, nbc::Neumann, sdh::SubDofHandler)
+    material = NeumannMaterial(nbc.f, dof_range(sdh, nbc.fieldname))
+
+    ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
+    ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
+    fv = get_facevalues(nbc.fv_info, ip, ip_geo, nbc.f)
+
+    domain_spec = DomainSpec(sdh, material, fv; set=nbc.faceset)
+    nbcs[string(length(nbcs)+1)] = setup_domainbuffer(domain_spec)
+end
+
+function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::MixedDofHandler)
+    contribution = false
+    for fh in dh.fieldhandlers
+        overlaps = overlaps_with_cellset(nbc.faceset, fh.cellset)
+        if overlaps && nbc.fieldname ∈ Ferrite.getfieldnames(fh)
+            contribution = true
+            add_neumann!(nbcs, nbc, SubDofHandler(dh, fh))
+        end
+    end
+    contribution || @warn "No contributions added to the LoadHandler"
 end

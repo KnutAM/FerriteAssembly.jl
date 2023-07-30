@@ -16,3 +16,8 @@ FerriteAssembly.fast_getindex
 FerriteAssembly.work_single_cell!
 FerriteAssembly.work_single_face!
 ```
+
+## Threading model
+```@docs
+FerriteAssembly.TaskChunks
+```

@@ -24,17 +24,25 @@ end
 ```
 """
 struct LoadHandler{DH<:AbstractDofHandler}
-    nbcs::Vector{NeumannData}
-    bodyloads::Vector{BodyLoadData}
+    nbcs::Dict{String,<:AbstractDomainBuffer}
+    bodyloads::Dict{String,<:AbstractDomainBuffer}
     dh::DH
 end
-LoadHandler(dh::AbstractDofHandler) = LoadHandler(NeumannData[], BodyLoadData[], dh)
+function LoadHandler(dh::AbstractDofHandler; threading=false)
+    BT = threading ? ThreadedDomainBuffer : DomainBuffer
+    return LoadHandler(Dict{String,BT}(), Dict{String,BT}(), dh)
+end
 
 Ferrite.add!(lh::LoadHandler, nbc::Neumann) = add_neumann!(lh.nbcs, nbc, lh.dh)
 Ferrite.add!(lh::LoadHandler, bl::BodyLoad) = add_bodyload!(lh.bodyloads, bl, lh.dh)
 
 # Application of boundary conditions
 function Ferrite.apply!(f::Vector, lh::LoadHandler, time)
-    foreach(nbc->apply_neumann!(f,nbc,lh.dh,time), lh.nbcs)
-    foreach(bl->apply_bodyload!(f,bl,lh.dh,time), lh.bodyloads)
+    # Abuse the Δt field, setting it to the total time.
+    set_time_increment!(lh.nbcs, time)
+    set_time_increment!(lh.bodyloads, time)
+
+    worker = ReAssembler(f; fillzero=false)
+    work!(worker, lh.nbcs)
+    work!(worker, lh.bodyloads)
 end

@@ -37,68 +37,50 @@ struct BodyLoad{CVI,FUN}
 end
 BodyLoad(fieldname::Symbol, cv_info, f) = BodyLoad(fieldname, cv_info, nothing, f)
 
-# Internal
-struct BodyLoadData{CV,FUN}
-    fieldname::Symbol   # Only for information 
-    dofrange::UnitRange{Int}
-    cellvalues::CV
-    cellset::Set{Int}
+struct BodyLoadMaterial{FUN}
     f::FUN
+    dr::UnitRange{Int}
 end
 
-function BodyLoadData(dh::DofHandler, spec::BodyLoad)
-    cellset = isnothing(spec.cellset) ? Set(1:getncells(dh.grid)) : spec.cellset
-    cell = getcells(dh.grid, first(cellset))
-    BodyLoadData(dh, spec, cellset, cell)
-end
-
-function BodyLoadData(dh_fh::Union{DofHandler,FieldHandler}, spec::BodyLoad, cellset::Set{Int}, ::C) where C<:Ferrite.AbstractCell
-    dofrange = dof_range(dh_fh, spec.fieldname)
-    ip = Ferrite.getfieldinterpolation(dh_fh, Ferrite.find_field(dh_fh, spec.fieldname))
-    ip_geo = Ferrite.default_interpolation(C)
-    cv = get_cellvalues(spec.cv_info, ip, ip_geo, spec.f)
-    return BodyLoadData(spec.fieldname, dofrange, cv, cellset, spec.f)
-end
-
-function add_bodyload!(bodyloads::Vector, bodyload::BodyLoad, dh::DofHandler)
-    push!(bodyloads, BodyLoadData(dh, bodyload))
-end
-
-_intersect_nothing(::Nothing, set) = set 
-_intersect_nothing(a, b) = intersect(a, b)
-
-function add_bodyload!(bodyloads::Vector, bodyload::BodyLoad, dh::MixedDofHandler)
-    contribution = false
-    for fh in dh.fieldhandlers
-        cellset = _intersect_nothing(bodyload.cellset, fh.cellset)
-        if !isempty(cellset) && bodyload.fieldname ∈ Ferrite.getfieldnames(fh)
-            contribution = true
-            cell = getcells(dh.grid, first(cellset))
-            push!(bodyloads, BodyLoadData(fh, bodyload, cellset, cell))
-        end
-    end
-    contribution || @warn "No contributions added to the NeumannHandler"
-end
-
-function apply_bodyload!(f::Vector{T}, bodyload::BodyLoadData, dh, time) where T
-    dofs = collect(bodyload.dofrange)
-    fe = zeros(T, length(dofs))
-    for cell in CellIterator(dh, bodyload.cellset)
-        calculate_bodyload_contribution!(fe, cell, bodyload.cellvalues, time, bodyload.f)
-        assemble!(f, view(celldofs(cell), dofs), fe)
-    end
-end
-
-function calculate_bodyload_contribution!(fe::Vector, cell::CellCache, cv::CellValues, time, f)
-    fill!(fe, 0)
-    reinit!(cv, cell)
+function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv::CellValues, cellbuffer)
+    checkbounds(fe, m.dr)
+    t = get_time_increment(cellbuffer) # Abuse...
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
-        x = spatial_coordinate(cv, q_point, getcoordinates(cell))
-        b = f(x, time)
-        for i in 1:getnbasefunctions(cv)
+        x = spatial_coordinate(cv, q_point, getcoordinates(cellbuffer))
+        b = m.f(x, t)
+        for (i, I) in pairs(m.dr)
             δu = shape_value(cv, q_point, i)
-            fe[i] += (δu ⋅ b) * dΩ
+            @inbounds fe[I] += (δu ⋅ b) * dΩ
         end
     end
+end
+
+function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::DofHandler)
+    add_bodyload!(bodyloads, bodyload, SubDofHandler(dh))
+end
+
+function add_bodyload!(bodyloads::Dict{String,DomainBuffer}, bodyload::BodyLoad, sdh::SubDofHandler)
+    material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
+
+    ip = Ferrite.getfieldinterpolation(sdh, bodyload.fieldname)
+    ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
+    cv = get_cellvalues(bodyload.cv_info, ip, ip_geo, bodyload.f)
+
+    set = bodyload.cellset===nothing ? getcellset(sdh) : bodyload.cellset
+    
+    domain_spec = DomainSpec(sdh, material, cv; set=set)
+    bodyloads[string(length(bodyloads)+1)] = setup_domainbuffer(domain_spec)
+end
+
+function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::MixedDofHandler)
+    contribution = false
+    for fh in dh.fieldhandlers
+        overlaps = overlaps_with_cellset(bodyload.cellset, fh.cellset)
+        if overlaps && bodyload.fieldname ∈ Ferrite.getfieldnames(fh)
+            contribution = true
+            add_bodyload!(bodyloads, bodyload, SubDofHandler(dh, fh))
+        end
+    end
+    contribution || @warn "No contributions added to the LoadHandler"
 end

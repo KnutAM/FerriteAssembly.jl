@@ -33,8 +33,8 @@ Create a facebuffer for an element with `numdofs` degrees of freedom and
 old cell state. `material` will be passed as-is to the element. 
 The given `dofrange::NamedTuple`, `user_data::Any`, and `cache::Any` are available to the element via the buffer input. 
 
-!!! note "See setup_assembly"
-    This constructor is normally not used, and is instead called from [`setup_assembly`](@ref)
+!!! note "See setup_domainbuffer"
+    This constructor is normally not used, and is instead called from [`setup_domainbuffer`](@ref)
 
 """
 function FaceBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, facevalues, material, dofrange, user_data) where sdim
@@ -52,7 +52,7 @@ function setup_facebuffer(::Val{false}, sdh, fv, material, dofrange, user_data)
     numdofs = ndofs_per_cell(sdh)
     numnodes = Ferrite.nnodes_per_cell(sdh)
     sdim = Val(Ferrite.getdim(sdh))
-    return FaceBuffer(numdofs, numnodes, sdim, cv, material, dofrange, user_data)
+    return FaceBuffer(numdofs, numnodes, sdim, fv, material, dofrange, user_data)
 end
 
 function setup_facebuffer(::Val{true}, args...)
@@ -99,14 +99,13 @@ allocate_face_cache(::Any, ::Any) = nothing
 function reinit_buffer!(fb::FaceBuffer, db::AbstractDomainBuffer, fi::FaceIndex; a=nothing, aold=nothing)
     cellnum, facenr = fi
     dh = get_dofhandler(db)
-    grid = Ferrite.get_grid(dh)
     fb.cellid = cellnum
-    celldofs!(c.dofs, dh, cellnum)
-    getcoordinates!(c.coords, grid, cellnum)
-    reinit!(fb.facevalues, c.coords, facenr)
-    _copydofs!(fb.ae,     a, celldofs(fb)) # ae_new .= a_new[dofs]
+    celldofs!(fb.dofs, dh, cellnum)
+    getcoordinates!(fb.coords, dh.grid, cellnum)
+    reinit!(fb.facevalues, fb.coords, facenr)
+    _copydofs!(fb.ae,     a,    celldofs(fb)) # ae_new .= a_new[dofs]
     _copydofs!(fb.ae_old, aold, celldofs(fb)) # ae_old .= a_old[dofs]
-    fill!(c.Ke, 0)
-    fill!(c.re, 0)
+    fill!(fb.Ke, 0)
+    fill!(fb.re, 0)
     return nothing  # Ferrite's reinit! doesn't return 
 end

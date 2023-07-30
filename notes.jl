@@ -29,8 +29,18 @@ setup time customize the behavior without having to overload a function.
 #= 
 When solving challenging nonlinear problems, it might be desirable to change how the jacobian is calculated in 
 the middle of the simulation (for example after x number of iterations, or dynamically if error is not decreasing)
-There are a few different ways of supporting this.
-1) Use a material wrapper with a field `jacobian_type::Symbol` and then the user should define an element routine 
+There are a few different ways of supporting this, tried 2, but now prefer to recreate the buffers, even though 
+I haven't tried implementing that. 
+1) Update the material in the DomainBuffer (or ThreadedDomainBuffer)
+This approach would avoid any type-instabilities/dynamic dispatches during the assembly loop. 
+It would also require the `unwrap_material` mechanism.
+In addition, it would also require the method new_buffer = wrap_material(WrapperConstructor, old_buffer)
+to be called, and the methods 
+new_cellbuffer = wrap_material(WrapperConstructor, old_cellbuffer::CellBuffer)
+new_cellbuffer = wrap_material(WrapperConstructor, old_cellbuffer::AutoDiffCellBuffer)
+where the latter also updates the cfg in ElementResidual, which will cause allocations. 
+
+2) Use a material wrapper with a field `jacobian_type::Symbol` and then the user should define an element routine 
    of the type 
 1   function FerriteAssembly.element_routine!(Ke, re, state, m::CustomJacobianMaterial{<:MyMat}, args...; kwargs...)
 2       if get_jacobian_type(m) == :true 
@@ -52,39 +62,31 @@ which can be overloaded for wrappers to return the material.
 An overload should then normally be 
 `FerriteAssembly.unwrap_material(m::MyWrapper) = FerriteAssembly.unwrap_material(m.material)`
 to support a wrapped material wrapper. 
-    
-2) Update the material in the DomainBuffer (or ThreadedDomainBuffer)
-This approach would avoid any type-instabilities/dynamic dispatches during the assembly loop. 
-It would also require the `unwrap_material` mechanism.
-In addition, it would also require the method new_buffer = wrap_material(WrapperConstructor, old_buffer)
-to be called, and the methods 
-new_cellbuffer = wrap_material(WrapperConstructor, old_cellbuffer::CellBuffer)
-new_cellbuffer = wrap_material(WrapperConstructor, old_cellbuffer::AutoDiffCellBuffer)
-where the latter also updates the cfg in ElementResidual, which will cause allocations. 
 =# 
 
+# =========================================================================================================== #
+#   Documentation structure
+# =========================================================================================================== #
+#= 
+With the focus in design that it revolves around workers and domain buffers, 
+it would make sense to have the documentation structured with two pages for API on the top level.
+The first page + examples should take care of the "typical" work flow, API should be more for reference. 
 
-# =========================================================================================================== #
-#   Different assembly domain types (Cell and Face)
-# =========================================================================================================== #
-# Currently, we only support assembling over cells, but one could equally well support assembly over 
-# e.g. faces. This is in particular interesting for integrating over a boundary to calculate e.g. the 
-# outward flux or traction. Such cases would probably need a different buffer though, so should probably
-# even distinguish between `CellAssemblers` and `FaceAssemblers`. If the standard FerriteAssembler should 
-# be supported, this must be done via traits (since we cannot make that assembler a subtype of an abstract type 
-# in this package). Optionally this "trick" could work:
-# `const AbstractCellAssembler = Union{Ferrite.FerriteSparseAssemblers, <:_AbstractCellAssembler}`
-# (which can also be fixed if Ferrite would define a FaceAssembler, then it is just necessary to make the list  
-# inside the union specific, or define a new `const FerriteCellAssemblers = Union{...}` to separate)
-# 
-# It would of course also be possible to use the same interface for FerriteNeumann, and it probably makes sense to
-# put this in the same package for the following reasons
-# 1) One less package to maintain
-# 2) Parallelization features can be re-used 
-# 3) It fits the general scope of the FerriteAssembly package
-# 4) With only one package, it might at some point make sense to register FerriteAssembly (and move to Ferrite-FEM), 
-#    but that is a much longer perspective and it should stabilize a lot more first. 
-# The downsides are
-# 1) It makes it less transparent what it is dofsum_integrator
-# 2) It might reduce the adoption since the FerriteAssembly package is much more dictating as to how to structure 
-#    the users program, even though that component can be used without adopting the full FerriteAssembly structure. 
+- Home
+- Package design (needed, could be moved to DomainBuffers?)
+- Tutorials
+- How-to guides
+- DomainBuffers
+  - DomainBuffers (describe the top level, data structure and functions acting on top level/setup)
+  - ItemBuffers (describe each itembuffer)
+  - State variables (data structure)
+  - 
+- Workers
+  - Assemblers
+    - Functions to overload for each domain type
+    - Residual scaling
+  - Integrators 
+- 
+Also, rename internals to devdocs. 
+"Threading model" should be moved to internals. 
+=#

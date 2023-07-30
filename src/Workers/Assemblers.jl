@@ -62,6 +62,16 @@ function work_single_cell!(assembler::ReAssembler, cellbuffer)
     assemble!(assembler.r, celldofs(cellbuffer), re)
 end
 
+function work_single_face!(assembler::ReAssembler, facebuffer)
+    re = get_re(facebuffer)
+    ae = get_ae(facebuffer)
+    material = get_material(facebuffer)
+    facevalues = get_values(facebuffer)
+    face_residual!(re, ae, material, facevalues, facebuffer)
+    update_scaling!(assembler.scaling, re, facebuffer)
+    assemble!(assembler.r, celldofs(facebuffer), re)
+end
+
 """
     KeReAssembler(K, r; fillzero=true, kwargs...)
     KeReAssembler(a::Ferrite.AbstractSparseAssembler; kwargs...)

@@ -8,7 +8,7 @@ Overload this function to create the state which should be passed into the
 `x` is the cell's coordinates, `ae` the element degree of freedom values, and 
 `dofrange::NamedTuple` containing the local dof range for each field. 
 As for the element routines, `ae`, is filled with `NaN` unless the global degree 
-of freedom vector is given to the [`setup_assembly`](@ref) function.
+of freedom vector is given to the [`setup_domainbuffer`](@ref) function.
 """
 create_cell_state(args...) = nothing
 

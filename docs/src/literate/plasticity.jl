@@ -29,7 +29,7 @@ K = create_sparsity_pattern(dh);
 r = zeros(ndofs(dh));
 
 # ## Setting up the assembly
-# Using the `setup_assembly` function, 
+# Using the `setup_domainbuffer` function, 
 buffer = setup_domainbuffer(DomainSpec(dh, material, cellvalues));
 # we setup the `buffer`, old state variables, and new state variables. 
 # The state variables are created via the [`create_cell_state`](@ref FerriteAssembly.create_cell_state) 
