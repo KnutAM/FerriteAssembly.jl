@@ -22,12 +22,12 @@ for t in timesteps
 end
 ```
 """
-struct LoadHandler{DH<:AbstractDofHandler}
+struct LoadHandler{DH<:Ferrite.AbstractDofHandler}
     nbcs::Dict{String,<:AbstractDomainBuffer}
     bodyloads::Dict{String,<:AbstractDomainBuffer}
     dh::DH
 end
-function LoadHandler(dh::AbstractDofHandler; threading=false)
+function LoadHandler(dh::Ferrite.AbstractDofHandler; threading=false)
     BT = threading ? ThreadedDomainBuffer : DomainBuffer
     return LoadHandler(Dict{String,BT}(), Dict{String,BT}(), dh)
 end

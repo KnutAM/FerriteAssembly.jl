@@ -114,7 +114,7 @@ used to reduce allocations. Returns `nothing` by default.
 allocate_cell_cache(::Any, ::Any) = nothing
 
 """
-    reinit_buffer!(cb::CellBuffer, dh::AbstractDofHandler, cellnum::Int; a=nothing, aold=nothing)
+    reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; a=nothing, aold=nothing)
 
 Reinitialize the `cb::CellBuffer` for cell number `cellnum`.
 The global degree of freedom vectors `a` (current) and `aold` are used
