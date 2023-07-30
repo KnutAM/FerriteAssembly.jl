@@ -1,18 +1,18 @@
 mutable struct ElementResidual{S,M,CV,B<:CellBuffer} <: Function
-    new_state::S
+    state::S
     material::M
     cellvalues::CV
     buffer::B
 end
 
-function update_element_residual!(er::ElementResidual, new_state, material, cellvalues, buffer)
-    er.new_state = new_state
+function update_element_residual!(er::ElementResidual, state, material, cellvalues, buffer)
+    er.state = state
     er.material = material
     er.cellvalues = cellvalues
     er.buffer = buffer 
 end
 
-(er::ElementResidual)(re,ae) = element_residual!(re, er.new_state, ae, er.material, er.cellvalues, er.buffer)
+(er::ElementResidual)(re,ae) = element_residual!(re, er.state, ae, er.material, er.cellvalues, er.buffer)
 
 function create_jacobian_config(er::ElementResidual)
     re = get_re(er.buffer)
@@ -45,7 +45,7 @@ function AutoDiffCellBuffer(cb::CellBuffer)
 end
 
 for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_values, :get_time_increment, 
-        :get_aeold, :get_new_state, :get_old_state, :get_user_data, :get_cache)
+        :get_aeold, :get_state, :get_old_state, :get_user_data, :get_cache)
     eval(quote
         $op(cb::AutoDiffCellBuffer) = $op(cb.cb)
     end)
@@ -65,15 +65,15 @@ for op = (:celldofs, :getcoordinates, :dof_range, :getfieldnames)
     end)
 end
 
-function element_routine_ad!(Ke, re, new_state, ae, material, cellvalues, ad_buffer::AutoDiffCellBuffer)
+function element_routine_ad!(Ke, re, state, ae, material, cellvalues, ad_buffer::AutoDiffCellBuffer)
     buffer = ad_buffer.cb
     element_residual = ad_buffer.er
     cfg = ad_buffer.cfg
-    update_element_residual!(element_residual, new_state, material, cellvalues, buffer)
+    update_element_residual!(element_residual, state, material, cellvalues, buffer)
     try
         ForwardDiff.jacobian!(Ke, element_residual, re, ae, cfg)
     catch e
-        ad_error(e, Ke, re, new_state, ae, material, cellvalues, ad_buffer)
+        ad_error(e, Ke, re, state, ae, material, cellvalues, ad_buffer)
     end
 end
 

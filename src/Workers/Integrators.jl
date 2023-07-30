@@ -6,12 +6,12 @@ Integrate over the domain by modifying the value `val` for each cell in the func
 and the material for that cell. `V` must be a mutable type.
 
 Specify `domains` to only integrate over a part of the grid.
-It should contain the names of the `AssemblyDomains` to integrate over.
+It should contain the names of the domains to integrate over.
 Single, `String`, or collections; `Set{String}`, `AbstractVector{String}`, or `NTuple{N,String}`
 inputs are supported. If `domains=nothing`, all domains are integrated. 
 
 **Note**: This integrator will currently only run sequentially even if a 
-threaded assembly is setup with [`setup_assembly`](@ref)
+threaded assembly is setup with [`setup_domainbuffer`](@ref)
 """
 struct Integrator{T,D<:Union{Nothing,Set{String}}}
     val::T
@@ -22,7 +22,6 @@ Integrator(val, domains::Union{AbstractVector{String},NTuple{<:Any,String}}) = I
 Integrator(val, domain::String) = Integrator(val, Set((domain,)))
 # Properties:
 can_thread(::Integrator) = false # Might support in future, but requires user-facing interface 
-need_colors(::Integrator) = false
 skip_this_domain(::Integrator{<:Any,Nothing}, ::String) = false
 skip_this_domain(ig::Integrator{<:Any,<:Set}, name::String) = name ∉ ig.domains
 
@@ -39,7 +38,7 @@ function integrate_cell! end
 function work_single_cell!(assembler::Integrator, cellbuffer)
     cv = get_values(cellbuffer)
     m = get_material(cellbuffer)
-    cell_state = get_new_state(cellbuffer)
+    cell_state = get_state(cellbuffer)
     ae = get_ae(cellbuffer)
     integrate_cell!(assembler.val, cell_state, ae, m, cv, cellbuffer)
 end
@@ -70,16 +69,16 @@ One exception to these requirements; `val::Tuple`,
 if the elements of the tuple fulfills those requirements.
 
 Specify `domains` to only integrate over a part of the grid.
-It should contain the names of the `AssemblyDomains` to integrate over.
+It should contain a subset of the keys provided to `setup_domainbuffers`.
 Single, `String`, or collections; `Set{String}`, `AbstractVector{String}`, or `NTuple{N,String}`
 inputs are supported. If `domains=nothing`, all domains are integrated. 
 
 **Example:** *Calculate the average value and gradient* \\
-We assume that we have done the setup: `buffer, state = setup_assembly(...)`,\\
+We assume that we have done the setup: `buffer = setup_domainbuffer(...)`,\\
 assembled `K` and `r`, and solved `a=K\\r`
 ```julia
 integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u, ∇u), (0.0, 0.0, zero(Vec{dim})))
-doassemble!(integrator, states, buffer; a=a)
+work!(integrator, buffer; a=a)
 area = integrator.val[1]
 u_avg = integrator.val[2]/area 
 ∇u_avg = integrator.val[3]/area
@@ -99,13 +98,12 @@ SimpleIntegrator(fun::Function, val, domain::String) = SimpleIntegrator(fun, val
 
 # Properties:
 can_thread(::SimpleIntegrator) = true
-need_colors(::SimpleIntegrator) = false
 skip_this_domain(::SimpleIntegrator{<:Function,<:Any,Nothing}, ::String) = false
 skip_this_domain(ig::SimpleIntegrator{<:Function,<:Any,<:Set}, name::String) = name ∉ ig.domains
 
 function work_single_cell!(assembler::SimpleIntegrator, cellbuffer)
     cv = get_values(cellbuffer)
-    cell_state = get_new_state(cellbuffer)
+    cell_state = get_state(cellbuffer)
     ae = get_ae(cellbuffer)
     simple_integrate_cell!(assembler, cell_state, ae, cv, cellbuffer)
 end

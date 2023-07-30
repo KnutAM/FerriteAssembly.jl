@@ -2,22 +2,22 @@
 CurrentModule = FerriteAssembly
 ```
 
-# Setup
-* To setup the assembly, call [`setup_assembly`](@ref)
-* For multiple domains, [`AssemblyDomain`](@ref)s must be created first.
-* Details about the [`buffer`](@ref AbstractDomainBuffer) output. 
-* State variables discussed [here](@ref State-variables)
-
 ## Setup API
 ```@docs
-setup_assembly
-AssemblyDomain
+DomainSpec
+setup_domainbuffer
+setup_domainbuffers
 ```
 
 ## AbstractDomainBuffer
-The `buffer` output from `setup_assembly` will be of type `DomainBuffer`, `ThreadedDomainBuffer`, 
-or a `Dict{String}` with eltype of one of the former. A few convenience functions are defined 
-for these output types
+The domain buffer be a `DomainBuffer`, `ThreadedDomainBuffer`, or a `Dict{String}` with eltype 
+of one of the former. The following functions are defined for these buffers:
 ```@docs
-FerriteAssembly.get_material(buffer::DomainBuffer)
+FerriteAssembly.get_material(::FerriteAssembly.DomainBuffers, ::String)
+FerriteAssembly.get_dofhandler(::FerriteAssembly.DomainBuffers)
+FerriteAssembly.get_state(::FerriteAssembly.DomainBuffers, ::String)
+FerriteAssembly.get_old_state(::FerriteAssembly.DomainBuffers, ::String)
+update_states!(::FerriteAssembly.DomainBuffers)
+set_time_increment!(::FerriteAssembly.DomainBuffers, ::Any)
+getcellset(::FerriteAssembly.DomainBuffers, ::String)
 ```

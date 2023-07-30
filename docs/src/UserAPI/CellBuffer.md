@@ -2,33 +2,36 @@
 CurrentModule = FerriteAssembly
 ```
 
-# CellBuffer
-A `CellBuffer` contains variables that are used and modified for each cell of a certain type.
-For each cell, it is `reinit!`:ed such that values such as cell coordinates, old state variables, 
-etc. are updated to the current cell. 
+# AbstractItemBuffer
+Depening on the domain that is worked over, different item buffers are available, 
+e.g. `CellBuffer` and `FaceBuffer`. These are set up during call to `setup_domainbuffer`.
 
-## Construction
-Construction of `CellBuffer` happens automatically when calling
-[`setup_assembly`](@ref). 
-To extra data can be included via the `user_data` keyword when calling
-`setup_assembly` or [`AssemblyDomain`](@ref).
+For each item (cell or face), the values in the buffer are updated to the current item,
+and can be accessed with the following functions:
 
-To allocate cache for the element routine, overload `allocate_cell_cache`:
+```@docs
+get_aeold
+get_old_state
+get_time_increment
+Ferrite.dof_range(::AbstractItemBuffer, ::Symbol)
+Ferrite.getcoordinates(::AbstractItemBuffer)
+Ferrite.celldofs(::AbstractItemBuffer)
+Ferrite.cellid(::AbstractItemBuffer)
+get_user_data
+get_user_cache
+```
+
+## AbstractCellBuffer
+Two types of cell buffers are provided, the regular `CellBuffer` and a wrapper `AutoDiffCellBuffer` that speeds up the automatic differentiation. By using the above access functions, these behave identical.
+
+To allocate the user cache, overload `allocate_cell_cache`:
 ```@docs
 allocate_cell_cache(::Any, ::Any)
 ```
 
-## Access functions
-The following access functions can be used to extract information from 
-an `AbstractCellBuffer`.
+## FaceBuffer
+The `FaceBuffer` is similar to the `CellBuffer`, except that it has `FaceValues` instead of `CellValues`
+and that state variables are not supported. To allocate user cache, overload `allocate_face_cache`:
 ```@docs
-get_old_state
-get_aeold
-get_time_increment
-Ferrite.dof_range
-Ferrite.getcoordinates
-Ferrite.celldofs
-Ferrite.cellid
-get_user_data
-get_cache
+allocate_face_cache
 ```

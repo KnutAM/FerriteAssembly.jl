@@ -18,10 +18,10 @@ is to provide a simple, but versatile and efficient, structure for assembling in
 
 See the [documentation](https://KnutAM.github.io/FerriteAssembly.jl/dev) for more details.
 
-## Typical workflow
+## Typical assembly workflow
 1. Define your custom type and associated element routine (See [Example elements](@ref))
-2. Setup Ferrite's `DofHandler` and `CellValues` as usual, and call [`setup_assembly`](@ref)
-3. For each assembly, call [`doassemble!`](@ref)
+2. Setup Ferrite's `DofHandler` and `CellValues` as usual, and call [`setup_domainbuffer`](@ref)
+3. For each assembly, call [`work!`](@ref)
 
 ## Using with `Ferrite.jl`'s master branch
 This badge shows if `FerriteAssembly#main` is compatible with `Ferrite#master`.

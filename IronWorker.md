@@ -17,7 +17,7 @@ At each new timestep/changes to iteration settings
    * `update_states!(buffer)` # old = new
 For each assembly work or similar
 * Create worker, e.g.: `worker = start_assemble(K, r)`
-* Do the work: `work!(worker, buffer; anew=a, aold=aold)`
+* Do the work: `work!(worker, buffer; a=a, aold=aold)`
 Can also have more, e.g. looping over faces, but for std cases, 
 this could be handled by the `LoadHandler`.
 
@@ -31,7 +31,7 @@ struct CellBuffer <: AbstractItemBuffer
     Δt
     user_data
     # Re-point before element routine
-    new_state # (Updated in element routine)
+    state # (Updated in element routine)
     old_state 
     # Reinit before element routine
     ae_old
@@ -116,7 +116,7 @@ struct DomainBuffer{B,I,S,SDH<:SubDofHandler}
     itembuffer::B  # cell, face, or interface buffer 
     set::Vector{I} # I=Int (cell), I=FaceIndex (face), or
                    # I=NTuple{2,FaceIndex} (interface)
-    new_states::Dict{Int,S}             # To be updated during "work"
+    states::Dict{Int,S}             # To be updated during "work"
     old_states::Dict{Int,S}             # Only for reference
 end
 
@@ -125,7 +125,7 @@ struct ThreadedDomainBuffer{B,I,S,SDH<:SubDofHandler}
     itembuffer::TaskLocals{B,B}         # cell, face, or interface buffer 
     chunks::Vector{Vector{Vector{{I}}}} # I=Int (cell), I=FaceIndex (face), or
     set::Vector{I}                      # I=NTuple{2,FaceIndex} (interface)
-    new_states::Dict{Int,S}             # To be updated during "work"
+    states::Dict{Int,S}             # To be updated during "work"
     old_states::Dict{Int,S}             # Only for reference
 end
 ```

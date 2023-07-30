@@ -20,13 +20,13 @@ import .TestIntegrators: MySimpleIntegrand
         assembler = start_assemble(K, r)
         apply!(a, ch)
         set_time_increment!(buffer, Δt)
-        work!(assembler, buffer; anew=a, aold=aold)
+        work!(assembler, buffer; a=a, aold=aold)
         apply_zero!(K, r, ch)
         norm_r0 = norm(r)
         a .-= K\r 
         apply!(a, ch) # Exact BC
         r_assembler = ReAssembler(r)
-        work!(r_assembler, buffer; anew=a, aold=aold)
+        work!(r_assembler, buffer; a=a, aold=aold)
         apply_zero!(r, ch)
         @test norm(r) < norm_r0*1e-12
         return a
@@ -42,7 +42,7 @@ import .TestIntegrators: MySimpleIntegrand
             update!(ch, 0.0)
             m = EE.StationaryFourier(1.0)
             cv = CellScalarValues(QuadratureRule{3,RefCube}(2), Lagrange{3,RefCube,1}())
-            buffer = setup_domainbuffer(GridDomain(dh, m, cv); threading=threading)
+            buffer = setup_domainbuffer(DomainSpec(dh, m, cv); threading=threading)
             a = solve_problem(dh, ch, buffer)
             return dh, a, buffer
         end
@@ -58,19 +58,19 @@ import .TestIntegrators: MySimpleIntegrand
 
             # Calculate the average temperature 
             dofsum_integrator = SimpleIntegrator((u, ∇u, state)->u, 0.0)
-            work!(dofsum_integrator, buffer; anew=a)
+            work!(dofsum_integrator, buffer; a=a)
             avg_value = dofsum_integrator.val/volume
             @test avg_value ≈ 0.5 # T=0 (left) and T=1 (right)
     
             # Calculate the average temperature gradient
             gradsum_integrator = SimpleIntegrator((u, ∇u, state)->∇u, zero(Vec{3}))
-            work!(gradsum_integrator, buffer; anew=a)
+            work!(gradsum_integrator, buffer; a=a)
             avg_grad = gradsum_integrator.val/volume
             @test avg_grad ≈ Vec((1.0/lx, 0.0, 0.0)) # T=0 (left) and T=1 (right)
     
             # Calculate the values above, but together as a heterogeneous tuple
             tuple_integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u, ∇u), (0.0, 0.0, zero(Vec{3})))
-            work!(tuple_integrator, buffer; anew=a)
+            work!(tuple_integrator, buffer; a=a)
             @test volume_integrator.val ≈ tuple_integrator.val[1]
             @test dofsum_integrator.val ≈ tuple_integrator.val[2]
             @test gradsum_integrator.val ≈ tuple_integrator.val[3]
@@ -92,7 +92,7 @@ import .TestIntegrators: MySimpleIntegrand
             update!(ch, 0.0)
             m = EE.ElasticPlaneStrain(;E=100.0, ν=0.3)
             cv = CellVectorValues(QuadratureRule{2,RefTetrahedron}(2), Lagrange{2,RefTetrahedron,1}())
-            buffer = setup_domainbuffer(GridDomain(dh, m, cv); threading=threading)
+            buffer = setup_domainbuffer(DomainSpec(dh, m, cv); threading=threading)
             a = solve_problem(dh, ch, buffer)
             return dh, a, buffer
         end
@@ -107,20 +107,20 @@ import .TestIntegrators: MySimpleIntegrand
             @test area_integrator.val ≈ area
             # Calculate the average displacements 
             dofsum_integrator = SimpleIntegrator((u, ∇u, state)->u, zero(Vec{2}))
-            work!(dofsum_integrator, buffer; anew=a)
+            work!(dofsum_integrator, buffer; a=a)
             avg_value = dofsum_integrator.val/area
             @test abs(avg_value[1]) < 1e-14 # ux=0 (left and right)
             @test avg_value[2] ≈ 0.1/2  # uy=0 (left) and uy=0.1 (right)
     
             # Calculate the average strains gradient
             gradsum_integrator = SimpleIntegrator((u, ∇u, state)->symmetric(∇u), zero(SymmetricTensor{2,2}))
-            work!(gradsum_integrator, buffer; anew=a)
+            work!(gradsum_integrator, buffer; a=a)
             avg_grad = gradsum_integrator.val/area
             @test abs(avg_grad[1,1]) < 1e-14
             
             # Calculate the values above, but together as a heterogeneous tuple
             tuple_integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u, symmetric(∇u)), (0.0, zero(Vec{2}), zero(SymmetricTensor{2,2})))
-            work!(tuple_integrator, buffer; anew=a)
+            work!(tuple_integrator, buffer; a=a)
             @test area_integrator.val ≈ tuple_integrator.val[1]
             @test dofsum_integrator.val ≈ tuple_integrator.val[2]
             @test gradsum_integrator.val ≈ tuple_integrator.val[3]
@@ -150,7 +150,7 @@ import .TestIntegrators: MySimpleIntegrand
                 )
             qr = QuadratureRule{2,RefTetrahedron}(2)
             cv = (u=CellVectorValues(qr, ip_u, ip_geo), p=CellScalarValues(qr, ip_p, ip_geo))
-            buffer = setup_domainbuffer(GridDomain(dh, m, cv); threading=threading)
+            buffer = setup_domainbuffer(DomainSpec(dh, m, cv); threading=threading)
             a = solve_problem(dh, ch, buffer; Δt=1.0)
             return dh, a, buffer
         end
@@ -166,13 +166,13 @@ import .TestIntegrators: MySimpleIntegrand
             # Calculate the average displacements for tension with fixed left end
             # I.e. not uniaxial, but symmetric across horizontal center line
             u_integrator = SimpleIntegrator((u, ∇u, state)->u[:u], zero(Vec{2}))
-            work!(u_integrator, buffer; anew=a)
+            work!(u_integrator, buffer; a=a)
             u_avg = u_integrator.val/area
             @test u_avg[1] ≈ 0.1/2      # ux=0 (left) and ux=0.1 (right)
             @test abs(u_avg[2]) < 1e-14 # uy=0 (left) and uy "free" (right) (symmetric)
 
             ∇u_integrator = SimpleIntegrator((u, ∇u, state)->symmetric(∇u[:u]), zero(SymmetricTensor{2,2}))
-            work!(∇u_integrator, buffer; anew=a)
+            work!(∇u_integrator, buffer; a=a)
             ∇u_avg = ∇u_integrator.val/area
             ϵxx_avg = 0.1/lx            # ux=0 (left) and ux=0.1 (right)
             @test ∇u_avg[1,1] ≈ ϵxx_avg
@@ -182,19 +182,19 @@ import .TestIntegrators: MySimpleIntegrand
             
             # Calculate the average pressure
             p_integrator = SimpleIntegrator((u, ∇u, state)->u[:p], 0.0)
-            work!(p_integrator, buffer; anew=a)
+            work!(p_integrator, buffer; a=a)
             p_avg = p_integrator.val/area
             @test p_avg ≈ 0.5 # p=0 (left) and p=1 (right)
     
             # Calculate the average pressure gradient
             ∇p_integrator = SimpleIntegrator((u, ∇u, state)->∇u[:p], zero(Vec{2}))
-            work!(∇p_integrator, buffer; anew=a)
+            work!(∇p_integrator, buffer; a=a)
             ∇p_avg = ∇p_integrator.val/area
             @test ∇p_avg ≈ Vec((1.0/lx, 0.0)) # T=0 (left) and T=1 (right)
             
             # Calculate values from above, but together as a heterogeneous tuple
             tuple_integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u[:p], symmetric(∇u[:u])), (0.0, 0.0, zero(SymmetricTensor{2,2})))
-            work!(tuple_integrator, buffer; anew=a)
+            work!(tuple_integrator, buffer; a=a)
             @test area_integrator.val ≈ tuple_integrator.val[1]
             @test p_integrator.val ≈ tuple_integrator.val[2]
             @test ∇u_integrator.val ≈ tuple_integrator.val[3]
@@ -202,7 +202,7 @@ import .TestIntegrators: MySimpleIntegrand
             # Do the same test, but using Integrator with MySimpleIntegrand
             simple_integrator = SimpleIntegrator((u, ∇u, state)->(1.0, u[:p], symmetric(∇u[:u])), (0.0, 0.0, zero(SymmetricTensor{2,2})))
             integrator = Integrator(MySimpleIntegrand(simple_integrator))
-            work!(integrator, buffer; anew=a)
+            work!(integrator, buffer; a=a)
             @test all(simple_integrator.val .≈ tuple_integrator.val)
         end
 
@@ -225,8 +225,8 @@ import .TestIntegrators: MySimpleIntegrand
             update!(ch, 0.0)
             m = EE.StationaryFourier(1.0)
             cv = CellScalarValues(QuadratureRule{3,RefCube}(2), Lagrange{3,RefCube,1}())
-            ad1 = GridDomain(dh, m, cv; set=getcellset(grid, "set1"))
-            ad2 = GridDomain(dh, m, cv; set=getcellset(grid, "set2"))
+            ad1 = DomainSpec(dh, m, cv; set=getcellset(grid, "set1"))
+            ad2 = DomainSpec(dh, m, cv; set=getcellset(grid, "set2"))
             buffers = setup_domainbuffers(Dict("d1"=>ad1, "d2"=>ad2); threading=threading)
             a = solve_problem(dh, ch, buffers)
             return dh, a, buffers

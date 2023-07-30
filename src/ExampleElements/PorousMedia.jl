@@ -59,7 +59,7 @@ function PoroElasticPlaneStrain(;E=2.e3, ν=0.3, k=0.05, α=1.0, β=1/2e3)
     return PoroElasticPlaneStrain(C, k, α, β)
 end
 
-function FerriteAssembly.element_residual!(re, new_state, ae, material::PoroElasticPlaneStrain, cv::NamedTuple, buffer)
+function FerriteAssembly.element_residual!(re, state, ae, material::PoroElasticPlaneStrain, cv::NamedTuple, buffer)
     ae_old = FerriteAssembly.get_aeold(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     udofs = dof_range(buffer, :u)

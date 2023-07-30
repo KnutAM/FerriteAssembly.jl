@@ -18,8 +18,8 @@ end
 function FerriteAssembly.unwrap_material_for_ad(m::ModifiedStiffness)
     return FerriteAssembly.unwrap_material_for_ad(m.material)
 end
-function FerriteAssembly.element_routine!(Ke, re, new_state, ae, m::ModifiedStiffness, args...)
-    FerriteAssembly.element_routine!(Ke, re, new_state, ae, m.material, args...)
+function FerriteAssembly.element_routine!(Ke, re, state, ae, m::ModifiedStiffness, args...)
+    FerriteAssembly.element_routine!(Ke, re, state, ae, m.material, args...)
     Ke .+= LinearAlgebra.I*m.factor # Add m.factor to Ke's diagonal
 end
 ```

@@ -16,7 +16,7 @@ where ``\\sigma`` is calculated with the `material_response` function from
 Note that `create_cell_state` is already implemented for `<:AbstractMaterial`. 
 """
 function FerriteAssembly.element_routine!(
-    Ke, re, state_new::Vector{<:MMB.AbstractMaterialState},
+    Ke, re, state::Vector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
@@ -25,7 +25,7 @@ function FerriteAssembly.element_routine!(
     for q_point in 1:getnquadpoints(cellvalues)
         # For each integration point, compute stress and material stiffness
         ϵ = function_symmetric_gradient(cellvalues, q_point, ae) # Total strain
-        σ, D, state_new[q_point] = MMB.material_response(material, ϵ, state_old[q_point], Δt, cache)
+        σ, D, state[q_point] = MMB.material_response(material, ϵ, state_old[q_point], Δt, cache)
 
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs
@@ -49,7 +49,7 @@ The `element_residual!` implementation corresponding to the `element_routine!` i
 for a `MaterialModelsBase.AbstractMaterial`
 """
 function FerriteAssembly.element_residual!(
-    re, state_new::Vector{<:MMB.AbstractMaterialState},
+    re, state::Vector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
@@ -58,7 +58,7 @@ function FerriteAssembly.element_residual!(
     for q_point in 1:getnquadpoints(cellvalues)
         # For each integration point, compute stress and material stiffness
         ϵ = function_symmetric_gradient(cellvalues, q_point, ae) # Total strain
-        σ, _, state_new[q_point] = MMB.material_response(material, ϵ, state_old[q_point], Δt, cache)
+        σ, _, state[q_point] = MMB.material_response(material, ϵ, state_old[q_point], Δt, cache)
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs
             ∇δN = shape_symmetric_gradient(cellvalues, q_point, i)

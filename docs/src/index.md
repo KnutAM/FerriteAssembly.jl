@@ -4,20 +4,25 @@ CurrentModule = FerriteAssembly
 
 # FerriteAssembly
 The goal of [FerriteAssembly](https://github.com/KnutAM/FerriteAssembly.jl) 
-is to provide a simple structure for assembling in 
-[Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl/).
+is make it convenient to iterate over a grid and perform some task for each item.
+The primary use is to iterate over all cells and assemble into global matrices and 
+vectors. However, it makes many other tasks easy as well, for example iterating over faces for adding boundary conditions, or integrating a function over a given domain. 
 
-## Key features
-* Easy switching between *sequential* and *threaded* assembly
-* *Multiple domains* with different fields, interpolations, and/or element routines.
-* Efficient *automatic differentiation* if analytical tangent is not implemented. 
-* Support for handling of (old and new) *state variables*
-* Easy [*integration*](@ref Integration) of a function over the domain
+The design is built around two main object types
+1. **Worker**: What to do for each item
+2. **Domain**: What items to work on
 
-## Typical workflow
-1. Define your custom type and associated element routine (See [Example elements](@ref))
-2. Setup Ferrite's `DofHandler` and `CellValues` as usual, and call [`setup_assembly`](@ref)
-3. For each assembly, call [`doassemble!`](@ref)
+More details are given in [Package Design](design.md), which is a recommended read for understanding the structure of the package. The current page highlights an example for doing standard assembly over cells. But before diving into that example, we give a short list with links to examples for some common tasks that `FerriteAssembly.jl` can help you with.
+
+**TODO:** *Add links and examples*
+
+* Easy Neumann boundary conditions
+* Models with state variables
+* Multiple domains
+* Mixed grids
+* Calculate integral quantities
+* Postprocess data in each cell
+* Robin boundary conditions
 
 ## Heat equation example
 ```@eval

@@ -27,7 +27,7 @@ include("LoadHandler/LoadHandler.jl")
 
 
 # Setup 
-export GridDomain, setup_domainbuffer, setup_domainbuffers
+export DomainSpec, setup_domainbuffer, setup_domainbuffers
 # Main functions to use during simulations
 export work!, update_states!, set_time_increment!
 # Workers
@@ -39,15 +39,15 @@ export ElementResidualScaling, reset_scaling!
 
 """
     element_routine!(
-        Ke::AbstractMatrix, re::AbstractVector, state_new,
+        Ke::AbstractMatrix, re::AbstractVector, state,
         ae::AbstractVector, material, cellvalues, buffer)
 
 The main function to be overloaded for the specific `material`. In most cases,
 the same implementation can be used for different cellvalues 
 (e.g. for different interpolation orders)
 This function should modify the element stiffness matrix `Ke`, the residual `re`,
-and potentially `state_new`. The element degree of freedom values, `ae`, are filled by 
-`NaN`s unless `a` is passed to [`doassemble!`](@ref).
+and potentially `state`. The element degree of freedom values, `ae`, are filled by 
+`NaN`s unless `a` is passed to [`work!`](@ref).
 
 The following variables can be obtained from `buffer`.
 * [`get_old_state(buffer)`](@ref FerriteAssembly.get_old_state)
@@ -64,7 +64,7 @@ element_routine!(args...) = element_routine_ad!(args...)    # If not defined, tr
 
 """
     element_residual!(
-        re::AbstractVector, state_new,
+        re::AbstractVector, state,
         ae::AbstractVector, material, cellvalues, buffer)
 
 To calculate the element tangent stiffness `Ke` automatically by using `ForwardDiff`,
@@ -75,7 +75,7 @@ it is possible to overload `element_residual!` instead of `element_routine!`. Se
     `MethodError` with `ForwardDiff.Dual`\\
     When using automatic differentiation for elements with state variables (or other mutating values in e.g. cache),
     an error will be thrown if trying to change the type in many cases. 
-    When mutating `new_state`, call `ForwardDiff.value()` on the value to be assigned **after** 
+    When mutating `state`, call `ForwardDiff.value()` on the value to be assigned **after** 
     it will no longer be used to calculate `re`. (If done on a value which is later affects `re` inside the element,
     the tangent, `Ke`, will be wrong.)
 """

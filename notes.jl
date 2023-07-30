@@ -4,8 +4,8 @@
 #=
 To modify the element stiffness for a given element, when using autodiff, the easiest approach is to overload
 the `element_routine!` as follows:
-function FerriteAssembly.element_routine!(Ke, re, new_state, ae, material::MyMat, cellvalues, cellbuffer)
-    FerriteAssembly.element_routine_ad!(Ke, re, new_state, ae, material::MyMat, cellvalues, cellbuffer)
+function FerriteAssembly.element_routine!(Ke, re, state, ae, material::MyMat, cellvalues, cellbuffer)
+    FerriteAssembly.element_routine_ad!(Ke, re, state, ae, material::MyMat, cellvalues, cellbuffer)
     # Do the wanted modification to `Ke`
 end
 This is currently not documented, but probably could be.
@@ -18,7 +18,7 @@ This can be done by documenting the element_routine_ad function...
 #=
 The initial states are not always connected to the material, but could also be simulation specific. 
 Therefore, it might be good to have a hook-in option for creating states, a simple and general option 
-would be to simply allow supplying a `create_cell_state` function to `setup_assembly`, which defaults 
+would be to simply allow supplying a `create_cell_state` function to `setup_domainbuffer`, which defaults 
 to `FerriteAssembly.create_cell_state`. This way, it works smooth for standard cases, but users can at 
 setup time customize the behavior without having to overload a function. 
 =#
@@ -32,13 +32,13 @@ the middle of the simulation (for example after x number of iterations, or dynam
 There are a few different ways of supporting this.
 1) Use a material wrapper with a field `jacobian_type::Symbol` and then the user should define an element routine 
    of the type 
-1   function FerriteAssembly.element_routine!(Ke, re, new_state, m::CustomJacobianMaterial{<:MyMat}, args...; kwargs...)
+1   function FerriteAssembly.element_routine!(Ke, re, state, m::CustomJacobianMaterial{<:MyMat}, args...; kwargs...)
 2       if get_jacobian_type(m) == :true 
-3           FerriteAssembly.element_routine!(Ke, re, new_state, m.material, args...; kwargs...)
+3           FerriteAssembly.element_routine!(Ke, re, state, m.material, args...; kwargs...)
 4       elseif get_jacobian_type(m) == :modified_picard # Call an alternative element routine
-5           FerriteAssembly.element_routine!(Ke, re, new_state, ModifiedPicardWrapper(m.material), args...; kwargs...)
+5           FerriteAssembly.element_routine!(Ke, re, state, ModifiedPicardWrapper(m.material), args...; kwargs...)
 6       elseif get_jacobian_type(m) == :relaxed
-7           FerriteAssembly.element_routine!(Ke, re, new_state, m.material, args...; kwargs...)
+7           FerriteAssembly.element_routine!(Ke, re, state, m.material, args...; kwargs...)
 8           relax_stiffness!(Ke) # User routine to modify the stiffness
 9       else
 10          error("jacobian_type: $(get_jacobian_type(m)) is not supported")
@@ -88,9 +88,3 @@ where the latter also updates the cfg in ElementResidual, which will cause alloc
 # 1) It makes it less transparent what it is dofsum_integrator
 # 2) It might reduce the adoption since the FerriteAssembly package is much more dictating as to how to structure 
 #    the users program, even though that component can be used without adopting the full FerriteAssembly structure. 
-
-
-#= 
-setup_face_assembly(Vector{AssemblyDomain})
-
-=#

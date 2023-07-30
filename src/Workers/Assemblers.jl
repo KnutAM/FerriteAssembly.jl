@@ -6,13 +6,12 @@ scatter!(::FerriteSparseAssemblers, ::FerriteSparseAssemblers) = nothing
 gather!( ::FerriteSparseAssemblers, ::FerriteSparseAssemblers) = nothing
 
 can_thread(::FerriteSparseAssemblers) = true
-need_colors(::FerriteSparseAssemblers) = true
 
 function work_single_cell!(assembler::Ferrite.AbstractSparseAssembler, cellbuffer)
     Ke = get_Ke(cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
-    cell_state = get_new_state(cellbuffer)
+    cell_state = get_state(cellbuffer)
     material = get_material(cellbuffer)
     cellvalues = get_values(cellbuffer)
     element_routine!(Ke, re, cell_state, ae, material, cellvalues, cellbuffer)
@@ -51,12 +50,11 @@ scatter!(task::ReAssembler, base::ReAssembler) = scatter!(task.scaling, base.sca
 gather!(base::ReAssembler, task::ReAssembler) = gather!(base.scaling, task.scaling)
 
 can_thread(::ReAssembler) = true
-need_colors(::ReAssembler) = true # To be clear
 
 function work_single_cell!(assembler::ReAssembler, cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
-    cell_state = get_new_state(cellbuffer)
+    cell_state = get_state(cellbuffer)
     material = get_material(cellbuffer)
     cellvalues = get_values(cellbuffer)
     element_residual!(re, cell_state, ae, material, cellvalues, cellbuffer)
@@ -118,7 +116,6 @@ function gather!(base::KeReAssembler, task::KeReAssembler)
 end
 
 can_thread(::KeReAssembler) = true
-need_colors(::KeReAssembler) = true # To be clear
 
 # assemble! routines
 # # No constraint handler - no local application of constraints
@@ -140,7 +137,7 @@ function work_single_cell!(assembler::KeReAssembler, cellbuffer)
     Ke = get_Ke(cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
-    cell_state = get_new_state(cellbuffer)
+    cell_state = get_state(cellbuffer)
     material = get_material(cellbuffer)
     cellvalues = get_values(cellbuffer)
     element_routine!(Ke, re, cell_state, ae, material, cellvalues, cellbuffer)

@@ -87,9 +87,16 @@ function create_local(c::FaceBuffer)
     return FaceBuffer(dcpy..., c.user_data, deepcopy(c.user_cache))
 end
 
+"""
+    FerriteAssembly.allocate_face_cache(material, cellvalues)
+
+This function can be overloaded for the specific material to allocate 
+a cache that is stored in the `FaceBuffer` and can be used to reduce 
+allocations. Returns `nothing` by default.
+"""
 allocate_face_cache(::Any, ::Any) = nothing
 
-function reinit_buffer!(fb::FaceBuffer, db::AbstractDomainBuffer, fi::FaceIndex; anew=nothing, aold=nothing)
+function reinit_buffer!(fb::FaceBuffer, db::AbstractDomainBuffer, fi::FaceIndex; a=nothing, aold=nothing)
     cellnum, facenr = fi
     dh = get_dofhandler(db)
     grid = Ferrite.get_grid(dh)
@@ -97,7 +104,7 @@ function reinit_buffer!(fb::FaceBuffer, db::AbstractDomainBuffer, fi::FaceIndex;
     celldofs!(c.dofs, dh, cellnum)
     getcoordinates!(c.coords, grid, cellnum)
     reinit!(fb.facevalues, c.coords, facenr)
-    _copydofs!(fb.ae,     anew, celldofs(fb)) # ae_new .= a_new[dofs]
+    _copydofs!(fb.ae,     a, celldofs(fb)) # ae_new .= a_new[dofs]
     _copydofs!(fb.ae_old, aold, celldofs(fb)) # ae_old .= a_old[dofs]
     fill!(c.Ke, 0)
     fill!(c.re, 0)

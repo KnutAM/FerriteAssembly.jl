@@ -41,26 +41,23 @@ function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dof
 end
 
 """
-    update_states!(old_states, new_states)
+    update_states!(old_states, states)
 
-Update `old_states` with the values from `new_states`. This is typically done after a converged time increment.
-
-This method tries to avoid allocating new values where possible. 
-Currently, if [`create_cell_state`](@ref) returns `T` or `Vector{T}` where `isbitstype(T)`, this works.
-
-If needed/wanted, it should be relatively easy to provide an interface to make it possible to have allocation free 
-for custom cell states.
+In most cases, this 2-argument function is not required, and the 
+entire domain buffer can be passed instead, see
+[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)).
+This 2-argument function will then be called for the stored state variables. 
 """ 
-function update_states!(old_states::T, new_states::T) where T<:Dict{Int,<:Vector}
-    for (key, new_s) in new_states
+function update_states!(old_states::T, states::T) where T<:Dict{Int,<:Vector}
+    for (key, new_s) in states
         update_states!(old_states[key], new_s)
     end
 end
 function update_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing},Dict{Int,Vector{Nothing}}}
     return nothing 
 end
-@inline function update_states!(old_states::T, new_states::T) where T<:Union{Vector{ET},Dict{Int,ET}} where ET
-    copy_states!(Val(isbitstype(ET)), old_states, new_states)
+@inline function update_states!(old_states::T, states::T) where T<:Union{Vector{ET},Dict{Int,ET}} where ET
+    copy_states!(Val(isbitstype(ET)), old_states, states)
 end
-@inline copy_states!(::Val{true},  old_states, new_states) = copy!(old_states,new_states)
-@inline copy_states!(::Val{false}, old_states, new_states) = copy!(old_states,deepcopy(new_states))
+@inline copy_states!(::Val{true},  old_states, states) = copy!(old_states,states)
+@inline copy_states!(::Val{false}, old_states, states) = copy!(old_states,deepcopy(states))

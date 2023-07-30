@@ -1,11 +1,13 @@
-# Assemblers
-The assembly process runs by calling [`doassemble!`](@ref) with a given assembler. 
-There are currently two categories of assemblers implemented, which are used to calculate
-- [System matrices and vectors](@ref System-matrix-and-vector)
-- [The integral of a function](@ref Integration)
+# Workers
+The to perform work, such as assembling, the function [`work!`](@ref) should be called with a 
+given worker and domain buffer. 
+
+There are currently two categories of workers implemented:  which are used to calculate
+- [Assemblers](@ref System-matrix-and-vector): Calculate system matrices and vectors
+- [Integrators](@ref Integration): Integrate a function over the domain
 
 ```@docs
-doassemble!
+work!
 ```
 
 ## System matrix and vector
@@ -18,7 +20,7 @@ element routine and choose an assembler. The following assemblers can be used to
 - [`ReAssembler`](@ref)
 
 Where the ones available in `FerriteAssembly` have additional features, 
-such as the possibility of applying constraints locally (see `Ferrite.apply_assemble`) or calculate [scaling](@ref ElementResidualScaling) for the residual. 
+such as the possibility of applying constraints locally (see `Ferrite.apply_assemble!`) or calculate [scaling](@ref ElementResidualScaling) for the residual. 
 
 ### Element routines
 One of the element methods should be overloaded for `material`. 
@@ -36,12 +38,15 @@ ReAssembler
 
 ## Integration
 In addition to assembling system matrices and vectors, much of the internal code can be reused 
-to create quite efficient integration of values, given a solution vector (and potentially state variables)
-The general workflow assumes that [`setup_assembly`](@ref) has already been called, and that a solution 
-vector is available. Then, it is possible to call [`doassemble!`](@ref) with an integrator to 
-obtain the integrated value. The following integrators are implemented
+to create quite efficient integration of values, given a solution vector (and potentially state variables).
+The same domain buffer as for assembly can be used, and exactly as for assembly, we just call 
+`work!(integrator, buffer)`. The following integrators are implemented
 ```@docs
 SimpleIntegrator
 Integrator
+```
+### Integration routines
+The general integrator requires overloading the `integrate_cell!` function
+```@docs
 FerriteAssembly.integrate_cell!
 ```

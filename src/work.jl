@@ -1,4 +1,11 @@
+"""
+    work!(worker, buffer; a=nothing, aold=nothing)
 
+Perform the work according to `worker` over the domain(s) specificed by 
+`buffer`. Current, `a`, and old, `aold`, global degree of freedom vectors 
+are passed to get these values passed into the innermost user-defined functions.
+If not passed (or as `nothing`), `NaN` values are passed into the innermost functions. 
+"""
 function work!(worker, buffers::Dict{String,<:DomainBuffer}; kwargs...)
     for (name, buffer) in buffers
         skip_this_domain(worker, name) && continue
@@ -75,14 +82,6 @@ Does the worker support multithreaded work? Defaults to `false`.
 If this returns `true`, the worker must support the `TaskLocals` interface. 
 """
 can_thread(::Any) = false
-
-"""
-    need_colors(worker)::Bool 
-
-Does the worker require a colored chunks when running in multithreaded mode? 
-Defaults to `true`.
-"""
-need_colors(::Any) = true # Opt-out of using colors
 
 """
     skip_this_domain(worker, name::String)

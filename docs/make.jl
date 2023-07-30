@@ -30,12 +30,13 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Design" => "design.md",
         "Examples" => push!(GENERATEDEXAMPLES, "ExampleElements.md"),
         "Builtin elements" => "MaterialModelsBase.md",
         "User API" => [
             "Setup" => "UserAPI/Setup.md",
             "State variables" => "UserAPI/StateVariables.md",
-            "Assemblers" => "UserAPI/Assemblers.md",
+            "Workers" => "UserAPI/Workers.md",
             "CellBuffer" => "UserAPI/CellBuffer.md",
             "Residual scaling" => "UserAPI/ResidualScaling.md",
             "Advanced features" => "UserAPI/AdvancedFeatures.md",

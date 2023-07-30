@@ -8,8 +8,8 @@ and [`allocate_cell_cache`](@ref FerriteAssembly.allocate_cell_cache)
 are implemented in `FerriteAssembly.jl`.
 
 ```@docs
-FerriteAssembly.element_routine!(Ke, re, state_new::Vector{<:MMB.AbstractMaterialState}, ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
-FerriteAssembly.element_residual!(re, state_new::Vector{<:MMB.AbstractMaterialState}, ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
+FerriteAssembly.element_routine!(Ke, re, state::Vector{<:MMB.AbstractMaterialState}, ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
+FerriteAssembly.element_residual!(re, state::Vector{<:MMB.AbstractMaterialState}, ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
 FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVectorValues, args...)
 FerriteAssembly.allocate_cell_cache(m::MMB.AbstractMaterial, ::Any)
 ```

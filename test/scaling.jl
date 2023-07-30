@@ -13,7 +13,7 @@
     dh = DofHandler(grid); add!(dh, :u, 2, ip); add!(dh, :p, 1, ip); close!(dh)
     m = EE.StationaryFourier(1.0)
     cv = (u=CellVectorValues(qr, ip, ip), p=CellScalarValues(qr, ip, ip))
-    buffer = setup_domainbuffer(GridDomain(dh, m, cv))
+    buffer = setup_domainbuffer(DomainSpec(dh, m, cv))
     cellbuffer = FerriteAssembly.get_itembuffer(buffer)
 
     ers1 = ElementResidualScaling(dh) # Default with Val(2)

@@ -1,7 +1,6 @@
 ```@meta
 CurrentModule = FerriteAssembly
 ```
-
 # Hacking API
 The functions described on this page are somewhere inbetween regular API and internal API,
 and are intended for making custom solutions, but with a higher risk of breaking changes.
@@ -29,16 +28,14 @@ FerriteAssembly.get_base
 Different types of assemblers can be created in addition to those already defined by the package.
 The interface for creating an assembler is that the assembler must support the `TaskLocals` API, 
 as well as the method, 
-`FerriteAssembly.assemble_cell_reinited!(assembler, cell_state, buffer::AbstractCellBuffer)`,
-where `cell_state` is the output from [`create_cell_state`](@ref FerriteAssembly.create_cell_state). 
+`FerriteAssembly.work_single_cell!(assembler, buffer::AbstractCellBuffer)`,
 The following methods for builtin assemblers can be used as examples
 ```@docs
-FerriteAssembly.assemble_cell_reinited!
+FerriteAssembly.work_single_cell!
 ```
 In addition, the following functions are used to determine properties/requirements for the assembler. 
-- `can_thread(assembler)::Bool`: Is multithreading supported, if `false`, sequential assembly will run even if the user has set up multithreaded assembly with `setup_assembly`. If not defined, defaults to `false`. 
-- `needs_colors(assembler)::Bool`: Indicate whether the assembler needs to run in colored mode or not, defaults to `true`. (Currently not used, all multithreading runs colored, but may be changed.)
-- `skip_this_domain(assembler, name::String)::Bool`: Should the domain with `name` (given to `AssemblyDomain`) be skipped (currently used by the integrators to allow integrating only part of the domain). Defaults to `false`. 
+- `can_thread(assembler)::Bool`: Is multithreading supported, if `false`, sequential assembly will run even if the a `ThreadedDomainBuffer` is used. If not defined, defaults to `false`. 
+- `skip_this_domain(assembler, name::String)::Bool`: When running multiple domains, should the domain with key `name` be skipped? Defaults to `false`. 
 
 ## Custom scaling
 In general, a scaling must, in addition to the `TaskLocals` API, 

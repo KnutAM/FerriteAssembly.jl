@@ -23,14 +23,14 @@ include("scaling.jl")
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     # Check error when element_residual! is not defined. material=nothing
-    grid_domain = GridDomain(dh, nothing, cv)
+    grid_domain = DomainSpec(dh, nothing, cv)
     buffer = setup_domainbuffer(grid_domain)
     buffer_ad = setup_domainbuffer(grid_domain; autodiffbuffer=true)
     
     exception = ErrorException("Did not find correctly defined element_routine! or element_residual!")
     assembler = start_assemble(K, r)
-    @test_throws exception work!(assembler, buffer; anew=a)
-    @test_throws exception work!(assembler, buffer_ad; anew=a)
+    @test_throws exception work!(assembler, buffer; a=a)
+    @test_throws exception work!(assembler, buffer_ad; a=a)
     
     # Check error when trying to insert a dual number into the state variables
     # Note: Not optimal as we should actually check the printed message
@@ -40,8 +40,8 @@ include("scaling.jl")
     function FerriteAssembly.element_residual!(re, state, ae, m::_TestMaterial, args...)
         state[1] = first(ae) # Not allowed, must be state[1] = ForwardDiff.value(first(ae))
     end
-    buffer_dualissue = setup_domainbuffer(GridDomain(dh, _TestMaterial(), cv); autodiffbuffer=true)
-    @test_throws MethodError work!(assembler, buffer_dualissue; anew=a)
+    buffer_dualissue = setup_domainbuffer(DomainSpec(dh, _TestMaterial(), cv); autodiffbuffer=true)
+    @test_throws MethodError work!(assembler, buffer_dualissue; a=a)
 
     printstyled("================== End of expected error messages ==================\n"; color=:green, bold=true)
 end
@@ -52,7 +52,7 @@ end
     cv = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
     @testset "get_material" begin
         material = zeros(1) #dummy
-        grid_domain = GridDomain(dh, material, cv)
+        grid_domain = DomainSpec(dh, material, cv)
         buffer = setup_domainbuffer(grid_domain; threading=Val(false))
         buffer_threaded = setup_domainbuffer(grid_domain; threading=Val(true))
         buffers = setup_domainbuffers(Dict("a"=>grid_domain); threading=Val(false))

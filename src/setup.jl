@@ -1,8 +1,8 @@
 """
-    GridDomain(sdh::SubDofHandler, material, fe_values; set=getcellset(sdh), colors_or_chunks=nothing, user_data=nothing)
-    GridDomain(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing)
+    DomainSpec(sdh::SubDofHandler, material, fe_values; set=getcellset(sdh), colors_or_chunks=nothing, user_data=nothing)
+    DomainSpec(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing)
 
-Create a `GridDomain` that can be used to set up a domain buffer. 
+Create a `DomainSpec` that can be used to set up a domain buffer. 
 The element type of `set` determines the type of domain 
 * `Int`:       cell domain, `fe_values` should be `CellValues` (or a `NamedTuple` with `CellValues` as elements)
 * `FaceIndex`: face domain, `fe_values` should be `FaceValues` (or a `NamedTuple` with `FaceValues` as elements)
@@ -16,7 +16,7 @@ may be passed in order to partition the grid. Internally, if not given, `chunks`
 or calculated using Ferrite's default coloring algorithm). Note that the chunks must refer to the values in the set (exactly same), whereas
 colors can be for the entire grid, although it is usually better to color each cellset individually.
 """
-struct GridDomain{I}
+struct DomainSpec{I}
     sdh::SubDofHandler
     material::Any
     fe_values::Any
@@ -24,33 +24,30 @@ struct GridDomain{I}
     colors_or_chunks::Any
     user_data::Any
 end
-function GridDomain(sdh::SubDofHandler, material, values; set=getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing)
-    intersected_set = set === getcellset(sdh) ? set : intersect_with_cellset(set, getcellset(sdh))
+function DomainSpec(sdh::SubDofHandler, material, values; set=getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing)
+    intersected_set = intersect_cellset_sort(set, getcellset(sdh))
     colors_or_chunks = chunks!==nothing ? chunks : colors
-    return GridDomain(sdh, material, values, intersected_set, colors_or_chunks, user_data)
+    return DomainSpec(sdh, material, values, intersected_set, colors_or_chunks, user_data)
 end
-function GridDomain(dh::DofHandler, args...; kwargs...)
-    return GridDomain(SubDofHandler(dh), args...; kwargs...)
+function DomainSpec(dh::DofHandler, args...; kwargs...)
+    return DomainSpec(SubDofHandler(dh), args...; kwargs...)
 end
-
-intersect_with_cellset(set::Union{AbstractSet{Int},AbstractVector{Int}}, cellset) = intersect(set, cellset)
-
 
 """
-    setup_domainbuffers(gds::Dict{String,GridDomain}; kwargs...)
+    setup_domainbuffers(domains::Dict{String,DomainSpec}; kwargs...)
 
-Setup multiple domain buffers, one for each `GridDomain` in `gds`.
+Setup multiple domain buffers, one for each `DomainSpec` in `domains`.
 See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
 """
-function setup_domainbuffers(gds::Dict{String,<:GridDomain}; kwargs...)
-    return Dict(name => setup_domainbuffer(gd; kwargs...) for (name, gd) in gds)
+function setup_domainbuffers(gds::Dict{String,<:DomainSpec}; kwargs...)
+    return Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in gds)
 end
 
 """
-    setup_domainbuffer(gd::GridDomain; anew=nothing, threading=false, autodiffbuffer=false)
+    setup_domainbuffer(domain::DomainSpec; a=nothing, threading=false, autodiffbuffer=false)
 
-Setup a domain buffer for a single grid domain, `gd`. 
-* `anew::Vector`: The global degree of freedom values are used to pass the 
+Setup a domain buffer for a single grid domain, `domain`. 
+* `a::Vector`: The global degree of freedom values are used to pass the 
   local element dof values to the [`create_cell_state`](@ref) function, 
   making it possible to create the initial state dependent on the initial 
   conditions for the field variables. 
@@ -59,28 +56,28 @@ Setup a domain buffer for a single grid domain, `gd`.
 * `autodiffbuffer`: Should a custom itembuffer be used to speed up the automatic 
   differentiation (if supported by the itembuffer)
 """
-function setup_domainbuffer(gd::GridDomain; threading=Val(false), kwargs...)
+function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
     thrd = isa(threading, Val) ? threading : Val(threading)
-    return _setup_domainbuffer(thrd, gd; kwargs...)
+    return _setup_domainbuffer(thrd, domain; kwargs...)
 end
 
-create_states(gd::GridDomain{Int}, a) = create_states(gd.sdh, gd.material, gd.fe_values, a, gd.set, create_dofrange(gd.sdh))
-create_states(::GridDomain{FaceIndex}, ::Any) = Dict{Int,Nothing}()
+create_states(domain::DomainSpec{Int}, a) = create_states(domain.sdh, domain.material, domain.fe_values, a, domain.set, create_dofrange(domain.sdh))
+create_states(::DomainSpec{FaceIndex}, ::Any) = Dict{Int,Nothing}()
 
-function setup_itembuffer(adb, gd::GridDomain{FaceIndex}, args...)
-    dofrange = create_dofrange(gd.sdh)
-    return setup_facebuffer(adb, gd.sdh, gd.fe_values, gd.material, dofrange, gd.user_data)
+function setup_itembuffer(adb, domain::DomainSpec{FaceIndex}, args...)
+    dofrange = create_dofrange(domain.sdh)
+    return setup_facebuffer(adb, domain.sdh, domain.fe_values, domain.material, dofrange, domain.user_data)
 end
-function setup_itembuffer(adb, gd::GridDomain{Int}, states)
-    dofrange = create_dofrange(gd.sdh)
-    return setup_cellbuffer(adb, gd.sdh, gd.fe_values, gd.material, first(values(states)), dofrange, gd.user_data)
+function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
+    dofrange = create_dofrange(domain.sdh)
+    return setup_cellbuffer(adb, domain.sdh, domain.fe_values, domain.material, first(values(states)), dofrange, domain.user_data)
 end
 
-function _setup_domainbuffer(threaded, gd; anew=nothing, autodiffbuffer=Val(false))
-    new_states = create_states(gd, anew)
-    old_states = create_states(gd, anew)
-    itembuffer = setup_itembuffer(autodiffbuffer, gd, new_states)
-    return _setup_domainbuffer(threaded, gd.set, itembuffer, new_states, old_states, gd.sdh, gd.colors_or_chunks)
+function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false))
+    states = create_states(domain, a)
+    old_states = create_states(domain, a)
+    itembuffer = setup_itembuffer(autodiffbuffer, domain, states)
+    return _setup_domainbuffer(threaded, domain.set, itembuffer, states, old_states, domain.sdh, domain.colors_or_chunks)
 end
 
 # Type-unstable switch
@@ -88,10 +85,10 @@ function _setup_domainbuffer(threaded::Bool, args...)
     return _setup_domainbuffer(Val(threaded), args...)
 end
 # Sequential
-function _setup_domainbuffer(::Val{false}, set, itembuffer, new_states, old_states, sdh, args...)
-    return DomainBuffer(set, itembuffer, new_states, old_states, sdh)
+function _setup_domainbuffer(::Val{false}, set, itembuffer, states, old_states, sdh, args...)
+    return DomainBuffer(set, itembuffer, states, old_states, sdh)
 end
 # Threaded
-function _setup_domainbuffer(::Val{true}, set, itembuffer, new_states, old_states, sdh, args...)
-    return ThreadedDomainBuffer(set, itembuffer, new_states, old_states, sdh, args...)
+function _setup_domainbuffer(::Val{true}, set, itembuffer, states, old_states, sdh, args...)
+    return ThreadedDomainBuffer(set, itembuffer, states, old_states, sdh, args...)
 end
