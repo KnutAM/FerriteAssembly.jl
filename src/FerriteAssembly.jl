@@ -81,6 +81,23 @@ it is possible to overload `element_residual!` instead of `element_routine!`. Se
 """
 function element_residual! end
 
+"""
+    face_routine!(Ke, re, ae, material, facevalues, facebuffer)
+
+Calculate contributions to the stiffness matrix and residual vector from a 
+face domain, can be used, for example, for implementing Robin boundary conditions.
+"""
+function face_routine! end
+
+"""
+    face_residual!(re, ae, material, facevalues, facebuffer)
+
+Calculate contributions to the residual vector from a face domain. 
+Internally, this is used for calculating Neumann boundary conditions. 
+"""
+function face_residual! end 
+
+
 include("Utils/MaterialModelsBase.jl")
 include("ExampleElements/ExampleElements.jl")
 

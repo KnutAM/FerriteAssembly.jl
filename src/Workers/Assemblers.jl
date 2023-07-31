@@ -18,6 +18,16 @@ function work_single_cell!(assembler::Ferrite.AbstractSparseAssembler, cellbuffe
     assemble!(assembler, celldofs(cellbuffer), Ke, re)
 end
 
+function work_single_face!(assembler::Ferrite.AbstractSparseAssembler, facebuffer)
+    Ke = get_Ke(facebuffer)
+    re = get_re(facebuffer)
+    ae = get_ae(facebuffer)
+    material = get_material(facebuffer)
+    cellvalues = get_values(facebuffer)
+    face_routine!(Ke, re, ae, material, cellvalues, facebuffer)
+    assemble!(assembler, celldofs(facebuffer), Ke, re)
+end
+
 # Assemble only the residual
 """
     ReAssembler(r; fillzero=true, scaling=NoScaling())

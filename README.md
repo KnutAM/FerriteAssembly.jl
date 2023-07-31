@@ -5,6 +5,14 @@
 [![Coverage](https://codecov.io/gh/KnutAM/FerriteAssembly.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/KnutAM/FerriteAssembly.jl)
 
 # FerriteAssembly
+
+```julia
+element_routine!(Ke, re, state, ae, material, cellvalues, cellbuffer)
+element_residual!(re, state, ae, material, cellvalues, cellbuffer)
+face_routine!(Ke, re, ae, material, facevalues, facebuffer)
+face_residual!(re, ae, material, facevalues, facebuffer)
+```
+
 The goal of [FerriteAssembly](https://github.com/KnutAM/FerriteAssembly.jl) 
 is to provide a simple, but versatile and efficient, structure for assembling in 
 [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl/).
