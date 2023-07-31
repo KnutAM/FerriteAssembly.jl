@@ -26,7 +26,6 @@
     r = zeros(ndofs(dh))
     worker = ReAssembler(r)
     work!(worker, buffer; a=a)
-    @show sum(r)
     @test sum(r) ≈ 2*sum(a)/(length(set)+1)
 
     # Full assembler 

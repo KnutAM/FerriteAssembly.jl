@@ -18,6 +18,8 @@ get_dofhandler(db::DomainBuffers) = get_dofhandler(first(values(db)))
     get_itembuffer(db::AbstractDomainBuffer)
 
 Get the `AbstractItemBuffer` stored in `db` or `dbs[domain]`. 
+This internal function might change, but currently the full TaskLocals 
+is returned for a ThreadedDomainBuffer (used internally). 
 """
 get_itembuffer(db::DomainBuffers, domain::String) = get_itembuffer(db[domain])
 

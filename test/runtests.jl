@@ -31,12 +31,12 @@ include("errors.jl")
         @test material === FerriteAssembly.get_material(buffers, "a")
 
         @test FerriteAssembly.get_itembuffer(buffer) isa FerriteAssembly.CellBuffer
-        @test FerriteAssembly.get_itembuffer(buffer_threaded) isa FerriteAssembly.CellBuffer
+        @test FerriteAssembly.get_itembuffer(buffer_threaded) isa FerriteAssembly.TaskLocals{<:FerriteAssembly.CellBuffer}
         @test FerriteAssembly.get_itembuffer(buffers, "a") isa FerriteAssembly.CellBuffer
 
         @test FerriteAssembly.get_dofhandler(buffer) === dh
         @test FerriteAssembly.get_dofhandler(buffer_threaded) === dh
-        @test FerriteAssembly.get_dofhandler(buffers, "a") === dh
+        @test FerriteAssembly.get_dofhandler(buffers) === dh
 
         @test FerriteAssembly.get_state(buffer, 1) === nothing
         @test FerriteAssembly.get_old_state(buffer, 1) === nothing
