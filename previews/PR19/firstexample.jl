@@ -79,11 +79,8 @@ assembler = start_assemble(K, r)
 work!(assembler, buffer_ad; a=a);
 K3 = deepcopy(K); #hide
 
-@btime work!($assembler, $buffer; a=$a)
-@btime work!($assembler, $buffer_ad; a=$a)
-
 buffer_ad2 = setup_domainbuffer(grid_domain_ad; autodiffbuffer=true)
-@btime work!($assembler, $buffer_ad2; a=$a)
+
                                                             #hide
 assembler = start_assemble(K, r)                            #hide
 work!(assembler, buffer_ad2; a=a);                          #hide
