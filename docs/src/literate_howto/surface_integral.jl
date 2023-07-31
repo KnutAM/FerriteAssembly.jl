@@ -1,5 +1,5 @@
 # # Surface integration
-
+using Ferrite, FerriteAssembly
 # This how-to shows integration of the normal flux 
 # on a surface. As usual, we need the basic Ferrite 
 # building blocks, in this case a grid, dofhandler, 

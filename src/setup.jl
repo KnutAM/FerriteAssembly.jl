@@ -57,8 +57,7 @@ Setup a domain buffer for a single grid domain, `domain`.
   differentiation (if supported by the itembuffer)
 """
 function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
-    thrd = isa(threading, Val) ? threading : Val(threading)
-    return _setup_domainbuffer(thrd, domain; kwargs...)
+    return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
 create_states(domain::DomainSpec{Int}, a) = create_states(domain.sdh, domain.material, domain.fe_values, a, domain.set, create_dofrange(domain.sdh))
