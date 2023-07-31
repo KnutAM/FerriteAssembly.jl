@@ -210,4 +210,32 @@ end
     @test sum(f) ≈ (1+r_u)*volume
 end
 
+@testset "Threaded" begin
+    fs(x,t,n) = cos(norm(x))*cos(x⋅n)*t 
+    fv(x,t,n) = cos(norm(x))*n*t
+    bs(x,t) = cos(norm(x))*t 
+    bv(x,t) = x*t 
+    grid = generate_grid(Quadrilateral, (20,20))
+    dh = DofHandler(grid); add!(dh, :u, 1); add!(dh, :v, 2); close!(dh)
+    nbc_s = Neumann(:u, 2, getfaceset(grid, "right"), fs)
+    bld_s = BodyLoad(:u, 2, nothing, bs)
+    nbc_v = Neumann(:v, 2, getfaceset(grid, "top"), fv)
+    bld_v = BodyLoad(:v, 2, addcellset!(grid, "center", x -> norm(x) < 0.5), bv)
+    # Sequential
+    t = rand()
+    lh_reg = LoadHandler(dh); 
+    add!(lh_reg, nbc_s); add!(lh_reg, nbc_v); 
+    add!(lh_reg, bld_s); add!(lh_reg, bld_v);
+    f_reg = zeros(ndofs(dh))
+    apply!(f_reg, lh_reg, t)
+    # Threaded 
+    lh_th = LoadHandler(dh; threading=true)
+    add!(lh_th, nbc_s); add!(lh_th, nbc_v); 
+    add!(lh_th, bld_s); add!(lh_th, bld_v);
+    f_th = zeros(ndofs(dh))
+    apply!(f_th, lh_th, t)
+    # Check that the threaded result is the same as the sequential
+    @test f_th ≈ f_reg 
+end
+
 end

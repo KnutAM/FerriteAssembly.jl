@@ -60,7 +60,7 @@ function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::DofHandl
     add_bodyload!(bodyloads, bodyload, SubDofHandler(dh))
 end
 
-function add_bodyload!(bodyloads::Dict{String,DomainBuffer}, bodyload::BodyLoad, sdh::SubDofHandler)
+function add_bodyload!(bodyloads::Dict{String,BT}, bodyload::BodyLoad, sdh::SubDofHandler) where BT
     material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, bodyload.fieldname)
@@ -70,7 +70,8 @@ function add_bodyload!(bodyloads::Dict{String,DomainBuffer}, bodyload::BodyLoad,
     set = bodyload.cellset===nothing ? getcellset(sdh) : bodyload.cellset
     
     domain_spec = DomainSpec(sdh, material, cv; set=set)
-    bodyloads[string(length(bodyloads)+1)] = setup_domainbuffer(domain_spec)
+    threading = BT <: ThreadedDomainBuffer
+    bodyloads[string(length(bodyloads)+1)] = setup_domainbuffer(domain_spec; threading=threading)
 end
 
 function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::MixedDofHandler)

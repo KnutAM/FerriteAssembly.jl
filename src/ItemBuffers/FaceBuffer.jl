@@ -83,7 +83,7 @@ set_time_increment!(fb::FaceBuffer, Δt) = (fb.Δt = Δt)
 
 # TaskLocals interface
 function create_local(c::FaceBuffer)
-    dcpy = map(deepcopy, (c.ae_old, c.ae, c.re, c.Ke, c.dofs, c.coords, c.cellvalues, c.Δt, c.cellid, c.dofrange, c.material))
+    dcpy = map(deepcopy, (c.ae_old, c.ae, c.re, c.Ke, c.dofs, c.coords, c.facevalues, c.Δt, c.cellid, c.dofrange, c.material))
     return FaceBuffer(dcpy..., c.user_data, deepcopy(c.user_cache))
 end
 

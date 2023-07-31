@@ -59,15 +59,16 @@ function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::DofHandler)
     return add_neumann!(nbcs, nbc, SubDofHandler(dh))
 end
 
-function add_neumann!(nbcs::Dict{String,DomainBuffer}, nbc::Neumann, sdh::SubDofHandler)
+function add_neumann!(nbcs::Dict{String,BT}, nbc::Neumann, sdh::SubDofHandler) where BT
     material = NeumannMaterial(nbc.f, dof_range(sdh, nbc.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
     ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
     fv = get_facevalues(nbc.fv_info, ip, ip_geo, nbc.f)
-
+    
     domain_spec = DomainSpec(sdh, material, fv; set=nbc.faceset)
-    nbcs[string(length(nbcs)+1)] = setup_domainbuffer(domain_spec)
+    threading = BT <: ThreadedDomainBuffer
+    nbcs[string(length(nbcs)+1)] = setup_domainbuffer(domain_spec; threading=threading)
 end
 
 function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::MixedDofHandler)
