@@ -45,11 +45,11 @@ get_base(tl::TaskLocals) = tl.base
 get_base(x) = x
 
 function scatter!(tl::TaskLocals)
-    map(Base.Fix2(scatter!, tl.base), tl.locals)
+    map(Base.Fix2(scatter!, tl.base), get_locals(tl))
 end
 
 function gather!(tl::TaskLocals)
-    map(Base.Fix1(gather!, tl.base), tl.locals)
+    map(Base.Fix1(gather!, tl.base), get_locals(tl))
 end
 
 # Each base::TB must implement the following methods

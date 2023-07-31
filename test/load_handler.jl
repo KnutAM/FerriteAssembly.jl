@@ -220,7 +220,8 @@ end
     nbc_s = Neumann(:u, 2, getfaceset(grid, "right"), fs)
     bld_s = BodyLoad(:u, 2, nothing, bs)
     nbc_v = Neumann(:v, 2, getfaceset(grid, "top"), fv)
-    bld_v = BodyLoad(:v, 2, addcellset!(grid, "center", x -> norm(x) < 0.5), bv)
+    addcellset!(grid, "center", x -> norm(x) < 0.5)
+    bld_v = BodyLoad(:v, 2, getcellset(grid, "center"), bv)
     # Sequential
     t = rand()
     lh_reg = LoadHandler(dh); 
