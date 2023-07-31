@@ -7,10 +7,10 @@ using Documenter
 const is_ci = get(ENV, "CI", "false") == "true"
 
 include("generate.jl")
-examples = ["plasticity.jl", "mixed_materials.jl"]
-GENERATEDEXAMPLES = [joinpath("examples", replace(f, ".jl"=>".md")) for f in examples]
-
-build_examples(examples)
+tutorials = ["plasticity.jl", "mixed_materials.jl"]
+generated_tutorials = build_examples(tutorials; type="tutorials")
+howto = ["volume_integral.jl", "surface_integral.jl"]
+generated_howto = build_examples(howto; type="howto")
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
 
@@ -30,19 +30,28 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Design" => "design.md",
-        "Examples" => push!(GENERATEDEXAMPLES, "ExampleElements.md"),
-        "Builtin elements" => "MaterialModelsBase.md",
-        "User API" => [
-            "Setup" => "UserAPI/Setup.md",
-            "State variables" => "UserAPI/StateVariables.md",
-            "Workers" => "UserAPI/Workers.md",
-            "CellBuffer" => "UserAPI/CellBuffer.md",
-            "Residual scaling" => "UserAPI/ResidualScaling.md",
-            "Advanced features" => "UserAPI/AdvancedFeatures.md",
+        "Learning by doing" => [
+            "Tutorials" => generated_tutorials,
+             "How-to" => generated_howto
         ],
-        "Hacking API" => "hack_api.md",
-        "Internals" => "internals.md",
+        "API documentation" => [
+            "Design" => "design.md",
+            "DomainBuffers" => [
+                "DomainBuffers" => "DomainBuffers/Setup.md",
+                "State variables" => "DomainBuffers/StateVariables.md",
+                "CellBuffer" => "DomainBuffers/CellBuffer.md",
+            ],
+            "Workers" => [
+                "Assemblers" => "Workers/Assemblers.md",
+                "Integrators" => "Workers/Integrators.md",
+            ],
+            "Available materials" => [
+                "Mechanical materials" => "MaterialModelsBase.md",
+                "Example elements" => "ExampleElements.md",
+            ],
+            "Customizations" => "Customization.md",
+            "Internals" => "internals.md",
+        ]
     ],
     #strict=true,
 )

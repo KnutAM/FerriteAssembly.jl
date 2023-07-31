@@ -1,15 +1,19 @@
+# This example assembles the heat flow equivalently to the 
+# first example in `Ferrite.jl`. Steps 1-3 are required, and 
+# steps 4 and 5 show additional possibilities.
+# 1) Setup problem as with Ferrite: The grid, dofhandler, and 
+#    cell values. 
+# 2) Define the physics by defining a `materal` type and the
+#    associated `element_routine!`
+# 3) Create the assembler and do the assembly.
+# 4) Modify the setup such that the assembly is done in parallel
+# 5) Define a new material which only implements the resiual equation,
+#    `element_residual!`, and automatically calculate the stiffness.  
+# 
 # The full example can be downloaded [here](firstexample.jl).
-# In order to use FerriteAssembly for assembly, we need to 
-# 1) Define a custom `material` that determines the physics 
-# 2) Overload `element_routine!` or `element_residual!` for that material.
 # 
-# We can then set up Ferrite in the standard way, by defining a 
-# Grid, DofHandler, and CellValues. We then pass these to the 
-# setup_domainbuffer function and create an assembler (worker),
-# allowing us to perform the work with the `work!` function.
-# 
-# ### Standard Ferrite setup
-# First we create the dofhandler and cellvalues as in 
+# ### 1) Ferrite setup
+# First we create the dofhandler, vectors and matrices, and cellvalues as in 
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
 using Ferrite, FerriteAssembly, BenchmarkTools
 dh = DofHandler(generate_grid(Quadrilateral, (100, 100))); add!(dh, :u, 1); close!(dh)
@@ -17,7 +21,7 @@ cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
 
-# ### Define the physics
+# ### 2) Define the physics
 # We start by defining the material and create an instance of it
 struct ThermalMaterial 
     k::Float64 # Thermal conductivity
@@ -49,13 +53,12 @@ function FerriteAssembly.element_routine!(Ke, re, state, ae,
 end;
 # which is basically the same as in `Ferrite.jl`'s example. 
 
-# ### Setting up the domain.
+# ### 3) Assemble 
 # We first start by defining a domain and passing 
 # that to the `setup_domainbuffer` function. 
 grid_domain = DomainSpec(dh, material, cellvalues)
 buffer = setup_domainbuffer(grid_domain);
 
-# ### Performing the assembly
 # The `worker` in this case is the standard Ferrite assembler:
 assembler = start_assemble(K, r);
 
@@ -63,7 +66,7 @@ assembler = start_assemble(K, r);
 work!(assembler, buffer);
 K1 = deepcopy(K); #hide
 
-# ### Threaded assembly
+# ### 4) Threaded assembly
 # To do the assembly in the example above threaded, we just tell `setup_domainbuffer` that:
 threaded_buffer = setup_domainbuffer(grid_domain; threading=true);
 # This creates a default coloring of the grid, but custom coloring can also be given.
@@ -73,7 +76,7 @@ assembler = start_assemble(K, r)
 work!(assembler, threaded_buffer);
 K2 = deepcopy(K); #hide
 
-# ### Automatic Differentiation
+# ### 5) Automatic Differentiation
 # Deriving the analytical element stiffness is often time-consuming,
 # and can be avoided by using Automatic Differentiation (AD). 
 # FerriteAssembly supports this: Just define [`element_residual!`](@ref) 
@@ -113,15 +116,14 @@ assembler = start_assemble(K, r)
 work!(assembler, buffer_ad; a=a);
 K3 = deepcopy(K); #hide
 
-# ### AD performance 
 # Explicitly defining the element stiffness was a lot faster and has less allocations:
-@btime work!($assembler, $buffer; a=$a)
-@btime work!($assembler, $buffer_ad; a=$a)
+# @btime work!($assembler, $buffer; a=$a)
+# @btime work!($assembler, $buffer_ad; a=$a)
 
 # FerriteAssembly comes with a special `cellbuffer` for speeding up 
 # automatic differentiation, we can significantly improve the performance.
 buffer_ad2 = setup_domainbuffer(grid_domain_ad; autodiffbuffer=true)
-@btime work!($assembler, $buffer_ad2; a=$a)
+# @btime work!($assembler, $buffer_ad2; a=$a)
                                                             #hide
 assembler = start_assemble(K, r)                            #hide
 work!(assembler, buffer_ad2; a=a);                          #hide

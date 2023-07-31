@@ -5,7 +5,10 @@ module TestIntegrators
         integrator::SI
     end
     function FerriteAssembly.integrate_cell!(val::MySimpleIntegrand, cell_state, ae, _, cv, cellbuffer)
-        FerriteAssembly.simple_integrate_cell!(val.integrator, cell_state, ae, cv, cellbuffer)
+        FerriteAssembly.integrate_cell!(val.integrator, cell_state, ae, nothing, cv, cellbuffer)
+    end
+    function FerriteAssembly.integrate_face!(val::MySimpleIntegrand, ae, _, fv, buffer)
+        FerriteAssembly.integrate_face!(val.integrator, ae, nothing, fv, buffer)
     end
 end
 
@@ -270,4 +273,43 @@ import .TestIntegrators: MySimpleIntegrand
         test_multidomain_heatflow(;threading=Val(true))
     end
 
+end
+
+@testset "FaceIntegration" begin
+    @testset "Geometric tests" begin
+        w, h = rand(2)
+        grid = generate_grid(Quadrilateral, (10,10), Vec((0.0, 0.0)), Vec((w, h)))
+        dh = DofHandler(grid); add!(dh, :u, 1); close!(dh);
+        fv = FaceScalarValues(QuadratureRule{1,RefCube}(2), Lagrange{2,RefCube,1}())
+        domains = Dict(key => DomainSpec(dh, nothing, fv; set=getfaceset(grid, key)) for key in ("left", "right", "top", "bottom"))
+        buffers = setup_domainbuffers(domains)
+        for (Aref, domain_keys) in ((2*(w+h), nothing), (2*w, ("top", "bottom"), (h, "left")))
+            ig = SimpleIntegrator((u,∇u,n)->1.0, 0.0; domains=domain_keys)
+            work!(ig, buffers)
+            @test ig.val ≈ Aref
+        end
+    @testset "Function values" begin
+        lx, ly, lz = rand(3)
+        p = Vec((lx, ly, lz))/2
+        grid = generate_grid(Tetrahedron, (10,10,10), -p, p)
+        dh = DofHandler(grid); add!(dh, :u, 3); add!(dh, :v, 1); close!(dh);
+        qr = QuadratureRule{2,RefTetrahedron}(2)
+        ip = Lagrange{3,RefTetrahedron,1}()
+        fv_u = FaceVectorValues(qr, ip)
+        fv_v = FaceScalarValues(qr, ip)
+
+        a = zeros(ndofs(dh))
+        apply_analytical!(a, dh, :u, identity) # set dofs equal to coordinates
+        apply_analytical!(a, dh, :v, first)  # 
+        domains = Dict(key => DomainSpec(dh, nothing, (u=fv_u, v=fv_v); set=getfaceset(grid, key)) for key in ("left", "right", "top", "bottom"))
+        buffers = setup_domainbuffers(domains)
+
+        ig = SimpleIntegrator((u,∇u,n)->(1.0, u.u ⋅ n, u.v), (0.0, 0.0, 0.0))
+        work!(ig, buffers; a=a)
+        @test ig.val[1] ≈ ly*2*(lx+lz)
+        @test ig.val[2] ≈ 2*lx*ly*lz
+        @test isapprox(ig.val[3], 0.0; atol=ig.val[1]*1e-8)
+        
+    end
+    end
 end

@@ -43,22 +43,39 @@ function work_single_cell!(assembler::Integrator, cellbuffer)
     integrate_cell!(assembler.val, cell_state, ae, m, cv, cellbuffer)
 end
 
+"""
+    integrate_face!(val, ae, material, fv, facebuffer)
+
+Function to be overloaded for `val` (potentially in combination with `material`),
+and will be called when using [`Integrator`](@ref). Mutate `val` to add to the result.
+
+The order of the inputs is chosen to follow the element routines
+"""
+function integrate_face! end
+
+function work_single_face!(assembler::Integrator, facebuffer)
+    cv = get_values(facebuffer)
+    m = get_material(facebuffer)
+    ae = get_ae(facebuffer)
+    integrate_face!(assembler.val, ae, m, cv, facebuffer)
+end
 
 """
-    SimpleIntegrator(fun::Function, val)
+    SimpleIntegrator(fun::Function, val; domains=nothing)
 
-Calculate the integral
+Calculate the integrals
 ```math
-\\int_\\Omega f(u, \\nabla u, s)\\, \\mathrm{d}\\Omega 
+\\int_\\Omega f(u, \\nabla u, s)\\, \\mathrm{d}\\Omega
+\\int_\\Gamma f(u, \\nabla u, n)\\, \\mathrm{d}\\Gamma 
 ```
-For single-field problems, the function signature of ``f`` is `fun(u, ∇u, qp_state)`.
-`u` is the current function value, `∇u` the current function gradient, and `qp_state` the 
-current state in the current quadrature point. This assumes that `cell_state::AbstractVector`, 
-otherwise, `qp_state = cell_state`.  
+for cell and face domains respectively. 
+For single-field problems, `u` is the current function value, `∇u` the current function gradient.
+For multi-field problem, `u` and `∇u` are `NamedTuple`s,
+where the keys in `u` and `∇u` are the fieldnames. 
 
-For multi-field problem, we have `fun(u::NamedTuple, ∇u::NamedTuple, qp_state)`, 
-where the keys in `u` and `∇u` are the fieldnames. The rest is same as for single-field 
-problems. 
+For cell domains, `qp_state` the current state in the current quadrature point. 
+This assumes that `cell_state::AbstractVector`, otherwise, `qp_state = cell_state`.  
+For face domains, `n` is the face normal vector. 
 
 It is the user's responsibility that `fun(args...)::typeof(val)`. 
 Additionally, the type of `val` must support
@@ -102,10 +119,11 @@ skip_this_domain(::SimpleIntegrator{<:Function,<:Any,Nothing}, ::String) = false
 skip_this_domain(ig::SimpleIntegrator{<:Function,<:Any,<:Set}, name::String) = name ∉ ig.domains
 
 function work_single_cell!(assembler::SimpleIntegrator, cellbuffer)
-    cv = get_values(cellbuffer)
-    cell_state = get_state(cellbuffer)
-    ae = get_ae(cellbuffer)
-    simple_integrate_cell!(assembler, cell_state, ae, cv, cellbuffer)
+    return work_single_cell!(Integrator(assembler), cellbuffer)
+end
+
+function work_single_face!(assembler::SimpleIntegrator, facebuffer)
+    return work_single_face!(Integrator(assembler), facebuffer)
 end
 
 # Helper function to get state for qp for both vector and non-vector cell_state 
@@ -122,7 +140,7 @@ end
 zero_val!(integrator::SimpleIntegrator{<:Function,<:Tuple}) = (integrator.val = map(zero, integrator.val))
 zero_val!(integrator::SimpleIntegrator) = (integrator.val = zero(integrator.val))
 
-function simple_integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, cv::CellValues, cellbuffer)
+function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv::CellValues, cellbuffer)
     length(Ferrite.getfieldnames(cellbuffer)) == 1 || throw(DimensionMismatch("Only one field supported for `CellValues`"))
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
@@ -133,7 +151,7 @@ function simple_integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, cv
     end
 end
 
-function simple_integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, cv::NamedTuple, cellbuffer)
+function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv::NamedTuple, cellbuffer)
     length(Ferrite.getfieldnames(cellbuffer)) == length(cv) || throw(DimensionMismatch("Number of fields must match length of cellvalues tuple"))
     cv0 = first(values(cv))
     for q_point in 1:getnquadpoints(cv0)
@@ -142,6 +160,30 @@ function simple_integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, cv
         u = NamedTuple{keys(cv)}(map((k,v) -> function_value(v, q_point, ae, dof_range(cellbuffer, k)), keys(cv), values(cv)))
         ∇u = NamedTuple{keys(cv)}(map((k,v) -> function_gradient(v, q_point, ae, dof_range(cellbuffer, k)), keys(cv), values(cv)))
         f_val = integrator.fun(u, ∇u, _get_qp_state(cell_state, q_point))
+        add_to_val!(integrator, f_val, dΩ)
+    end
+end
+
+function integrate_face!(integrator::SimpleIntegrator, ae, ::Any, fv::FaceValues, facebuffer)
+    length(Ferrite.getfieldnames(facebuffer)) == 1 || throw(DimensionMismatch("Only one field supported for single `FaceValues`"))
+    for q_point in 1:getnquadpoints(fv)
+        dΩ = getdetJdV(fv, q_point)
+        u = function_value(fv, q_point, ae)
+        ∇u = function_gradient(fv, q_point, ae)
+        f_val = integrator.fun(u, ∇u, getnormal(fv, q_point))
+        add_to_val!(integrator, f_val, dΩ)
+    end
+end
+
+function integrate_face!(integrator::SimpleIntegrator, ae, ::Any, fv::NamedTuple, facebuffer)
+    length(Ferrite.getfieldnames(facebuffer)) == length(fv) || throw(DimensionMismatch("Number of fields must match length of facevalues tuple"))
+    fv0 = first(values(fv))
+    for q_point in 1:getnquadpoints(fv0)
+        dΩ = getdetJdV(fv0, q_point)
+        # Haven't benchmarked and `NamedTuple`s are tricky: Might need optimization to avoid dynamical dispatch/allocs:
+        u = NamedTuple{keys(fv)}(map((k,v) -> function_value(v, q_point, ae, dof_range(facebuffer, k)), keys(fv), values(fv)))
+        ∇u = NamedTuple{keys(fv)}(map((k,v) -> function_gradient(v, q_point, ae, dof_range(facebuffer, k)), keys(fv), values(fv)))
+        f_val = integrator.fun(u, ∇u, getnormal(fv0, q_point))
         add_to_val!(integrator, f_val, dΩ)
     end
 end

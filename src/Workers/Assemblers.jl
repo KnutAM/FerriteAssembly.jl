@@ -129,14 +129,14 @@ can_thread(::KeReAssembler) = true
 
 # assemble! routines
 # # No constraint handler - no local application of constraints
-function assemble_contributions!(assembler::KeReAssembler{<:Any,Nothing}, buffer::AbstractCellBuffer)
+function assemble_contributions!(assembler::KeReAssembler{<:Any,Nothing}, buffer::AbstractItemBuffer)
     Ke = get_Ke(buffer)
     re = get_re(buffer)
     update_scaling!(assembler.scaling, re, buffer)
     assemble!(assembler.a, celldofs(buffer), Ke, re)
 end
 # Constraint handler - application of constraints
-function assemble_contributions!(assembler::KeReAssembler{<:Any,<:ConstraintHandler}, buffer::AbstractCellBuffer)
+function assemble_contributions!(assembler::KeReAssembler{<:Any,<:ConstraintHandler}, buffer::AbstractItemBuffer)
     Ke = get_Ke(buffer)
     re = get_re(buffer)
     update_scaling!(assembler.scaling, re, buffer)
@@ -152,4 +152,14 @@ function work_single_cell!(assembler::KeReAssembler, cellbuffer)
     cellvalues = get_values(cellbuffer)
     element_routine!(Ke, re, cell_state, ae, material, cellvalues, cellbuffer)
     assemble_contributions!(assembler, cellbuffer)
+end
+
+function work_single_face!(assembler::KeReAssembler, facebuffer)
+    Ke = get_Ke(facebuffer)
+    re = get_re(facebuffer)
+    ae = get_ae(facebuffer)
+    material = get_material(facebuffer)
+    cellvalues = get_values(facebuffer)
+    face_routine!(Ke, re, ae, material, cellvalues, facebuffer)
+    assemble_contributions!(assembler, facebuffer)
 end
