@@ -40,8 +40,8 @@ end
 
 function work_domain_sequential!(worker, domainbuffer; kwargs...)
     itembuffer = get_base(get_itembuffer(domainbuffer)) # get_base if threaded buffer
-    for cellnr in getcellset(domainbuffer)
-        reinit_buffer!(itembuffer, domainbuffer, cellnr; kwargs...)
+    for itemnr in getset(domainbuffer)
+        reinit_buffer!(itembuffer, domainbuffer, itemnr; kwargs...)
         work_single!(worker, itembuffer)
     end
 end
@@ -61,10 +61,10 @@ function work_domain_threaded!(workers, domainbuffer; kwargs...)
                     while true
                         taskchunk = get_chunk(taskchunks) # Vector{Int}
                         isempty(taskchunk) && break
-                        for cellnr in taskchunk
-                            reinit_buffer!(itembuffer, domainbuffer, cellnr; kwargs...)
+                        for itemnr in taskchunk
+                            reinit_buffer!(itembuffer, domainbuffer, itemnr; kwargs...)
                             work_single!(worker, itembuffer)
-                        end # cellnr
+                        end # itemnr
                     end #chunk
                 end #spawn
             end #taskid

@@ -17,7 +17,7 @@ FerriteAssembly.get_material(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.get_dofhandler(::FerriteAssembly.DomainBuffers)
 FerriteAssembly.get_state(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.get_old_state(::FerriteAssembly.DomainBuffers, ::String)
+FerriteAssembly.getset
 update_states!(::FerriteAssembly.DomainBuffers)
 set_time_increment!(::FerriteAssembly.DomainBuffers, ::Any)
-getcellset(::FerriteAssembly.DomainBuffers, ::String)
 ```

@@ -81,12 +81,12 @@ function set_time_increment!(dbs::DomainBuffers, Δt)
 end
 
 """
-    getcellset(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
-    getcellset(db::AbstractDomainBuffer)
+    getset(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
+    getset(db::AbstractDomainBuffer)
 
-Get the cellset for `db` or `dbs[domain]`
+Get the set of items stored in `db` or `dbs[domain]`
 """
-Ferrite.getcellset(b::DomainBuffers, domain) = getcellset(b[domain])
+getset(b::DomainBuffers, domain) = getset(b[domain])
 
 struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     set::Vector{I}
@@ -117,7 +117,10 @@ get_chunks(db::ThreadedDomainBuffer) = db.chunks
 
 const StdDomainBuffer = Union{DomainBuffer, ThreadedDomainBuffer}
 
-Ferrite.getcellset(b::StdDomainBuffer) = b.set
+#Ferrite.getcellset(b::StdDomainBuffer{Int}) = b.set
+#Ferrite.getfaceset(b::StdDomainBuffer{FaceIndex}) = b.set
+getset(b::StdDomainBuffer) = b.set
+
 get_dofhandler(b::StdDomainBuffer) = b.sdh.dh
 get_itembuffer(b::StdDomainBuffer) = b.itembuffer
 get_state(b::StdDomainBuffer, cellnum::Int) = fast_getindex(b.states, cellnum)

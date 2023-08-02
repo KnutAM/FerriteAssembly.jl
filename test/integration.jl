@@ -309,7 +309,6 @@ end
         @test ig.val[1] ≈ ly*2*(lx+lz)
         @test ig.val[2] ≈ 2*lx*ly*lz
         @test isapprox(ig.val[3], 0.0; atol=ig.val[1]*1e-8)
-        
     end
     end
 end
