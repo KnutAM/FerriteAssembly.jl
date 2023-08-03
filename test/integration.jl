@@ -287,6 +287,10 @@ end
             ig = SimpleIntegrator((u,∇u,n)->1.0, 0.0; domains=domain_keys)
             work!(ig, buffers)
             @test ig.val ≈ Aref
+            ig.val = 0.0
+            full_ig = Integrator(MySimpleIntegrand(ig); domains=domain_keys)
+            work!(full_ig, buffers)
+            @test ig.val ≈ Aref
         end
     @testset "Function values" begin
         lx, ly, lz = rand(3)
