@@ -95,7 +95,6 @@ struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     old_states::Dict{Int,S} # For interfaces, it is possible/likely that state_here and state_there can be given. 
     sdh::SDH
 end
-DomainBuffer(set, args...) = DomainBuffer(collect(set), args...)
 
 struct ThreadedDomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     chunks::Vector{Vector{Vector{I}}}   # I=Int (cell), I=FaceIndex (face), or

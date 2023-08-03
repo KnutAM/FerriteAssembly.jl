@@ -102,8 +102,6 @@ Ferrite.getfieldnames(cb::CellBuffer) = keys(cb.dofrange)
 
 @inline get_user_cache(cb::CellBuffer) = cb.user_cache
 
-get_cache(::CellBuffer) = error("get_cache discontinued, user get_user_cache instead")
-
 """
     FerriteAssembly.allocate_cell_cache(material, cellvalues)
 

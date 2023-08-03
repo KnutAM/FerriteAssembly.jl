@@ -45,7 +45,7 @@ function AutoDiffCellBuffer(cb::CellBuffer)
 end
 
 for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_values, :get_time_increment, 
-        :get_aeold, :get_state, :get_old_state, :get_user_data, :get_cache)
+        :get_aeold, :get_state, :get_old_state, :get_user_data, :get_user_cache)
     eval(quote
         $op(cb::AutoDiffCellBuffer) = $op(cb.cb)
     end)
@@ -53,13 +53,13 @@ end
 reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.cb, args...; kwargs...)
 
 set_time_increment!(c::AutoDiffCellBuffer, Δt) = set_time_increment!(c.cb, Δt)
-modify_material!(fun, c::AutoDiffCellBuffer) = modify_material!(fun, c.cb)
+
 function create_local(c::AutoDiffCellBuffer)
     cb = create_local(c.cb)
     AutoDiffCellBuffer(cb, deepcopy(c.er), deepcopy(c.cfg))
 end
 
-for op = (:celldofs, :getcoordinates, :getfieldnames)
+for op = (:celldofs, :getcoordinates, :getfieldnames, :cellid)
     eval(quote
         Ferrite.$op(cb::AutoDiffCellBuffer, args...) = Ferrite.$op(cb.cb, args...)
     end)
