@@ -12,7 +12,7 @@ fv = FaceScalarValues(qr, ip);
 # We also need a solution vector to integrate, 
 # unless we only calculate geometric properties.
 a = zeros(ndofs(dh))
-apply_analytical!(a, dh, :u, norm) # f(x)=norm(x)
+apply_analytical!(a, dh, :u, norm); # f(x)=norm(x)
 
 # And then we decide which faces to integrate over,
 # and define the integrator, here using the simple

@@ -9,7 +9,7 @@ close!(dh)
 qr = QuadratureRule{2,RefCube}(2)
 ip = Lagrange{2,RefCube,1}()
 cv_scalar = CellScalarValues(qr,ip)
-cv_vector = CellVectorValues(qr,ip)
+cv_vector = CellVectorValues(qr,ip);
 
 domain = setup_domainbuffer(DomainSpec(dh, nothing, (u=cv_scalar, v=cv_vector)));
 

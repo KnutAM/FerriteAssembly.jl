@@ -6,7 +6,7 @@ qr = QuadratureRule{2,RefCube}(2); ip = Lagrange{3,RefCube,1}()
 fv = FaceScalarValues(qr, ip);
 
 a = zeros(ndofs(dh))
-apply_analytical!(a, dh, :u, norm) # f(x)=norm(x)
+apply_analytical!(a, dh, :u, norm); # f(x)=norm(x)
 
 domainbuffer = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=getfaceset(grid, "right")))
 integrator = SimpleIntegrator((u,∇u,n)->∇u⋅n, 0.0)
