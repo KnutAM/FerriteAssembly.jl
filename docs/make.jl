@@ -9,7 +9,7 @@ const is_ci = get(ENV, "CI", "false") == "true"
 include("generate.jl")
 tutorials = ["plasticity.jl", "mixed_materials.jl"]
 generated_tutorials = build_examples(tutorials; type="tutorials")
-howto = ["volume_integral.jl", "surface_integral.jl"]
+howto = ["robin_bc.jl", "volume_integral.jl", "surface_integral.jl"]
 generated_howto = build_examples(howto; type="howto")
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
