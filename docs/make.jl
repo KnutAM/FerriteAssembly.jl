@@ -42,6 +42,7 @@ makedocs(;
                 "CellBuffer" => "DomainBuffers/CellBuffer.md",
             ],
             "Workers" => [
+                "Workers" => "Workers/Workers.md",
                 "Assemblers" => "Workers/Assemblers.md",
                 "Integrators" => "Workers/Integrators.md",
             ],

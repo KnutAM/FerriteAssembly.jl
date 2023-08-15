@@ -1,15 +1,14 @@
 # Assemblers
 Assemblers are used to assemble the system matrices and residual vectors. To calculate the contribution to these matrices, one or more of the following functions should be overloaded for the specific `material`:
-* [`element_routine!`](@ref)
-* [`element_residual!`](@ref)
-* [`face_residual!`](@ref)
-* [`face_routine!`](@ref)
+* [`element_routine!`](@ref FerriteAssembly.element_routine!)
+* [`element_residual!`](@ref FerriteAssembly.element_residual!)
+* [`face_residual!`](@ref FerriteAssembly.face_residual!)
+* [`face_routine!`](@ref FerriteAssembly.face_routine!)
 
 
 ## Available assemblers 
 The following assemblers can be used to assemble the system matrix and vector:
-- [`Ferrite.AssemblerSparsityPattern`](@ref Ferrite_assemblers)
-- [`Ferrite.AssemblerSymmetricSparsityPattern`](@ref Ferrite_assemblers)
+- [`Ferrite.start_assemble`](@ref Ferrite-assemblers) (`AssemblerSparsityPattern` or `AssemblerSymmetricSparsityPattern`)
 - [`KeReAssembler`](@ref)
 - [`ReAssembler`](@ref)
 

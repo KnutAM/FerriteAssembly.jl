@@ -4,7 +4,7 @@ There are currently two categories of workers implemented:
 - [Integrators](@ref): Integrate a function over the domain
 
 ## Perform the work
-Having setup a [DomainBuffer](@ref) and a worker, work is performed by calling the function `work!`
+Having setup a [DomainBuffer](@ref FerriteAssembly.DomainBuffer) and a worker, work is performed by calling the function `work!`
 ```@docs
 work!
 ```

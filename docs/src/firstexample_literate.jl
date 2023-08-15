@@ -117,13 +117,17 @@ work!(assembler, buffer_ad; a=a);
 K3 = deepcopy(K); #hide
 
 # Explicitly defining the element stiffness was a lot faster and has less allocations:
-# @btime work!($assembler, $buffer; a=$a)
-# @btime work!($assembler, $buffer_ad; a=$a)
+if get(ENV, "CI", "false") == "true"        #hide
+@btime work!($assembler, $buffer; a=$a)
+@btime work!($assembler, $buffer_ad; a=$a)
+end                                         #hide
 
 # FerriteAssembly comes with a special `cellbuffer` for speeding up 
 # automatic differentiation, we can significantly improve the performance.
 buffer_ad2 = setup_domainbuffer(grid_domain_ad; autodiffbuffer=true)
-# @btime work!($assembler, $buffer_ad2; a=$a)
+if get(ENV, "CI", "false") == "true"        #hide
+@btime work!($assembler, $buffer_ad2; a=$a)
+end                                         #hide
                                                             #hide
 assembler = start_assemble(K, r)                            #hide
 work!(assembler, buffer_ad2; a=a);                          #hide
