@@ -4,7 +4,6 @@ CurrentModule = FerriteAssembly
 # Customizations
 The functions described on this page are somewhere inbetween regular API and internal API,
 and are intended for making custom solutions, but with a higher risk of breaking changes.
-Breaking changes to these interfaces should still be followed by a version bump.
 
 ## Modify the material
 Some advanced or experimental features are documented here,
@@ -35,9 +34,13 @@ FerriteAssembly.get_base
 
 ## Assembler interface
 Different types of assemblers can be created in addition to those already defined by the package.
-The interface for creating an assembler is that the assembler must support the `TaskLocals` API, as well as the method, 
-`FerriteAssembly.work_single_cell!(assembler, buffer::AbstractCellBuffer)`
-(methods defined for the for builtin assemblers can be used as examples).
+The interface for creating an assembler is that the assembler must support the `TaskLocals` API, 
+as well as the methods,
+
+* `FerriteAssembly.work_single_cell!(assembler, buffer::AbstractCellBuffer)`
+* `FerriteAssembly.work_single_face!(assembler, buffer::FaceBuffer)`
+
+The internal methods for builtin assemblers can be used as examples.
 
 In addition, the following functions are used to determine properties/requirements for the assembler. 
 - `can_thread(assembler)::Bool`: Is multithreading supported, if `false`, sequential assembly will run even if the a `ThreadedDomainBuffer` is used. If not defined, defaults to `false`. 
@@ -50,4 +53,3 @@ support the following functions
 FerriteAssembly.update_scaling!
 FerriteAssembly.reset_scaling!
 ```
-

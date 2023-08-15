@@ -6,7 +6,8 @@ include("BodyLoad.jl")
 """
     LoadHandler(dh::AbstractDofHandler)    
 
-The load handler for external loads on a dofhandler `dh`. 
+Create a load handler for external loads to be applied on the 
+finite element simulation defined by a dofhandler `dh`. 
 It can be used to apply the Neumann and body load  
 contributions to the external "force"-vector, `fext`:
 

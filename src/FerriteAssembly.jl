@@ -85,7 +85,7 @@ function element_residual! end
     face_routine!(Ke, re, ae, material, facevalues, facebuffer)
 
 Calculate contributions to the stiffness matrix and residual vector from a 
-face domain, can be used, for example, for implementing Robin boundary conditions.
+face domain. It can be used, for example, to implement Robin boundary conditions.
 """
 function face_routine! end
 

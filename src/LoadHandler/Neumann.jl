@@ -12,20 +12,20 @@ where ``\\Gamma`` is the boundary where the contribution is active.
 ``f``, or ``\\boldsymbol{f}``, is the prescribed Neumann value, 
 defined by a function with signatures
 
-`f(x::Vec, time, n::Vec) -> Number` (Scalar field)
+`f(x::Vec, t::Real, n::Vec) -> Number` (Scalar field)
 
-`f(x::Vec, time, n::Vec) -> Vec{dim}` (Vector field)
+`f(x::Vec, t::Real, n::Vec) -> Vec{dim}` (Vector field)
 
-where `x` is the spatial position of the current quadrature point, `time` is the 
+where `x` is the spatial position of the current quadrature point, `t` is the 
 current time, and `n` is the face normal vector. The remaining input arguments are
 
 * `fieldname` describes the field on which the boundary condition should abstract
 * `fv_info` gives required input to determine the facevalues. The following input types are accepted:
-  - `FaceValues` matching the interpolation for `fieldname` for the faces in `faceset` and output of `f`
-  - `QuadratureRule` matching the interpolation for `fieldname` for faces in `faceset` `FaceValues` are deduced 
-    from the output of `f`
   - `Int` giving the integration order to use. `FaceValues` are deduced from the interpolation 
     of `fieldname` and the output of `f`. 
+  - `QuadratureRule` matching the interpolation for `fieldname` for faces in `faceset` `FaceValues` are deduced 
+    from the output of `f`
+  - `FaceValues` matching the interpolation for `fieldname` for the faces in `faceset` and output of `f`
 * `faceset` describes which faces the BC is applied to
 """
 struct Neumann{FVI,FUN}
@@ -64,7 +64,7 @@ function add_neumann!(nbcs::Dict{String,BT}, nbc::Neumann, sdh::SubDofHandler) w
 
     ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
     ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
-    fv = get_facevalues(nbc.fv_info, ip, ip_geo, nbc.f)
+    fv = autogenerate_facevalues(nbc.fv_info, ip, ip_geo, nbc.f)
     
     domain_spec = DomainSpec(sdh, material, fv; set=nbc.faceset)
     threading = BT <: ThreadedDomainBuffer

@@ -15,6 +15,8 @@ FerriteAssembly.can_thread
 FerriteAssembly.fast_getindex
 FerriteAssembly.work_single_cell!
 FerriteAssembly.work_single_face!
+FerriteAssembly.autogenerate_cellvalues
+FerriteAssembly.autogenerate_facevalues
 ```
 
 ## Threading model

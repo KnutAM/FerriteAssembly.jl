@@ -46,9 +46,10 @@ makedocs(;
                 "Assemblers" => "Workers/Assemblers.md",
                 "Integrators" => "Workers/Integrators.md",
             ],
-            "Available materials" => [
-                "Mechanical materials" => "MaterialModelsBase.md",
-                "Example elements" => "ExampleElements.md",
+            "Convenience" => [
+                "External loads" => "Convenience/LoadHandler.md",
+                "Mechanical materials" => "Convenience/MaterialModelsBase.md",
+                "Example elements" => "Convenience/ExampleElements.md",
             ],
             "Customizations" => "Customization.md",
             "Internals" => "internals.md",
