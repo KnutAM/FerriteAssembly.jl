@@ -30,7 +30,7 @@ K_ref = create_sparsity_pattern(dh) #hide
 r_ref = zeros(ndofs(dh)) #hide
 a_ref = zeros(ndofs(dh)) #hide
 buffer = setup_domainbuffer(DomainSpec(dh, material_el, cellvalues)) #hide
-assembler_ref = start_assemble(K_ref, r_ref)
+assembler_ref = start_assemble(K_ref, r_ref) #hide
 work!(assembler_ref, buffer; a=a_ref) #hide
 @test K ≈ K_ref    #hide
 nothing;           #hide

@@ -8,10 +8,10 @@
 # where $u$ is the primary variable, $\Gamma_\mathrm{R}$ is the Robin boundary, and 
 # $q_\mathrm{n}(u)$ is the boundary flux that depends on the solution $u$. In this "how-to",
 # we implement a simple linear Robin boundary condition, $q_\mathrm{n}(u) = k[u - u_\mathrm{b}]$.
-# This can be interpreted physically for e.g. a thermal problem as a resistance of heat transfer 
+# This can be interpreted physically for e.g. a thermal problem as a resistance, $1/k$, of heat transfer 
 # from the domain to the outside, where the latter has a constant temperature $u_\mathrm{b}$. 
 
-# ## Implementation
+# ## Implementating Robin BC
 # To implement this, we will overload the `face_routine!` function, which allows us to calculate 
 # both a residual and stiffness contribution from faces. Hence, we first define a "material", 
 # `RobinBC`, and implement the `face_routine!` that encodes the contribution to the weak form as 
@@ -41,6 +41,7 @@ function FerriteAssembly.face_routine!(
     end
 end;
 
+# ## Standard `Ferrite.jl` setup
 # To assemble the contributions from the Robin boundary, we need the regular setup
 # for a Ferrite simulation, e.g. 
 grid = generate_grid(Quadrilateral, (10,10))
@@ -54,6 +55,7 @@ K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh))
 a = zeros(ndofs(dh));
 
+# ## Using Robin BC
 # For the Robin boundary condition, we also need to define the integration via 
 # FaceValues, in addition to an instance of `RobinBC`, for which we set the 
 # "outside temperature" to -1.0. 
@@ -70,6 +72,7 @@ domainbuffer = setup_domainbuffer(DomainSpec(dh, rbc, fv; set=getfaceset(grid, "
 assembler = start_assemble(K, r)
 work!(assembler, domainbuffer; a=a);
 
+# ## Visualizing the BC
 # To visualize the output, we can export the vtk the residual, showing how 
 # contributions have been added to the boundary. 
 vtk_grid("RobinBC", grid) do vtk

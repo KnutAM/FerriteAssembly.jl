@@ -56,4 +56,4 @@ update_states!(buffer);
 
 # If we would like to access the states in any cell, we can request that from the buffer
 cell_state = FerriteAssembly.get_state(buffer, 1)
-display(typeof(cell_state))
+typeof(cell_state)

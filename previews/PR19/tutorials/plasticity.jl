@@ -23,7 +23,7 @@ work!(assembler, buffer; a=a);
 update_states!(buffer);
 
 cell_state = FerriteAssembly.get_state(buffer, 1)
-display(typeof(cell_state))
+typeof(cell_state)
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 
