@@ -39,8 +39,8 @@ end
 Setup multiple domain buffers, one for each `DomainSpec` in `domains`.
 See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
 """
-function setup_domainbuffers(gds::Dict{String,<:DomainSpec}; kwargs...)
-    return Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in gds)
+function setup_domainbuffers(domains::Dict{String,<:DomainSpec}; kwargs...)
+    return Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
 end
 
 """

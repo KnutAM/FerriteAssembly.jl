@@ -15,18 +15,15 @@ The design is built around two main types of objects
 The package user is responsible for writing the code for the actual work (e.g., writing the element routine). A given combination of a worker and a type of domain requires the user to overload a specific function. For example, an assembler (worker) and a cell domain requires overloading [`element_routine!`](@ref) or [`element_residual!`](@ref).
 
 ## Documentation structure
-
 The documentation has two main parts
 
-* Learning by doing: *Runnable examples*
-  * Tutorials: Complete examples
-  * Short guides for specific tasks
-* API documentation: *Docstring and short explanations*
-  * Domains: *What items to work on*
-  * Workers: *What to do for an item*
-  * Convenience: *Premade solutions to make life easy*
-  * Customizations: *When the standard isn't good enough*
-  * Internals: *Developer documentation*
+| 1) Learning by doing: *runnable examples*                | 2) Reference: *explanations and docstrings*              | 
+| :------------------------------------------------------- | :------------------------------------------------------- |
+| Tutorials: Complete examples                             | Domains: *What items to work on*                         |
+| Short guides for specific tasks                          | Workers: *What to do for an item*                        | 
+|                                                          | Convenience: *Premade solutions to make life easy*       |
+|                                                          | Customizations: *When the standard isn't good enough*    |
+|                                                          | Internals: *Developer documentation*                     |
 
 ## Heat equation example
 ```@eval
