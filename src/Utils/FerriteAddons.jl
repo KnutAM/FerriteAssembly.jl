@@ -21,7 +21,7 @@ Ferrite.getcelltype(sdh::SubDofHandler{<:MixedDofHandler}) = getcelltype(_getgri
 
 
 
-Ferrite.getdim(sdh) = Ferrite.getdim(sdh.dh.grid)
+Ferrite.getdim(sdh::SubDofHandler) = Ferrite.getdim(sdh.dh.grid)
 Ferrite.ndofs_per_cell(sdh::SubDofHandler{<:DofHandler}) = ndofs_per_cell(sdh.dh)
 Ferrite.ndofs_per_cell(sdh::SubDofHandler{<:MixedDofHandler}) = Ferrite.ndofs_per_cell(sdh.dh, first(sdh.fh.cellset))
 Ferrite.nnodes_per_cell(sdh::SubDofHandler{<:DofHandler}) = Ferrite.nnodes_per_cell(_getgrid(sdh), 1)
