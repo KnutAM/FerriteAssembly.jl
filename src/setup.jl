@@ -3,18 +3,29 @@
     DomainSpec(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing)
 
 Create a `DomainSpec` that can be used to set up a domain buffer. 
-The element type of `set` determines the type of domain 
-* `Int`:       cell domain, `fe_values` should be `CellValues` (or a `NamedTuple` with `CellValues` as elements)
-* `FaceIndex`: face domain, `fe_values` should be `FaceValues` (or a `NamedTuple` with `FaceValues` as elements)
 
-`material` is used for dispatch on the utilized `worker`'s function. 
-The `user_data` is just passed along (by reference) everywhere, and is accessible 
-via the `ItemBuffer` (e.g. `CellBuffer`) given to the `worker`'s function.
-
-For multithreading, `colors::Union{Vector{Vector{Int}},Vector{Vector{eltype(set)}}` **or** `chunks::Vector{Vector{Vector{eltype(set)}}}` 
-may be passed in order to partition the grid. Internally, if not given, `chunks` will be created from a colored grid (either given here,
-or calculated using Ferrite's default coloring algorithm). Note that the chunks must refer to the values in the set (exactly same), whereas
-colors can be for the entire grid, although it is usually better to color each cellset individually.
+* `sdh`/`dh`: Give the `DofHandler` for the domain in question, or a `SubDofHandler` in case there are more than one in `DofHandler` 
+  (See `Ferrite.jl's documentation`)
+* `material`: Used for dispatch on the utilized `worker`'s function. 
+* `fe_values`: `CellValues` or `FaceValues` depending on the type of domain. 
+* `set`: The items in the domain, the element type determines the type of domain 
+  - Cell domain: `Int`
+  - Face domain: `FaceIndex`
+* `colors::Vector{Vector{I}}`: used to avoid race conditions when multithreading. 
+  For cell domains, `I=Int`, and for face domains, `I` can be either `Int` 
+  (denoting cell numbers) or `FaceIndex` for actual faces. If `I=Int`, it will be 
+  converted to `FaceIndex` internally. If `colors=nothing` and `chunks=nothing`, 
+  `Ferrite.jl`'s default coloring algorithm is used.
+* `chunks::Vector{Vector{Vector{I}}}`. During multithreading, each task works with 
+  items in one `chunk::Vector{I}` at a time. Items in `chunks[k][i]` and `chunks[k][j]`
+  should be independent (i.e. not share dofs). If given, this input takes precidence over 
+  `colors`. For `chunks`, `I` must be `Int` for cell domains and `FaceIndex` for face domains. 
+* `user_data`: Can be whatever the user wants to and is passed along by reference everywhere. 
+  It is accessible from the `ItemBuffer` (e.g. `CellBuffer`) given to the `worker`'s function
+  via the `get_user_data` function. However, since it is passed by reference, modifying values 
+  during work, care must be taken to ensure thread safety. 
+  To avoid allocations, caches can be created separately with `allocate_cell_cache` and 
+  `allocate_face_cache`.
 """
 struct DomainSpec{I}
     sdh::SubDofHandler

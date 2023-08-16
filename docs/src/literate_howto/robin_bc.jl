@@ -11,7 +11,7 @@
 # This can be interpreted physically for e.g. a thermal problem as a resistance, $1/k$, of heat transfer 
 # from the domain to the outside, where the latter has a constant temperature $u_\mathrm{b}$. 
 
-# ## Implementating Robin BC
+# ## Implementing Robin BC
 # To implement this, we will overload the `face_routine!` function, which allows us to calculate 
 # both a residual and stiffness contribution from faces. Hence, we first define a "material", 
 # `RobinBC`, and implement the `face_routine!` that encodes the contribution to the weak form as 

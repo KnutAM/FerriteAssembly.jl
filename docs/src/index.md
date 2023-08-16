@@ -24,19 +24,3 @@ The documentation has two main parts
 |                                                          | Convenience: *Premade solutions to make life easy*       |
 |                                                          | Customizations: *When the standard isn't good enough*    |
 |                                                          | Internals: *Developer documentation*                     |
-
-## Heat equation example
-```@eval
-# Include the example here, but modify the Literate output to suit being embedded
-using Literate, Markdown
-filename = "firstexample_literate"
-Literate.markdown(filename*".jl"; execute=true)
-contents = read(filename*".md", String)
-Literate.script(filename*".jl"; name="firstexample")
-rm(filename*".jl")
-rm(filename*".md")
-header_end = last(findnext("```", contents, 4))+1
-Markdown.parse(replace(contents[header_end:end], 
-    "*This page was generated using [Literate.jl]"=>"*The examples were generated using [Literate.jl]")
-    )
-```

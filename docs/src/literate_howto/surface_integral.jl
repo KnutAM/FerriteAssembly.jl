@@ -15,8 +15,9 @@ a = zeros(ndofs(dh))
 apply_analytical!(a, dh, :u, norm); # f(x)=norm(x)
 
 # And then we decide which faces to integrate over,
-# and define the integrator, here using the simple
-# interface 
+# and define the integrator. In this case, we use 
+# the simple interface, `SimpleIntegrator`. 
+# Please note that `Integrator` also supports face domains! 
 domainbuffer = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=getfaceset(grid, "right")))
 integrator = SimpleIntegrator((u,∇u,n)->∇u⋅n, 0.0)
 work!(integrator, domainbuffer; a=a)

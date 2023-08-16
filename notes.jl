@@ -68,25 +68,16 @@ to support a wrapped material wrapper.
 #   Documentation structure
 # =========================================================================================================== #
 #= 
-With the focus in design that it revolves around workers and domain buffers, 
-it would make sense to have the documentation structured with two pages for API on the top level.
-The first page + examples should take care of the "typical" work flow, API should be more for reference. 
-
-- Home
-- Package design (needed, could be moved to DomainBuffers?)
-- Tutorials
-- How-to guides
-- DomainBuffers
-  - DomainBuffers (describe the top level, data structure and functions acting on top level/setup)
-  - ItemBuffers (describe each itembuffer)
-  - State variables (data structure)
-  - 
-- Workers
-  - Assemblers
-    - Functions to overload for each domain type
-    - Residual scaling
-  - Integrators 
-- 
-Also, rename internals to devdocs. 
-"Threading model" should be moved to internals. 
+# Tutorials: Complete FE examples giving out a solution
+1) Heat flow (TODO: Add solution and export)
+2) Plasticity
+#  - Change to Ferrite's example, but skip the stress as a state.  
+#  - Define the material behavior according to MaterialModelsBase (skip saving stress as state and simplify)
+#  - Use Neumann and LoadHandler for the Neumann boundary conditions. 
+#  - Add time stepping and solution
+#  - Use integrators to save stress and hardening results
+#  - Export results as in Ferrite
+#  Multiple materials 
+#  - Use same material type, one from the example materials, but different parameter values 
+#  -  
 =#

@@ -1,21 +1,24 @@
 using FerriteAssembly
 import FerriteAssembly: ExampleElements
 import MaterialModelsBase as MMB
+using Ferrite
 using Test
 using Documenter
 
 const is_ci = get(ENV, "CI", "false") == "true"
 
 include("generate.jl")
-tutorials = ["plasticity.jl", "mixed_materials.jl"]
+tutorials = ["heat_equation.jl", "plasticity.jl", "mixed_materials.jl"]
 generated_tutorials = build_examples(tutorials; type="tutorials")
-howto = ["robin_bc.jl", "volume_integral.jl", "surface_integral.jl"]
+howto = [
+    "threaded_assembly.jl", "automatic_differentiation.jl", 
+    "robin_bc.jl", "volume_integral.jl", "surface_integral.jl"]
 generated_howto = build_examples(howto; type="howto")
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
 
 # Run example from `index.md` to force CI failure if it doesn't work
-include("src/firstexample_literate.jl")
+# include("src/firstexample_literate.jl")
 
 
 makedocs(;
@@ -34,12 +37,12 @@ makedocs(;
             "Tutorials" => generated_tutorials,
              "How-to" => generated_howto
         ],
-        "API documentation" => [
+        "Reference" => [
             "Design" => "design.md",
             "DomainBuffers" => [
                 "DomainBuffers" => "DomainBuffers/Setup.md",
                 "State variables" => "DomainBuffers/StateVariables.md",
-                "CellBuffer" => "DomainBuffers/CellBuffer.md",
+                "ItemBuffer" => "DomainBuffers/ItemBuffer.md",
             ],
             "Workers" => [
                 "Workers" => "Workers/Workers.md",

@@ -27,9 +27,24 @@ a = zeros(ndofs(dh))
 apply_analytical!(a, dh, :u, x->x⋅x)
 apply_analytical!(a, dh, :v, x->Vec(x⋅x, x[2]));
 
-# In this example we could use the `SimpleIntegrator`,
-# which is described below. However, for the purpose of this 
-# explanation, we will use the full-featured `Integrator`. 
+# This example can be solved with the `SimpleIntegrator`,
+# which is described first. However, for more advanced cases, 
+# full-featured `Integrator` may be useful, and is shown after. 
+
+# ## Using `SimpleIntegrator`
+# The `SimpleIntegrator` requires a function, `f(a, ∇a, state)`, 
+# and the zero values for the summation.   
+sint = SimpleIntegrator((a, ∇a, state) -> (1.0, a.u, a.v), (0.0, 0.0, Vec((0.0,0.0))))
+work!(sint, domain; a=a)
+@printf("Volume V=∫dV = %0.5f\n", sint.val[1])
+@printf("(1/V)∫ u dV = %0.5f \n", sint.val[2]/sint.val[1])
+@printf("(1/V)∫ v dV  = (%0.5f, %0.5f) \n", (sint.val[3]/sint.val[1])...)
+
+# ## Using `Integrator`
+# `Integrator` requires method overloading and is suitable when 
+# the high-level API of `SimpleIntegrator` is insufficient, or 
+# for building special postprocessing methods for a class of 
+# materials.  
 # To setup this method of integration, we then create a custom 
 # type to hold our values, which we must be able to mutate.
 mutable struct AvgValues{T}
@@ -39,8 +54,10 @@ mutable struct AvgValues{T}
 end
 AvgValues() = AvgValues(0.0, 0.0, zero(Vec{2}));
 
-# As the final setup step, we overload the `integrate_cell`
-# function to get the desired volume averaged values
+# We then overload the `integrate_cell`
+# function to get the desired volume-averaged values,
+# nothing that here we have access to, e.g., `cellvalues`,
+# and `cellbuffer`, in contrast to when using `SimpleIntegrator`.
 function FerriteAssembly.integrate_cell!(vals::AvgValues, state, ae, material, cellvalues, cellbuffer)
     dru = dof_range(cellbuffer, :u)
     drv = dof_range(cellbuffer, :v)
@@ -56,19 +73,10 @@ function FerriteAssembly.integrate_cell!(vals::AvgValues, state, ae, material, c
     end
 end
 
+# Once everything is set up, the usage is the same. 
 vals = AvgValues()
 work!(Integrator(vals), domain; a=a);
 
 @printf("Volume V=∫dV = %0.5f\n", vals.volume)
-@printf("(1/V)∫u⋅u dV = %0.5f \n", vals.u/vals.volume)
+@printf("(1/V)∫ u dV = %0.5f \n", vals.u/vals.volume)
 @printf("(1/V)∫ v dV  = (%0.5f, %0.5f) \n", (vals.v/vals.volume)...)
-
-# ## Using `SimpleIntegrator`
-# We could have achieved the same results by using 
-# the `SimpleIntegrator` in this case, with 
-sint = SimpleIntegrator((a, ∇a, state) -> (1.0, a.u, a.v), (0.0, 0.0, Vec((0.0,0.0))))
-work!(sint, domain; a=a)
-@printf("Volume V=∫dV = %0.5f\n", sint.val[1])
-@printf("(1/V)∫u⋅u dV = %0.5f \n", sint.val[2]/sint.val[1])
-@printf("(1/V)∫ v dV  = (%0.5f, %0.5f) \n", (sint.val[3]/sint.val[1])...)
-# Where we did not have to overload the function. 
