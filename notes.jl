@@ -69,7 +69,7 @@ to support a wrapped material wrapper.
 # =========================================================================================================== #
 #= 
 # Tutorials: Complete FE examples giving out a solution
-1) Heat flow (TODO: Add solution and export)
+1) Heat flow (TODO: Add solution and export): Done
 2) Plasticity
 #  - Change to Ferrite's example, but skip the stress as a state.  
 #  - Define the material behavior according to MaterialModelsBase (skip saving stress as state and simplify)
