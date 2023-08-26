@@ -164,7 +164,37 @@ traction = vcat(0.0, traction_function.(time_history))
 
 # Instead of using the average of the integration point values, as in Ferrite,
 # we'll perform the volume averaging (which for 2nd order integration is equivalent),
-# by using the Integrator 
+# by using the Integrator to save values for each cell
+struct PlasticIntegrator{T}
+    σvm::Vector{T}
+    κ::Vector{T}
+end
+PlasticIntegrator(ncells::Int) = PlasticIntegrator(fill(NaN, ncells), fill(NaN, ncells))
+intval = PlasticIntegrator(getncells(grid))
+integrator = Integrator(intval)
+function FerriteAssembly.integrate_cell!(intval::PlasticIntegrator, states, ae, m::J2PlasticityNew, cv, buffer)
+    cellnr = cellid(buffer)
+    V = σvm = κ = 0.0
+    for q_point in 1:getnquadpoints(cv)
+        state = states[q_point]
+        ϵ = function_symmetric_gradient(cv, q_point, ae)
+        σ = m.D⊡(ϵ - state.ϵp)
+        dΩ = getdetJdV(cv, q_point)
+        V += dΩ
+        σvm += vonmises(σ)*dΩ
+        κ += state.κ*dΩ
+    end
+    intval.σvm[cellnr] = σvm/V
+    intval.κ[cellnr] = κ/V 
+end
+
+work!(integrator, buffer; a=a)
+
+vtk_grid("plasticity", dh) do vtkfile
+    vtk_point_data(vtkfile, dh, a) # displacement field
+    vtk_cell_data(vtkfile,  intval.σvm, "von Mises [Pa]")
+    vtk_cell_data(vtkfile, intval.κ, "Drag stress [Pa]")
+end
 
 ## test the result                       #src
 using Test                               #src
