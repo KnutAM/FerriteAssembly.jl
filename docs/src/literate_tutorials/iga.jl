@@ -1,20 +1,16 @@
-# # Infinite plate with hole
-#
-# ![](plate_with_hole.png)
-#-
-# In this example we will solve a simple elasticity problem; an infinite plate with a hole.
-# The main goal of the tutorial is to show how one can solve the problem using Isogeometric Analysis (IGA), 
-# or in other words, solving a FE-problem with splines as the basis/shape functions.
-# By using so called bezier extraction, we will see that most of the structure of the code will be the same as in standard FE-codes (however many differences are happening "under the hood").
-
-#md # !!! note 
-#md #     It is expected that the reader already be familiar with IGA and the concept of "bezier extraction".
-#md #     It is also expected that the reader is familiar with the Ferrite package. In particular Ferrite.DofHandler and Ferrite.CellValues.
+# # Isogeometric analysis with `IGA.jl`
+# This tutorial shows how to integrate FerriteAssembly with the 
+# isogeometric analysis toolbox IGA.jl, directly based on `IGA.jl`'s 
+# [Infinite plate with hole](https://lijas.github.io/IGA.jl/dev/examples/plate_with_hole/)
+# example. Hence, please see there for further documentation details and important remarks 
+# regarding IGA. 
+# 
+# The example considers solving a plate with a hole. A quater of a plate is considered via symmetry 
+# boundary conditions, and a tensile load is applied on one edge.
 
 # Start by loading the necessary packages
 using Ferrite, IGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
-using Serialization
 
 # ## Extensions and fixes to IGA.jl 
 Ferrite.getnormal(::BezierFaceValues{sdim,T}, ::Int) where {sdim,T} = T(NaN)*zero(Vec{sdim,T})
@@ -53,34 +49,19 @@ end
 # In this example, we will generate the patch called "plate with hole". 
 # Note, currently this function can only generate the patch with second order basefunctions. 
 function create_mesh(;nels=(20,10))
-
     nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels) 
-    ## Performing the computation on a NURBS-patch is possible, 
-    ## but it is much easier to use the bezier-extraction technique. 
-    ## For this we transform the NURBS-patch into a `BezierGrid`. 
-    ## The `BezierGrid` is identical to the standard `Ferrite.Grid`, 
-    ## but includes the NURBS-weights and bezier extraction operators.
     grid = BezierGrid(nurbsmesh)
 
-    ## For creating face sets, note that the nodes/controlpoints may 
-    ## not be exactly on the geometry due to the non-interpolatory 
-    ## nature of NURBS spline functions. However, in most cases 
-    ## they will be close enough to use the Ferrite functions below.
-    addnodeset!(grid,"right", (x) -> x[1] ≈ -0.0)
     addfaceset!(grid, "left", (x) -> x[1] ≈ -4.0)
     addfaceset!(grid, "bot", (x) -> x[2] ≈ 0.0)
     addfaceset!(grid, "right", (x) -> x[1] ≈ 0.0)
 
     return grid 
 end
-
 grid = create_mesh();
 
 # ### Define interpolations, integration and FE-values
 # Create the cellvalues storing the shape function values. 
-# Note that the `CellVectorValues`/`FaceVectorValues` are wrapped in a `BezierValues`. 
-# It is in the reinit-function of the `BezierValues` that the actual bezier transformation 
-# of the shape values is performed. 
 orders=(2,2)
 ip = BernsteinBasis{2,orders}()
 qr_cell = QuadratureRule{2,RefCube}(4)
@@ -102,24 +83,20 @@ K = create_sparsity_pattern(dh);
 
 # ### Boundary conditions 
 # Starting with Dirichlet conditions: 
+# 1) Bottom face should only be able to move in x-direction
+# 2) Right boundary should only be able to move in y-direction
 ch = ConstraintHandler(dh);
-# The bottom face should only be able to move in x-direction
-dbc1 = Dirichlet(:u, getfaceset(grid, "bot"), Returns(0.0), 2)
-add!(ch, dbc1);
-
-# The right boundary should only be able to move in y-direction
-dbc2 = Dirichlet(:u, getfaceset(grid, "right"), Returns(0.0), 1)
-add!(ch, dbc2)
-
+add!(ch, Dirichlet(:u, getfaceset(grid, "bot"), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfaceset(grid, "right"), Returns(0.0), 1))
 close!(ch)
 update!(ch, 0.0);
 
 # Then Neumann conditions:
-# Apply outwards traction on the left surface 
-lh = LoadHandler(dh)
+# Apply outwards traction on the left surface,
+# taking the negative value since r = fint - fext.
 traction = Vec((-10.0, 0.0))
-nbc = Neumann(:u, fv, getfaceset(grid, "left"), Returns(-traction))
-add!(lh, nbc);
+lh = LoadHandler(dh)
+add!(lh, Neumann(:u, fv, getfaceset(grid, "left"), Returns(-traction)));
 
 # ### FerriteAssembly setup 
 material = ElasticPlaneStrain(;E=100.0, ν=0.3)
@@ -138,10 +115,7 @@ a .-= K\r
 apply!(a, ch);
 
 # ## Postprocessing
-# Now we want to export the results to VTK. So we calculate the stresses in each gauss-point, and project them to 
-# the nodes using the L2Projector from Ferrite. Node that we need to create new CellValues of type CellScalarValues, since the 
-# L2Projector only works with scalar fields.
-# Prepare postprocessing - i.e. calculating the stresses given the solution. 
+# First, the stresses in each integration point are calculated by using the Integrator.  
 struct CellStress{TT}
     s::Vector{Vector{TT}}
 end
@@ -151,18 +125,19 @@ function CellStress(grid::Ferrite.AbstractGrid)
     return CellStress([TT[] for _ in 1:getncells(grid)])
 end
 
-function FerriteAssembly.integrate_cell!(cellstress::CellStress, state, ae, material, cv, cellbuffer)
-    σ = cellstress.s[cellid(cellbuffer)]
+function FerriteAssembly.integrate_cell!(stress::CellStress, state, ae, material, cv, cb)
+    σ = stress.s[cellid(cb)]
     for q_point in 1:getnquadpoints(cv)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
         push!(σ, material.C⊡ϵ)
     end
 end
-
 cellstresses = CellStress(grid)
 integrator = Integrator(cellstresses)
-work!(integrator, buffer; a=a)
+work!(integrator, buffer; a=a);
 
+# Now we want to export the results to VTK. So we project the stresses at 
+# the quadrature points to the nodes using the L2Projector from Ferrite. 
 projector = L2Projector(ip, grid)
 σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
 
