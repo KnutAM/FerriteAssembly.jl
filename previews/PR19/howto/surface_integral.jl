@@ -15,4 +15,3 @@ work!(integrator, domainbuffer; a=a)
 println("Flux: ∫qₙ dA = ", integrator.val)
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
-

@@ -17,6 +17,12 @@ a = zeros(ndofs(dh))
 apply_analytical!(a, dh, :u, x->x⋅x)
 apply_analytical!(a, dh, :v, x->Vec(x⋅x, x[2]));
 
+sint = SimpleIntegrator((a, ∇a, state) -> (1.0, a.u, a.v), (0.0, 0.0, Vec((0.0,0.0))))
+work!(sint, domain; a=a)
+@printf("Volume V=∫dV = %0.5f\n", sint.val[1])
+@printf("(1/V)∫ u dV = %0.5f \n", sint.val[2]/sint.val[1])
+@printf("(1/V)∫ v dV  = (%0.5f, %0.5f) \n", (sint.val[3]/sint.val[1])...)
+
 mutable struct AvgValues{T}
     volume::T   # V=∫ dV
     u::T        # (1/V)∫ u dV
@@ -43,14 +49,7 @@ vals = AvgValues()
 work!(Integrator(vals), domain; a=a);
 
 @printf("Volume V=∫dV = %0.5f\n", vals.volume)
-@printf("(1/V)∫u⋅u dV = %0.5f \n", vals.u/vals.volume)
+@printf("(1/V)∫ u dV = %0.5f \n", vals.u/vals.volume)
 @printf("(1/V)∫ v dV  = (%0.5f, %0.5f) \n", (vals.v/vals.volume)...)
 
-sint = SimpleIntegrator((a, ∇a, state) -> (1.0, a.u, a.v), (0.0, 0.0, Vec((0.0,0.0))))
-work!(sint, domain; a=a)
-@printf("Volume V=∫dV = %0.5f\n", sint.val[1])
-@printf("(1/V)∫u⋅u dV = %0.5f \n", sint.val[2]/sint.val[1])
-@printf("(1/V)∫ v dV  = (%0.5f, %0.5f) \n", (sint.val[3]/sint.val[1])...)
-
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
-
