@@ -5,13 +5,13 @@ Each worker that supports for a facebuffer should overload this function.
 """
 function work_single_face! end
 
-mutable struct FaceBuffer{sdim,T,FV,DR,MT,UD,UC} <: AbstractItemBuffer
+mutable struct FaceBuffer{T,CC,FV,DR,MT,UD,UC} <: AbstractItemBuffer
     const ae_old::Vector{T}           # Old element dof values
     const ae::Vector{T}               # New element dof values
     const re::Vector{T}               # Residual/force vector 
     const Ke::Matrix{T}               # Element stiffness matrix
     const dofs::Vector{Int}           # celldofs
-    const coords::Vector{Vec{sdim,T}} # cellcoords
+    const coords::CC                  # cellcoords (or what is required to reinit facevalues, in addition to facenr)
     const facevalues::FV              # Can also be named tuple of facevalues (will be updated to MultiCellValues later)
     Δt::T                             # Time step (updated at start of assembly loop)
     cellid::Int                       # Current cell nr (updated in reinit!)
@@ -37,22 +37,21 @@ The given `dofrange::NamedTuple`, `user_data::Any`, and `cache::Any` are availab
     This constructor is normally not used, and is instead called from [`setup_domainbuffer`](@ref)
 
 """
-function FaceBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, facevalues, material, dofrange, user_data) where sdim
+function FaceBuffer(numdofs::Int, coords, facevalues, material, dofrange, user_data)
     Δt = NaN 
     cellid = -1
     cache = allocate_face_cache(material, facevalues)
     return FaceBuffer(
         zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
-        zeros(Int, numdofs), zeros(Vec{sdim}, numnodes), 
+        zeros(Int, numdofs), coords, 
         facevalues, Δt, cellid, dofrange, material, user_data, cache)
 end
 
 setup_facebuffer(ad::Bool, args...; kwargs...) = setup_facebuffer(Val(ad), args...; kwargs...)
 function setup_facebuffer(::Val{false}, sdh, fv, material, dofrange, user_data)
     numdofs = ndofs_per_cell(sdh)
-    numnodes = Ferrite.nnodes_per_cell(sdh)
-    sdim = Val(Ferrite.getdim(sdh))
-    return FaceBuffer(numdofs, numnodes, sdim, fv, material, dofrange, user_data)
+    coords = getcoordinates(_getgrid(sdh), first(getcellset(sdh)))
+    return FaceBuffer(numdofs, coords, fv, material, dofrange, user_data)
 end
 
 function setup_facebuffer(::Val{true}, args...)

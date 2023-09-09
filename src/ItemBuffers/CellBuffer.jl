@@ -7,13 +7,13 @@ function work_single_cell! end
 
 abstract type AbstractCellBuffer <: AbstractItemBuffer end
 
-mutable struct CellBuffer{sdim,T,CV,DR,MT,ST,UD,UC} <: AbstractCellBuffer
+mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC} <: AbstractCellBuffer
     const ae_old::Vector{T}           # Old element dof values
     const ae::Vector{T}               # Current element dof values
     const re::Vector{T}               # Residual/force vector 
     const Ke::Matrix{T}               # Element stiffness matrix
     const dofs::Vector{Int}           # celldofs
-    const coords::Vector{Vec{sdim,T}} # cellcoords
+    const coords::CC                  # cellcoords (or what is required to reinit cellvalues)
     const cellvalues::CV              # Can also be named tuple of cellvalues (will be updated to MultiCellValues later)
     Δt::T                             # Time step (updated at start of assembly loop)
     cellid::Int                       # Current cell nr (updated in reinit!)
@@ -41,22 +41,21 @@ The given `dofrange::NamedTuple`, `user_data::Any`, and `cache::Any` are availab
     This constructor is normally not used, and is instead called from [`setup_domainbuffer`](@ref)
 
 """
-function CellBuffer(numdofs::Int, numnodes::Int, ::Val{sdim}, cellvalues, material, state, dofrange, user_data=nothing) where sdim
+function CellBuffer(numdofs::Int, coords, cellvalues, material, state, dofrange, user_data=nothing)
     Δt = NaN 
     cellid = -1
     cache = allocate_cell_cache(material, cellvalues)
     return CellBuffer(
         zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
-        zeros(Int, numdofs), zeros(Vec{sdim}, numnodes), 
+        zeros(Int, numdofs), coords, 
         cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache)
 end
 
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
 function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange, user_data)
     numdofs = ndofs_per_cell(sdh)
-    numnodes = Ferrite.nnodes_per_cell(sdh)
-    sdim = Val(Ferrite.getdim(sdh))
-    return CellBuffer(numdofs, numnodes, sdim, cv, material, cell_state, dofrange, user_data)
+    coords = getcoordinates(_getgrid(sdh), first(getcellset(sdh)))
+    return CellBuffer(numdofs, coords, cv, material, cell_state, dofrange, user_data)
 end
 
 function setup_cellbuffer(::Val{true}, args...)

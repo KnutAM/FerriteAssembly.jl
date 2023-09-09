@@ -32,6 +32,9 @@ function create_dofrange(sdh::SubDofHandler)
     return NamedTuple((n => dof_range(sdh, n) for n in Ferrite.getfieldnames(sdh)))
 end
 
+# Included in Ferrite v1.0, but not before
+get_coordinate_type(::Grid{dim,<:Any,T}) where {dim,T} = Vec{dim,T}
+
 # ================================================= #
 # reinit!(::NamedTuple, args...)                    #
 # ================================================= #
