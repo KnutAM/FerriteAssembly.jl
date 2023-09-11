@@ -42,10 +42,10 @@ import CairoMakie as CM
 # finite element code. To start the material modeling, we define a material struct with all 
 # parameters. 
 Base.@kwdef struct ZenerMaterial{T}
-    K ::T=5.0   # Bulk modulus 
+    K::T =5.0   # Bulk modulus 
     G1::T=1.0   # Shear modulus, parallel
     G2::T=50.   # Shear modulus, series 
-    η ::T=5.0   # Damping modulus 
+    η::T =5.0   # Damping modulus 
 end;
 
 # We then define how to the initial state variables should look like, which also defines the structure 
