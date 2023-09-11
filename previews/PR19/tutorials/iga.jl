@@ -1,7 +1,7 @@
 using Ferrite, IGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
-Ferrite.getnormal(::BezierFaceValues{sdim,T}, ::Int) where {sdim,T} = T(NaN)*zero(Vec{sdim,T})
+Ferrite.getnormal(fv::BezierFaceValues, i::Int)= fv.cv_bezier.normals[i]
 function Ferrite.spatial_coordinate(bv::IGA.BezierValues, q_point::Int, bc::BezierCoords)
     return spatial_coordinate(bv, q_point, (bc.xb, bc.wb))
 end

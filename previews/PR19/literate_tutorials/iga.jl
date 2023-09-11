@@ -13,7 +13,9 @@ using Ferrite, IGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
 # ## Extensions and fixes to IGA.jl 
-Ferrite.getnormal(::BezierFaceValues{sdim,T}, ::Int) where {sdim,T} = T(NaN)*zero(Vec{sdim,T})
+# These are all fixed/done in [IGA#9](https://github.com/lijas/IGA.jl/pull/9), 
+# and can be removed once that is merged
+Ferrite.getnormal(fv::BezierFaceValues, i::Int)= fv.cv_bezier.normals[i]
 function Ferrite.spatial_coordinate(bv::IGA.BezierValues, q_point::Int, bc::BezierCoords)
     return spatial_coordinate(bv, q_point, (bc.xb, bc.wb))
 end
@@ -147,8 +149,8 @@ vtk_point_data(vtkgrid, dh, a)
 vtk_point_data(vtkgrid, σ_nodes, "sigma", grid)
 vtk_save(vtkgrid);
 
-# using Serialization #src
-# uref = deserialize("uref.bin") #src
-# sref = deserialize("sref.bin") #src
-# @show uref ≈ a #src
-# @show sref ≈ σ_nodes #src
+using Serialization #src
+uref = deserialize("uref.bin") #src
+sref = deserialize("sref.bin") #src
+@show uref ≈ a #src
+@show sref ≈ σ_nodes #src
