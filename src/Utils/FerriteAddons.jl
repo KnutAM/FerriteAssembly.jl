@@ -19,21 +19,13 @@ Ferrite.getfieldinterpolation(sdh::SubDofHandler{<:DofHandler}, field_name::Symb
 Ferrite.getcelltype(sdh::SubDofHandler{<:DofHandler}) = getcelltype(_getgrid(sdh), 1)
 Ferrite.getcelltype(sdh::SubDofHandler{<:MixedDofHandler}) = getcelltype(_getgrid(sdh), first(getcellset(sdh)))
 
-
-
-Ferrite.getdim(sdh::SubDofHandler) = Ferrite.getdim(sdh.dh.grid)
 Ferrite.ndofs_per_cell(sdh::SubDofHandler{<:DofHandler}) = ndofs_per_cell(sdh.dh)
 Ferrite.ndofs_per_cell(sdh::SubDofHandler{<:MixedDofHandler}) = Ferrite.ndofs_per_cell(sdh.dh, first(sdh.fh.cellset))
-Ferrite.nnodes_per_cell(sdh::SubDofHandler{<:DofHandler}) = Ferrite.nnodes_per_cell(_getgrid(sdh), 1)
-Ferrite.nnodes_per_cell(sdh::SubDofHandler{<:MixedDofHandler}) = Ferrite.nnodes_per_cell(_getgrid(sdh), first(sdh.fh.cellset))
 
 # Custom functions for SubDofHandler
 function create_dofrange(sdh::SubDofHandler)
     return NamedTuple((n => dof_range(sdh, n) for n in Ferrite.getfieldnames(sdh)))
 end
-
-# Included in Ferrite v1.0, but not before
-get_coordinate_type(::Grid{dim,<:Any,T}) where {dim,T} = Vec{dim,T}
 
 # ================================================= #
 # reinit!(::NamedTuple, args...)                    #
