@@ -15,6 +15,6 @@ by its cell number. (The output from the mentioned functions are `Dict{Int}`)
 
 ## API
 ```@docs
-FerriteAssembly.create_cell_state(args...)
-update_states!(::T, ::T) where {T<:Dict{Int,<:Vector}}
+FerriteAssembly.create_cell_state
+update_states!
 ```

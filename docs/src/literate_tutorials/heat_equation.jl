@@ -1,9 +1,11 @@
 # # Heat Equation
 # This tutorial solves the stationary heat flow example, 
 # equivalent to the first example in `Ferrite.jl`. 
-# The full example can be downloaded [here](heat_equation.jl).
 # 
-# ## Ferrite setup
+# The full script without intermediate comments is available at the 
+# [bottom of this page](@ref heat_equation_plain_program).
+# 
+# ## Setup
 # First we create the dofhandler, vectors and matrices, and cellvalues as in 
 # [`Ferrite.jl`'s heat equation example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/heat_equation/)
 using Ferrite, FerriteAssembly, BenchmarkTools
@@ -73,3 +75,12 @@ a = -K\r
 vtk_grid("heat_equation", grid) do vtk
     vtk_point_data(vtk, dh, a)
 end;
+
+#md # ## [Plain program](@id heat_equation_plain_program)
+#md #
+#md # Here follows a version of the program without any comments.
+#md # The file is also available here: [`heat_equation.jl`](heat_equation.jl).
+#md #
+#md # ```julia
+#md # @__CODE__
+#md # ```

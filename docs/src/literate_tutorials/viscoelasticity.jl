@@ -5,7 +5,6 @@
 # 
 # ![Zener](zener.svg)
 # 
-# ## Material model theory
 # We assume a volumetric-deviatoric split of the strain, 
 # and consider isotropic behavior, such that the model 
 # can be described as 
@@ -29,13 +28,16 @@
 # \boldsymbol{\sigma} &= K \boldsymbol{\epsilon}^\mathrm{vol} + 2G_1 \boldsymbol{\epsilon}^\mathrm{dev} + 2G_2 [\boldsymbol{\epsilon}^\mathrm{dev}-\boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v}]
 # \end{aligned}
 # ```
-# ## Implementation
+# 
+# The full script without intermediate comments is available at the 
+# [bottom of this page](@ref viscoelasticity_plain_program).
+# 
 # We start by loading required packages
 using Ferrite, Tensors
 using FerriteAssembly
 import CairoMakie as CM
 
-# ### Material modeling
+# ## Material modeling
 # The easiest way to implement this behavior, would be to use the existing interface from 
 # [MaterialModelsBase.jl](https://github.com/KnutAM/MaterialModelsBase.jl). But for the purpose 
 # of this tutorial, we will do it from scratch to show how to handle state variables in the 
@@ -78,7 +80,7 @@ function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::
     end
 end;
 
-# ### Finite element setup
+# ## Finite element setup
 # To setup our problem, we use a simple grid and define all interpolations, quadrature rules, 
 # etc. as normally for `Ferrite` simulations. We also define the `Zener` material and create the 
 # domain buffer. 
@@ -106,7 +108,7 @@ lh = LoadHandler(dh)
 traction(t) = clamp(t, 0, 1)*Vec((1.0, 0.0))
 add!(lh, Neumann(:u, 2, getfaceset(grid, "right"), (x, t, n) -> traction(t)));
 
-# ### Finite element solution 
+# ## Finite element solution 
 # Given this setup, we define a function that steps through the time history,
 # and for each time step, iterates to find the correct solution. After convergence,
 # we update the state variables.
@@ -142,7 +144,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
             i == maxiter && error("Did not converge")
             ## Solve the linear system and update the dof vector
             a .-= K\r
-            apply_zero!(a, ch)
+            apply!(a, ch) # Make sure Dirichlet BC are exactly fullfilled
         end
         ## If converged, update the old state variables to the current. 
         update_states!(buffer)
@@ -161,7 +163,7 @@ append!(time_history, 1 .+ collect(range(0,1,10)[2:end]).^2)
 
 u1_max, t_force = solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history=time_history[2:end]);
 
-# Plot the results 
+# ## Plot the results 
 fig = CM.Figure()
 ax_t = CM.Axis(fig[1,1]; xlabel="time", ylabel="traction")
 ax_d = CM.Axis(fig[2,1]; xlabel="time", ylabel="displacement")
@@ -170,3 +172,12 @@ CM.scatter!(ax_t, time_history, t_force)
 CM.lines!(ax_d, time_history, u1_max)
 CM.scatter!(ax_d, time_history, u1_max)
 fig
+
+#md # ## [Plain program](@id viscoelasticity_plain_program)
+#md #
+#md # Here follows a version of the program without any comments.
+#md # The file is also available here: [`viscoelasticity.jl`](viscoelasticity.jl).
+#md #
+#md # ```julia
+#md # @__CODE__
+#md # ```

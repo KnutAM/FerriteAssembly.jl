@@ -1,4 +1,6 @@
 # # Threaded assembly 
+# **TLDR:** Call `setup_domainbuffer(domain; threading=true)`.
+# 
 # FerriteAssembly aims to provide most functionality to be optionally done threaded, 
 # to make sure that the assembly (or more generally, calls to `work!`) is not the bottleneck
 # in the simulation time. In this example, we show how to do the assembly of the stationary 
