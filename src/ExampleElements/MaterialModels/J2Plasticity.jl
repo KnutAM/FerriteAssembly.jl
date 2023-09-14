@@ -38,7 +38,7 @@ end
 # The main `material_response` function 
 function MaterialModelsBase.material_response(
     material::J2Plasticity, ϵ::SymmetricTensor{2,3}, state::J2PlasticityState, 
-    Δt, cache=get_cache(material), args...; kwargs...)
+    Δt=NaN, cache=get_cache(material), args...; kwargs...)
     ## unpack some material parameters
     G = material.G
     H = material.H
