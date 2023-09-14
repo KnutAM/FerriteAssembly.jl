@@ -1,5 +1,5 @@
 # # Threaded assembly 
-# **TLDR:** Call `setup_domainbuffer(domain; threading=true)`.
+# **Executive summary:** Call `setup_domainbuffer(domain; threading=true)`.
 # 
 # FerriteAssembly aims to provide most functionality to be optionally done threaded, 
 # to make sure that the assembly (or more generally, calls to `work!`) is not the bottleneck
