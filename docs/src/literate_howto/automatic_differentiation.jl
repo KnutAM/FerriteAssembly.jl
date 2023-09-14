@@ -1,5 +1,5 @@
 # # Automatic differentiation
-# **TLDR:** Define `element_residual!` and call `setup_domainbuffer(domain; autodiffbuffer=true)`.
+# **Executive summary:** Define `element_residual!` and call `setup_domainbuffer(domain; autodiffbuffer=true)`.
 # 
 # Here, we show how to define only the `element_residual!` function, which 
 # does not calculate the element stiffness matrix, `Ke`, and then let `FerriteAssembly`'s
