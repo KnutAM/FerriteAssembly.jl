@@ -3,10 +3,10 @@ using FerriteAssembly
 import CairoMakie as CM
 
 Base.@kwdef struct ZenerMaterial{T}
-    K ::T=5.0   # Bulk modulus
+    K::T =5.0   # Bulk modulus
     G1::T=1.0   # Shear modulus, parallel
     G2::T=50.   # Shear modulus, series
-    η ::T=5.0   # Damping modulus
+    η::T =5.0   # Damping modulus
 end;
 
 function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::CellVectorValues{dim}, args...) where dim
@@ -86,7 +86,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
             i == maxiter && error("Did not converge")
             # Solve the linear system and update the dof vector
             a .-= K\r
-            apply_zero!(a, ch)
+            apply!(a, ch) # Make sure Dirichlet BC are exactly fullfilled
         end
         # If converged, update the old state variables to the current.
         update_states!(buffer)

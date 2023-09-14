@@ -56,7 +56,7 @@ AvgValues() = AvgValues(0.0, 0.0, zero(Vec{2}));
 
 # We then overload the `integrate_cell`
 # function to get the desired volume-averaged values,
-# nothing that here we have access to, e.g., `cellvalues`,
+# noting that here we have access to, e.g., `cellvalues`,
 # and `cellbuffer`, in contrast to when using `SimpleIntegrator`.
 function FerriteAssembly.integrate_cell!(vals::AvgValues, state, ae, material, cellvalues, cellbuffer)
     dru = dof_range(cellbuffer, :u)

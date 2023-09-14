@@ -7,6 +7,8 @@
 # 
 # The example considers solving a plate with a hole. A quater of a plate is considered via symmetry 
 # boundary conditions, and a tensile load is applied on one edge.
+# The full script without intermediate comments is available at the 
+# [bottom of this page](@ref iga_plain_program).
 
 # Start by loading the necessary packages
 using Ferrite, IGA, LinearAlgebra, FerriteAssembly
@@ -45,8 +47,7 @@ function Ferrite.getcoordinates!(bc::BezierCoords{dim,Float64}, grid::BezierGrid
     return bc
 end
 
-# ## Problem setup
-# ### Mesh
+# ## Setup
 # We begin by generating the mesh by using `IGA.jl`'s built-in mesh generators 
 # In this example, we will generate the patch called "plate with hole". 
 # Note, currently this function can only generate the patch with second order basefunctions. 
@@ -62,7 +63,6 @@ function create_mesh(;nels=(20,10))
 end
 grid = create_mesh();
 
-# ### Define interpolations, integration and FE-values
 # Create the cellvalues storing the shape function values. 
 orders=(2,2)
 ip = BernsteinBasis{2,orders}()
@@ -72,7 +72,6 @@ qr_face = QuadratureRule{1,RefCube}(3)
 cv = BezierCellValues( CellVectorValues(qr_cell, ip) );
 fv = BezierFaceValues( FaceVectorValues(qr_face, ip) );
 
-# ### Dof distribution
 # Distribute dofs as normal
 dh = MixedDofHandler(grid)
 push!(dh, :u, 2, ip)
@@ -83,7 +82,6 @@ a = zeros(ndofs(dh))
 r = zeros(ndofs(dh))
 K = create_sparsity_pattern(dh);
 
-# ### Boundary conditions 
 # Starting with Dirichlet conditions: 
 # 1) Bottom face should only be able to move in x-direction
 # 2) Right boundary should only be able to move in y-direction
@@ -100,7 +98,7 @@ traction = Vec((-10.0, 0.0))
 lh = LoadHandler(dh)
 add!(lh, Neumann(:u, fv, getfaceset(grid, "left"), Returns(-traction)));
 
-# ### FerriteAssembly setup 
+# FerriteAssembly setup 
 material = ElasticPlaneStrain(;E=100.0, ν=0.3)
 domain = DomainSpec(FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1]), material, cv)
 buffer = setup_domainbuffer(domain);
@@ -149,8 +147,17 @@ vtk_point_data(vtkgrid, dh, a)
 vtk_point_data(vtkgrid, σ_nodes, "sigma", grid)
 vtk_save(vtkgrid);
 
-using Serialization #src
-uref = deserialize("uref.bin") #src
-sref = deserialize("sref.bin") #src
-@show uref ≈ a #src
-@show sref ≈ σ_nodes #src
+# using Serialization #src
+# uref = deserialize("uref.bin") #src
+# sref = deserialize("sref.bin") #src
+# @show uref ≈ a #src
+# @show sref ≈ σ_nodes #src
+
+#md # ## [Plain program](@id iga_plain_program)
+#md #
+#md # Here follows a version of the program without any comments.
+#md # The file is also available here: [`iga.jl`](iga.jl).
+#md #
+#md # ```julia
+#md # @__CODE__
+#md # ```

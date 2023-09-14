@@ -1,62 +1,88 @@
-# # Multiple materials
-# *How to assemble with different materials on different parts of the grid*\
-# Specifically, how to
-# * Setup multiple domains
-# * Run threaded assembly
-# 
-# ## Material modeling 
-# In addition to `J2Plasticity`, we setup a portion of the domain to use the `ElasticMaterial`
-# that is also defined in [`J2Plasticity.jl`](J2Plasticity.jl) file.
-using Tensors, MaterialModelsBase, Ferrite, FerriteAssembly
-include("J2Plasticity.jl");
+using Ferrite, FerriteAssembly, MaterialModelsBase
+import FerriteAssembly.ExampleElements: J2Plasticity, ElasticPlaneStrain
 
-# ## Standard `Ferrite.jl` setup
-# We start by setting up the 
-grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.0,1.0,1.0)))
-cellvalues = CellVectorValues(
-    QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
-dh = DofHandler(grid); add!(dh, :u, 3); close!(dh) # Create dofhandler
-K = create_sparsity_pattern(dh)
-r = zeros(ndofs(dh))
-a = zeros(ndofs(dh));
+function create_grid_with_inclusion()
+    p1 = Vec((-1.0, -1.0))
+    p2 = Vec(( 1.0,  1.0))
+    grid = generate_grid(Quadrilateral, (20,20), p1, p2)
+    addcellset!(grid, "inclusion", x -> norm(x) < 0.8)
+    addcellset!(grid, "matrix", setdiff(1:getncells(grid), getcellset(grid, "inclusion")))
+    return grid
+end
+grid = create_grid_with_inclusion();
 
-# ## Setting up domains
-# In order to setup a simulation with multiple domains, 
-# we create one `DomainSpec` for each domain. 
-# We start by creating the **elastic domain**,
-addcellset!(grid, "elastic", x -> x[1] <= 5.0+eps())
-cellset_el = getcellset(grid, "elastic")
-material_el = ElasticMaterial(E=200.0e9, ν=0.3)
-domain_el = DomainSpec(dh, material_el, cellvalues; set=cellset_el);
+ip = Lagrange{2,RefCube,1}();
 
-# followed by the **plastic domain**
-cellset_pl = setdiff(1:getncells(grid), cellset_el)
-material_pl = J2Plasticity(200.0e9, 0.3, 200.0e6, 10.0e9)
-domain_pl = DomainSpec(dh, material_pl, cellvalues; set=cellset_pl);
+dh = DofHandler(grid)
+add!(dh, :u, 2, ip)
+close!(dh);
 
-# And then we can set up the assembly, where `threading=true` makes it multithreaded. 
-buffers = setup_domainbuffers(Dict("elastic"=>domain_el, "plastic"=>domain_pl); threading=true);
-# For multiple domains, `buffers::Dict{String}` with same keys as the dictionary given to the 
-# setup function
+ch = ConstraintHandler(dh)
+add!(ch, Dirichlet(:u, getfaceset(grid,"left"), Returns(zero(Vec{2}))))
+f_dbc(x,t) = Vec((0.05*t, 0.0))
+add!(ch, Dirichlet(:u, getfaceset(grid, "right"), f_dbc))
+close!(ch);
 
-# ## Doing the assembly
-assembler = start_assemble(K, r)
-work!(assembler, buffers; a=a);
+qr = QuadratureRule{2,RefCube}(2)
+cv = CellVectorValues(qr, ip);
 
-# ## Updating state variables
-# Updating the state variables after convergence in the current time step works as for single domains,
-update_states!(buffers);
+elastic_material = ElasticPlaneStrain(;E=210e3, ν=0.3)
+plastic_material = ReducedStressState(
+    PlaneStrain(),
+    J2Plasticity(;E=210e3, ν=0.3, σ0=100.0, H=10e3));
 
-# Although the material behaviors are different, #src
-# there are no differences in the responses as the displacements are zero   #src
-# Hence, we can verify that we get the same stiffness in both cases     #src
-# Running a test to be sure #src
-using Test #hide
-K_ref = create_sparsity_pattern(dh) #hide
-r_ref = zeros(ndofs(dh)) #hide
-a_ref = zeros(ndofs(dh)) #hide
-buffer = setup_domainbuffer(DomainSpec(dh, material_el, cellvalues)) #hide
-assembler_ref = start_assemble(K_ref, r_ref) #hide
-work!(assembler_ref, buffer; a=a_ref) #hide
-@test K ≈ K_ref    #hide
-nothing;           #hide
+domains = Dict(
+    "elastic"=>DomainSpec(dh, elastic_material, cv; set=getcellset(grid, "inclusion")),
+    "plastic"=>DomainSpec(dh, plastic_material, cv; set=getcellset(grid, "matrix")) );
+
+buffer = setup_domainbuffers(domains);
+
+function solve_nonlinear_timehistory(buffer, dh, ch; time_history)
+    maxiter = 10
+    tolerance = 1e-6
+    K = create_sparsity_pattern(dh)
+    r = zeros(ndofs(dh))
+    a = zeros(ndofs(dh))
+    # Prepare postprocessing
+    pvd = paraview_collection("multiple_materials.pvd");
+    stepnr = 0
+    vtk_grid("multiple_materials-$stepnr", dh) do vtk
+        vtk_point_data(vtk, dh, a)
+        vtk_cellset(vtk, dh.grid, "inclusion")
+        vtk_save(vtk)
+        pvd[0.0] = vtk
+    end
+    for t in time_history
+        # Update and apply the Dirichlet boundary conditions
+        update!(ch, t)
+        apply!(a, ch)
+        for i in 1:maxiter
+            # Assemble the system
+            assembler = start_assemble(K, r)
+            work!(assembler, buffer; a=a)
+            # Apply boundary conditions
+            apply_zero!(K, r, ch)
+            # Check convergence
+            norm(r) < tolerance && break
+            i == maxiter && error("Did not converge")
+            # Solve the linear system and update the dof vector
+            a .-= K\r
+            apply!(a, ch)
+        end
+        # Postprocess
+        stepnr += 1
+        vtk_grid("multiple_materials-$stepnr", dh) do vtk
+            vtk_point_data(vtk, dh, a)
+            vtk_cellset(vtk, dh.grid, "inclusion")
+            vtk_save(vtk)
+            pvd[t] = vtk
+        end
+        # If converged, update the old state variables to the current.
+        update_states!(buffer)
+    end
+    vtk_save(pvd);
+    return nothing
+end;
+solve_nonlinear_timehistory(buffer, dh, ch; time_history=collect(range(0,1,20)));
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
