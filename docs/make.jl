@@ -11,7 +11,7 @@ include("generate.jl")
 tutorials = ["heat_equation.jl", "viscoelasticity.jl", "incompressible_elasticity.jl", "mixed_materials.jl", "iga.jl"]
 generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [
-    "threaded_assembly.jl", "automatic_differentiation.jl", 
+    "threaded_assembly.jl", "automatic_differentiation.jl", "local_constraints.jl",
     "robin_bc.jl", "volume_integral.jl", "surface_integral.jl"]
 generated_howto = build_examples(howto; type="howto")
 
@@ -24,7 +24,7 @@ DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); re
 makedocs(;
     modules=[FerriteAssembly],
     authors="Knut Andreas Meyer and contributors",
-    repo="https://github.com/KnutAM/FerriteAssembly.jl/blob/{commit}{path}#{line}",
+    #repo="https://github.com/KnutAM/FerriteAssembly.jl/blob/{commit}{path}#{line}",
     sitename="FerriteAssembly.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
