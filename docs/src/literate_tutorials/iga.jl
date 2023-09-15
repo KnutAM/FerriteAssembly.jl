@@ -14,39 +14,6 @@
 using Ferrite, IGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
-# ## Extensions and fixes to IGA.jl 
-# These are all fixed/done in [IGA#9](https://github.com/lijas/IGA.jl/pull/9), 
-# and can be removed once that is merged
-Ferrite.getnormal(fv::BezierFaceValues, i::Int)= fv.cv_bezier.normals[i]
-function Ferrite.spatial_coordinate(bv::IGA.BezierValues, q_point::Int, bc::BezierCoords)
-    return spatial_coordinate(bv, q_point, (bc.xb, bc.wb))
-end
-function Ferrite.function_symmetric_gradient(bv::IGA.BezierValues, q_point::Int, u::AbstractVector, args...)
-    return function_symmetric_gradient(bv.cv_store, q_point, u, args...)
-end
-function Ferrite.shape_symmetric_gradient(bv::IGA.BezierValues, q_point::Int, i::Int)
-    return shape_symmetric_gradient(bv.cv_store, q_point, i)
-end
-
-# This looks like a bug, and need to just overload a more specific version.
-function Ferrite.getcoordinates(grid::BezierGrid{dim,C,T}, ic::Int) where {dim,C,T<:Float64}
-    n = Ferrite.nnodes_per_cell(grid, ic)
-    w = zeros(T, n)
-    wb = zeros(T, n)
-    xb = zeros(Vec{dim,T}, n)
-    x = zeros(Vec{dim,T}, n)
-    
-    ## `copy` to avoid reference the extraction operator
-    bc = BezierCoords(xb, wb, x, w, copy(grid.beo[ic]))
-
-    return getcoordinates!(bc,grid,ic)
-end
-function Ferrite.getcoordinates!(bc::BezierCoords{dim,Float64}, grid::BezierGrid, ic::Int) where {dim}
-    get_bezier_coordinates!(bc.xb, bc.wb, bc.x, bc.w, grid, ic)
-    copyto!(bc.beo, get_extraction_operator(grid, ic)) 
-    return bc
-end
-
 # ## Setup
 # We begin by generating the mesh by using `IGA.jl`'s built-in mesh generators 
 # In this example, we will generate the patch called "plate with hole". 
@@ -147,11 +114,8 @@ vtk_point_data(vtkgrid, dh, a)
 vtk_point_data(vtkgrid, σ_nodes, "sigma", grid)
 vtk_save(vtkgrid);
 
-# using Serialization #src
-# uref = deserialize("uref.bin") #src
-# sref = deserialize("sref.bin") #src
-# @show uref ≈ a #src
-# @show sref ≈ σ_nodes #src
+using Test                                    #src
+@test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src
 
 #md # ## [Plain program](@id iga_plain_program)
 #md #
