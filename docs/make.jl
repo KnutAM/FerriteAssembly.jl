@@ -25,6 +25,7 @@ makedocs(;
     modules=[FerriteAssembly],
     authors="Knut Andreas Meyer and contributors",
     #repo=Remotes.GitHub("KnutAM", "FerriteAssembly.jl"),
+    repo="https://github.com/KnutAM/FerriteAssembly.jl/blob/{commit}{path}#{line}",
     sitename="FerriteAssembly.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
