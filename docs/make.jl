@@ -24,7 +24,7 @@ DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); re
 makedocs(;
     modules=[FerriteAssembly],
     authors="Knut Andreas Meyer and contributors",
-    repo=Remotes.GitHub("KnutAM", "FerriteAssembly.jl"),
+    #repo=Remotes.GitHub("KnutAM", "FerriteAssembly.jl"),
     sitename="FerriteAssembly.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
