@@ -8,7 +8,7 @@ using Documenter
 const is_ci = get(ENV, "CI", "false") == "true"
 
 include("generate.jl")
-tutorials = ["heat_equation.jl"], "viscoelasticity.jl", "incompressible_elasticity.jl", "mixed_materials.jl", "iga.jl"]
+tutorials = ["heat_equation.jl", "viscoelasticity.jl", "incompressible_elasticity.jl", "mixed_materials.jl", "iga.jl"]
 generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [
     "threaded_assembly.jl", "automatic_differentiation.jl", "local_constraints.jl",
