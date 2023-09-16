@@ -8,21 +8,18 @@ using Documenter
 const is_ci = get(ENV, "CI", "false") == "true"
 
 include("generate.jl")
-tutorials = ["heat_equation.jl"] #, "viscoelasticity.jl", "incompressible_elasticity.jl", "mixed_materials.jl", "iga.jl"]
+tutorials = ["heat_equation.jl"], "viscoelasticity.jl", "incompressible_elasticity.jl", "mixed_materials.jl", "iga.jl"]
 generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [
-    #"threaded_assembly.jl", "automatic_differentiation.jl", "local_constraints.jl",
-    #"robin_bc.jl", "volume_integral.jl", 
+    "threaded_assembly.jl", "automatic_differentiation.jl", "local_constraints.jl",
+    "robin_bc.jl", "volume_integral.jl", 
     "surface_integral.jl"]
 generated_howto = build_examples(howto; type="howto")
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
 
 makedocs(;
-    #modules=[FerriteAssembly],
     authors="Knut Andreas Meyer and contributors",
-    #repo=Remotes.GitHub("KnutAM", "FerriteAssembly.jl"),
-    #repo="https://github.com/KnutAM/FerriteAssembly.jl/blob/{commit}{path}#{line}",
     sitename="FerriteAssembly.jl",
     format=Documenter.HTML(;
         canonical="https://KnutAM.github.io/FerriteAssembly.jl",
