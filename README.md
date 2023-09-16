@@ -43,6 +43,6 @@ See the [documentation](https://KnutAM.github.io/FerriteAssembly.jl/dev) for mor
 
 ## Using with `Ferrite.jl`'s master branch
 This badge shows if `FerriteAssembly#main` is compatible with `Ferrite#master`.
-Currently, it will likely remain incompatible until some open issues regarding interfaces for the new Ferrite v0.4 release are solved. 
+Currently, it will likely remain incompatible until some open issues regarding interfaces for the new Ferrite v1.0 release are solved. 
 
 [![Ferrite#master](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/FerriteMasterCI.yml/badge.svg?branch=main)](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/FerriteMasterCI.yml?query=branch%3Amain)
