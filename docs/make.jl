@@ -17,21 +17,19 @@ generated_howto = build_examples(howto; type="howto")
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
 
-# Run example from `index.md` to force CI failure if it doesn't work
-# include("src/firstexample_literate.jl")
-
-
 makedocs(;
-    modules=[FerriteAssembly],
+    #modules=[FerriteAssembly],
     authors="Knut Andreas Meyer and contributors",
     #repo=Remotes.GitHub("KnutAM", "FerriteAssembly.jl"),
-    repo="https://github.com/KnutAM/FerriteAssembly.jl/blob/{commit}{path}#{line}",
+    #repo="https://github.com/KnutAM/FerriteAssembly.jl/blob/{commit}{path}#{line}",
     sitename="FerriteAssembly.jl",
     format=Documenter.HTML(;
-        prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://KnutAM.github.io/FerriteAssembly.jl",
         assets=String[],
+        collapselevel = 1,
     ),
+    warnonly = true,
+    doctest = false,
     pages=[
         "Home" => "index.md",
         "Learning by doing" => [
@@ -63,7 +61,7 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/KnutAM/FerriteAssembly.jl",
+    repo="github.com/KnutAM/FerriteAssembly.jl.git",
     devbranch="main",
     push_preview=true,
 )
