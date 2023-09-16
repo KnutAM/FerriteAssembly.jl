@@ -1,4 +1,4 @@
-using Ferrite, FerriteAssembly, BenchmarkTools
+using Ferrite, FerriteAssembly
 grid = generate_grid(Quadrilateral, (20, 20))
 dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
 cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
