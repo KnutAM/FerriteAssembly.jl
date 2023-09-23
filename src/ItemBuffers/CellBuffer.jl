@@ -19,11 +19,11 @@ mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC} <: AbstractCellBuffer
     cellid::Int                       # Current cell nr (updated in reinit!)
     const dofrange::DR                # dof range for each field (NamedTuple)
     # User defined types
-    material::MT                      # User material definition (used for dispatch)
-    state::ST                     # State variables re-pointed to current cell during reinit!
+    const material::MT                # User material definition (used for dispatch)
+    state::ST                         # State variables re-pointed to current cell during reinit!
     old_state::ST                     # Old state variables for the cell (updated in reinit!)
     const user_data::UD               # User data for the cell (used for additional information)
-    const user_cache::UC                   # Cache for the cell (user type) (deepcopy for each thread)
+    const user_cache::UC              # Cache for the cell (user type) (deepcopy for each thread)
 end
 
 """
@@ -133,4 +133,8 @@ function reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; 
     fill!(cb.Ke, 0)
     fill!(cb.re, 0)
     return nothing  # Ferrite's reinit! doesn't return 
+end
+
+function _replace_material_with(cb::CellBuffer, new_material)
+    return _replace_field(cb, Val(:material), new_material)
 end

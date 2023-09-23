@@ -6,6 +6,7 @@ import FerriteAssembly.ExampleElements as EE
 import MaterialModelsBase as MMB
 using Logging
 
+include("replacements.jl")
 include("states.jl") 
 include("threading_utils.jl")
 include("heatequation.jl")

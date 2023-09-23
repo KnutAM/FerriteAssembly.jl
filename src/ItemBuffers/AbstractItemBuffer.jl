@@ -82,8 +82,14 @@ Ferrite.dof_range(::AbstractItemBuffer, ::Symbol) = error("Not implemented")
 # Set functions 
 function set_time_increment! end
 
+function _replace_material(buf::AbstractItemBuffer, replacement_function)
+    new_material = replacement_function(get_material(buf))
+    return _replace_material_with(buf, new_material)
+end
+
 # Common parts for taskLocals interface
 function scatter!(task::AbstractItemBuffer, base::AbstractItemBuffer)
     set_time_increment!(task, get_time_increment(base))
 end
 gather!(::AbstractItemBuffer, ::AbstractItemBuffer) = nothing
+

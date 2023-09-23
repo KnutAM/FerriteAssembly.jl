@@ -54,6 +54,15 @@ reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.c
 
 set_time_increment!(c::AutoDiffCellBuffer, Δt) = set_time_increment!(c.cb, Δt)
 
+function _replace_material_with(ad_cb::AutoDiffCellBuffer{CB}, new_material) where CB
+    cb = _replace_field(ad_cb.cb, Val(:material), new_material)
+    if isa(cb, CB) # If type didn't change, no need to recalculate autodiff buffers
+        return _replace_field(ad_cb, Val(:cb), cb)
+    else
+        return AutoDiffCellBuffer(cb)
+    end
+end
+
 function create_local(c::AutoDiffCellBuffer)
     cb = create_local(c.cb)
     AutoDiffCellBuffer(cb, deepcopy(c.er), deepcopy(c.cfg))
@@ -108,5 +117,5 @@ function ad_error(e, Ke, re, state, ae, material, cellvalues, buffer)
             println(stderr, "entries into objects with regular numbers, please consult the docs of `element_residual!`")
         end
     end
-    rethrow()
+    throw(e)
 end

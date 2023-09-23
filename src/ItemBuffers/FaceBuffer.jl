@@ -111,3 +111,7 @@ function reinit_buffer!(fb::FaceBuffer, db::AbstractDomainBuffer, fi::FaceIndex;
     fill!(fb.re, 0)
     return nothing  # Ferrite's reinit! doesn't return 
 end
+
+function _replace_material_with(fb::FaceBuffer, new_material)
+    return _replace_field(fb, Val(:material), new_material)
+end
