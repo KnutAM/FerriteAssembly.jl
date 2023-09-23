@@ -3,7 +3,7 @@ abstract type AbstractDomainBuffer end
 get_num_tasks(::AbstractDomainBuffer) = Threads.nthreads() # Default for now
 
 const DomainBuffers = Dict{String,<:AbstractDomainBuffer}
-# Acessor functions
+# Accessor functions
 """
     get_dofhandler(dbs::Dict{String,AbstractDomainBuffer})
     get_dofhandler(db::AbstractDomainBuffer)
@@ -25,20 +25,25 @@ get_itembuffer(db::DomainBuffers, domain::String) = get_itembuffer(db[domain])
 
 """
     get_state(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
-    get_state(db::AbstractDomainBuffer)
+    get_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
 
 Get the `states::Dict{Int,S}`, where `S` type of the state for each entity in the domain,
-stored in the `db` or `dbs[domain]`.
+stored in the `db` or `dbs[domain]`. If no `domain` is given for multiple domains, a 
+Dict{String} is returned with state variables for each domain
 """
-get_state(db::DomainBuffers, domain::String, args...) = get_state(db[domain], args...)
+get_state(db::DomainBuffers, domain::String) = get_state(db[domain])
+get_state(db::DomainBuffers) = Dict(key=>get_state(val) for (key,val) in db)
+
 """
     get_old_state(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
-    get_old_state(db::AbstractDomainBuffer)
+    get_old_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
 
 Get the `states::Dict{Int,S}`, where `S` type of the state for each entity in the domain,
-stored in the `db` or `dbs[domain]`.
+stored in the `db` or `dbs[domain]`. If no `domain` is given for multiple domains, a 
+Dict{String} is returned with state variables for each domain
 """
-get_old_state(db::DomainBuffers, domain::String, args...) = get_old_state(db[domain], args...)
+get_old_state(db::DomainBuffers, domain::String) = get_old_state(db[domain])
+get_old_state(db::DomainBuffers) = Dict(key=>get_old_state(val) for (key,val) in db)
 
 """
     get_material(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
@@ -78,6 +83,17 @@ function set_time_increment!(dbs::DomainBuffers, Δt)
     for db in values(dbs)
         set_time_increment!(db, Δt)
     end
+end
+
+"""
+    replace_material(db::Dict{String,AbstractDomainBuffer}, replacement_function)
+    replace_material(db::AbstractDomainBuffer, replacement_function)
+
+Return a new instance of `db` where as much as possible is copied by reference, and 
+where the stored material, `m`, is replaced by `replacement_function(m)`.
+"""
+function replace_material(dbs::DomainBuffers, replacement_function)
+    return Dict(key=>replace_material(db, replacement_function) for (key,db) in dbs)
 end
 
 """
@@ -138,3 +154,13 @@ function set_time_increment!(b::StdDomainBuffer, Δt)
     set_time_increment!(get_base(get_itembuffer(b)), Δt)
 end
 
+function replace_material(db::DomainBuffer, replacement_function)
+    itembuffer = _replace_material(db.itembuffer, replacement_function)
+    return _replace_field(db, Val(:itembuffer), itembuffer)
+end
+function replace_material(db::ThreadedDomainBuffer, replacement_function)
+    base_ibuf = _replace_material(get_base(db.itembuffer), replacement_function)
+    task_ibuf = map(ibuf->_replace_material(ibuf, replacement_function), get_locals(db.itembuffer))
+    itembuffer = TaskLocals(base_ibuf, task_ibuf)
+    return _replace_field(db, Val(:itembuffer), itembuffer)
+end
