@@ -10,8 +10,9 @@ import FerriteAssembly.ExampleElements: StationaryFourier
 
 # The setup is the same as always, i.e.
 grid = generate_grid(Quadrilateral, (20, 20))
-dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
-cellvalues = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
+ip = Lagrange{RefQuadrilateral,1}()
+dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+cellvalues = CellValues(QuadratureRule{RefQuadrilateral}(2), ip);
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
 
