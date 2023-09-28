@@ -6,10 +6,10 @@
     f_repl2(::EE.LinearElastic) = m_pl
     f_repl3(::EE.J2Plasticity) = m_el
     grid = generate_grid(Quadrilateral, (2,2))
-    dh = DofHandler(grid); add!(dh, :u, 2); close!(dh)
-    ip = Lagrange{2,RefCube,1}()
-    qr = QuadratureRule{2,RefCube}(2)
-    cv = CellVectorValues(qr, ip, ip)
+    ip = Lagrange{RefQuadrilateral,1}()^2
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+    qr = QuadratureRule{RefQuadrilateral}(2)
+    cv = CellValues(qr, ip, ip)
     dspec = DomainSpec(dh, m_el, cv)
     buffer = setup_domainbuffer(dspec)
     ad_buffer = setup_domainbuffer(dspec; autodiffbuffer=true)

@@ -8,36 +8,39 @@
         return grid
     end
 
-    function get_dh()
+    function get_dh(ip = Lagrange{RefQuadrilateral,1}())
         grid = get_grid();
         dh = DofHandler(grid)
-        add!(dh, :u, 1)
+        add!(dh, :u, ip)
         close!(dh);
         return dh
     end
 
-    function get_mdh(ip)
+    function get_mdh(ip = Lagrange{RefQuadrilateral,1}())
         grid = get_grid();
-        dh = MixedDofHandler(grid)
         n_half = getncells(grid)÷2
-        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect(1:n_half))))
-        add!(dh, FieldHandler([Field(:u, ip, 1)], Set(collect((n_half+1):getncells(grid)))))
-        close!(dh);
+        dh = DofHandler(grid)
+        
+        sdh1 = SubDofHandler(dh, Set(collect(1:n_half)))
+        add!(sdh1, :u, ip)
+
+        sdh2 = SubDofHandler(dh, Set(collect((n_half+1):getncells(grid))))
+        add!(sdh2, :u, ip)
+
+        close!(dh)
         return dh
     end
 
-    function setup_heatequation(DH=DofHandler)
-        dim = 2
-        ip = Lagrange{dim, RefCube, 1}()
-        qr = QuadratureRule{dim, RefCube}(2)
-        cellvalues = CellScalarValues(qr, ip);
-        dh = DH==MixedDofHandler ? get_mdh(ip) : get_dh()
+    function setup_heatequation(DH=:singlesdh)
+        ip = Lagrange{RefQuadrilateral,1}()
+        qr = QuadratureRule{RefQuadrilateral}(2)
+        cellvalues = CellValues(qr, ip);
+        dh = DH==:singlesdh ? get_dh(ip) : get_mdh(ip)
         K = create_sparsity_pattern(dh)
-
         return cellvalues, K, dh
     end
 
-    function assemble_element!(Ke::Matrix, fe::Vector, cellvalues::CellScalarValues)
+    function assemble_element!(Ke::Matrix, fe::Vector, cellvalues::CellValues)
         n_basefuncs = getnbasefunctions(cellvalues)
         # Reset to 0
         fill!(Ke, 0)
@@ -63,7 +66,7 @@
         return Ke, fe
     end
 
-    function assemble_global(cellvalues::CellScalarValues, K::SparseMatrixCSC, dh::DofHandler)
+    function assemble_global(cellvalues::CellValues, K::SparseMatrixCSC, dh::DofHandler)
         # Allocate the element stiffness matrix and element force vector
         n_basefuncs = getnbasefunctions(cellvalues)
         Ke = zeros(n_basefuncs, n_basefuncs)
@@ -126,7 +129,7 @@
     
     function setup_assembly_test(dh, material, cv; autodiff_cb=false, threaded=false)
         BufferType = threaded ? FerriteAssembly.ThreadedDomainBuffer : FerriteAssembly.DomainBuffer
-        if isa(material, Dict) && isa(dh, DofHandler)
+        if isa(material, Dict) && length(dh.subdofhandlers) == 1
             setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
             ad1 = DomainSpec(dh, material["A"], cv; set=setA)
             ad2 = DomainSpec(dh, material["B"], cv; set=setB)
@@ -135,9 +138,9 @@
             @test isa(FerriteAssembly.get_old_state(buffer, "A"), Dict{Int})
             @test isa(FerriteAssembly.get_old_state(buffer, "B"), Dict{Int})
             return buffer
-        elseif isa(material, Dict) && isa(dh, MixedDofHandler)
-            sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
-            sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
+        elseif isa(material, Dict) && length(dh.subdofhandlers) > 1
+            sdh1 = dh.subdofhandlers[1]
+            sdh2 = dh.subdofhandlers[2]
             set1 = getcellset(sdh1)
             setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
 
@@ -150,9 +153,9 @@
             @test isa(buffer, Dict{String,<:BufferType})
             @test isa(FerriteAssembly.get_old_state(buffer, "sdh1A"), Dict{Int})
             return buffer
-        elseif isa(dh, MixedDofHandler)
-            sdh1 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1])
-            sdh2 = FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[2])
+        elseif length(dh.subdofhandlers) > 1
+            sdh1 = dh.subdofhandlers[1]
+            sdh2 = dh.subdofhandlers[2]
             set1 = getcellset(sdh1); set2 = getcellset(sdh2)
             ad1 = DomainSpec(sdh1, material, cv; set=set1)
             ad2 = DomainSpec(sdh2, material, cv; set=set2)
@@ -168,7 +171,7 @@
         end
     end
     
-    for DH in (DofHandler, MixedDofHandler)
+    for DH in (:singlesdh, :doublesdh)
         for mattype in (:same, :ad, :mixed, :weak)
             material = materials[mattype]
             

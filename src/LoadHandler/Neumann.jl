@@ -32,7 +32,7 @@ struct Neumann{FVI,FUN}
     fieldname::Symbol
     fv_info::FVI
     faceset::Set{FaceIndex}
-    f::FUN # f(x::Vec, time, n::Vec)->{FV::FaceScalarValues ? Number : Vec}
+    f::FUN # f(x::Vec, time, n::Vec)->{ip::ScalarInterpolation ? Number : Vec}
 end
 
 # Internal
@@ -55,29 +55,25 @@ function face_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::FaceValues
     end
 end
 
-function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::DofHandler)
-    return add_neumann!(nbcs, nbc, SubDofHandler(dh))
-end
-
 function add_neumann!(nbcs::Dict{String,BT}, nbc::Neumann, sdh::SubDofHandler) where BT
     material = NeumannMaterial(nbc.f, dof_range(sdh, nbc.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
     ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
-    fv = autogenerate_facevalues(nbc.fv_info, ip, ip_geo, nbc.f)
+    fv = autogenerate_facevalues(nbc.fv_info, ip, ip_geo)
     
     domain_spec = DomainSpec(sdh, material, fv; set=nbc.faceset)
     threading = BT <: ThreadedDomainBuffer
     nbcs[string(length(nbcs)+1)] = setup_domainbuffer(domain_spec; threading=threading)
 end
 
-function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::MixedDofHandler)
+function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::DofHandler)
     contribution = false
-    for fh in dh.fieldhandlers
-        overlaps = overlaps_with_cellset(nbc.faceset, fh.cellset)
-        if overlaps && nbc.fieldname ∈ Ferrite.getfieldnames(fh)
+    for sdh in dh.subdofhandlers
+        overlaps = overlaps_with_cellset(nbc.faceset, getcellset(sdh))
+        if overlaps && nbc.fieldname ∈ Ferrite.getfieldnames(sdh)
             contribution = true
-            add_neumann!(nbcs, nbc, SubDofHandler(dh, fh))
+            add_neumann!(nbcs, nbc, sdh)
         end
     end
     contribution || @warn "No contributions added to the LoadHandler"

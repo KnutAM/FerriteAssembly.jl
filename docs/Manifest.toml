@@ -2,7 +2,7 @@
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "b393b6e098d8aaed8ac4b8d1fdf86766f1ea2b7b"
+project_hash = "504dbad7ca66224f171278d83eb1ba1a19f056fc"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -558,14 +558,6 @@ deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
 git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.23"
-
-[[deps.IGA]]
-deps = ["Ferrite", "LinearAlgebra", "Reexport", "SparseArrays", "StaticArrays", "Tensors", "WriteVTK"]
-git-tree-sha1 = "e62f897d17e462b709cb299b8d9a092aef8cf60b"
-repo-rev = "master"
-repo-url = "git@github.com:lijas/IGA.jl.git"
-uuid = "e7b8d123-e02a-40ba-ad18-d3943ed54f1c"
-version = "0.2.5"
 
 [[deps.IOCapture]]
 deps = ["Logging", "Random"]

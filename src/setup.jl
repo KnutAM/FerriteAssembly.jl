@@ -41,7 +41,8 @@ function DomainSpec(sdh::SubDofHandler, material, values; set=getcellset(sdh), c
     return DomainSpec(sdh, material, values, intersected_set, colors_or_chunks, user_data)
 end
 function DomainSpec(dh::DofHandler, args...; kwargs...)
-    return DomainSpec(SubDofHandler(dh), args...; kwargs...)
+    length(dh.subdofhandlers) > 1 && error("A domain requires a single SubDofHandler")
+    return DomainSpec(dh.subdofhandlers[1], args...; kwargs...)
 end
 
 """

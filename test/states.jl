@@ -51,16 +51,16 @@ end
     
     for (CT, Dim) in ((Line, 1), (QuadraticTriangle, 2), (Hexahedron, 3))
         grid = generate_grid(CT, ntuple(_->3, Dim))
-        dh = DofHandler(grid); add!(dh, :u, Dim); close!(dh);
+        ip = Ferrite.default_interpolation(CT)
+        dh = DofHandler(grid); add!(dh, :u, ip^Dim); close!(dh);
 
         K = create_sparsity_pattern(dh)
         r = zeros(ndofs(dh));
         kr_assembler = start_assemble(K, r)
         r_assembler = FerriteAssembly.ReAssembler(r)
         a = copy(r)
-        ip = Ferrite.default_interpolation(getcelltype(grid))
         RefShape = Ferrite.getrefshape(ip)
-        cv = CellVectorValues(QuadratureRule{Dim,RefShape}(2), ip);
+        cv = CellValues(QuadratureRule{RefShape}(2), ip^Dim, ip);
 
         # MatA: 
         # - Check correct values before and after update
@@ -134,10 +134,11 @@ end
         @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
     end
 
-    dh = DofHandler(generate_grid(Triangle, (2,2))); add!(dh, :u, 1); close!(dh);
+    ip = Lagrange{RefTriangle,1}()
+    dh = DofHandler(generate_grid(Triangle, (2,2))); add!(dh, :u, ip); close!(dh);
     
     # Smoke-test of update_states! for nothing states (and check no allocations)
-    cv = CellScalarValues(QuadratureRule{2,RefTetrahedron}(2), Lagrange{2,RefTetrahedron,1}())
+    cv = CellValues(QuadratureRule{RefTriangle}(2), ip)
     buffer = setup_domainbuffer(DomainSpec(dh, nothing, cv))
     @test isa(FerriteAssembly.get_state(buffer), Dict{Int,Nothing})
     update_states!(buffer) # Compile

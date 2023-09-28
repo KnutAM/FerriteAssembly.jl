@@ -1,8 +1,9 @@
 @testset "Errors" begin
     printstyled("=== Testing will give expected error messages, ok if tests pass! ===\n"; color=:green, bold=true)
     grid = generate_grid(Quadrilateral, (2,2))
-    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
-    cv = CellScalarValues(QuadratureRule{2, RefCube}(2), Lagrange{2, RefCube, 1}());
+    ip = Lagrange{RefQuadrilateral,1}()
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+    cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip);
     K = create_sparsity_pattern(dh)
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))

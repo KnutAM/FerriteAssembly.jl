@@ -34,7 +34,7 @@ struct BodyLoad{CVI,FUN}
     fieldname::Symbol
     cv_info::CVI
     cellset::Union{Set{Int},Nothing}
-    f::FUN # f(x::Vec, time)->{cv::CellScalarValues ? Number : Vec}
+    f::FUN # f(x::Vec, time)->{ip::ScalarInterpolation ? Number : Vec}
 end
 BodyLoad(fieldname::Symbol, cv_info, f) = BodyLoad(fieldname, cv_info, nothing, f)
 
@@ -57,16 +57,12 @@ function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv:
     end
 end
 
-function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::DofHandler)
-    add_bodyload!(bodyloads, bodyload, SubDofHandler(dh))
-end
-
 function add_bodyload!(bodyloads::Dict{String,BT}, bodyload::BodyLoad, sdh::SubDofHandler) where BT
     material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, bodyload.fieldname)
     ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
-    cv = autogenerate_cellvalues(bodyload.cv_info, ip, ip_geo, bodyload.f)
+    cv = autogenerate_cellvalues(bodyload.cv_info, ip, ip_geo)
 
     set = bodyload.cellset===nothing ? getcellset(sdh) : bodyload.cellset
     
@@ -75,13 +71,13 @@ function add_bodyload!(bodyloads::Dict{String,BT}, bodyload::BodyLoad, sdh::SubD
     bodyloads[string(length(bodyloads)+1)] = setup_domainbuffer(domain_spec; threading=threading)
 end
 
-function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::MixedDofHandler)
+function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::DofHandler)
     contribution = false
-    for fh in dh.fieldhandlers
-        overlaps = overlaps_with_cellset(bodyload.cellset, fh.cellset)
-        if overlaps && bodyload.fieldname ∈ Ferrite.getfieldnames(fh)
+    for sdh in dh.subdofhandlers
+        overlaps = overlaps_with_cellset(bodyload.cellset, getcellset(sdh))
+        if overlaps && bodyload.fieldname ∈ Ferrite.getfieldnames(sdh)
             contribution = true
-            add_bodyload!(bodyloads, bodyload, SubDofHandler(dh, fh))
+            add_bodyload!(bodyloads, bodyload, sdh)
         end
     end
     contribution || @warn "No contributions added to the LoadHandler"
