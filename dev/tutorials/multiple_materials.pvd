@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VTKFile type="Collection" version="1.0" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+  <Collection>
+    <DataSet timestep="0.0" part="0" file="multiple_materials-0.vtu"/>
+    <DataSet timestep="0.0" part="0" file="multiple_materials-1.vtu"/>
+    <DataSet timestep="0.05263157894736842" part="0" file="multiple_materials-2.vtu"/>
+    <DataSet timestep="0.10526315789473684" part="0" file="multiple_materials-3.vtu"/>
+    <DataSet timestep="0.15789473684210525" part="0" file="multiple_materials-4.vtu"/>
+    <DataSet timestep="0.21052631578947367" part="0" file="multiple_materials-5.vtu"/>
+    <DataSet timestep="0.2631578947368421" part="0" file="multiple_materials-6.vtu"/>
+    <DataSet timestep="0.3157894736842105" part="0" file="multiple_materials-7.vtu"/>
+    <DataSet timestep="0.3684210526315789" part="0" file="multiple_materials-8.vtu"/>
+    <DataSet timestep="0.42105263157894735" part="0" file="multiple_materials-9.vtu"/>
+    <DataSet timestep="0.47368421052631576" part="0" file="multiple_materials-10.vtu"/>
+    <DataSet timestep="0.5263157894736842" part="0" file="multiple_materials-11.vtu"/>
+    <DataSet timestep="0.5789473684210527" part="0" file="multiple_materials-12.vtu"/>
+    <DataSet timestep="0.631578947368421" part="0" file="multiple_materials-13.vtu"/>
+    <DataSet timestep="0.6842105263157895" part="0" file="multiple_materials-14.vtu"/>
+    <DataSet timestep="0.7368421052631579" part="0" file="multiple_materials-15.vtu"/>
+    <DataSet timestep="0.7894736842105263" part="0" file="multiple_materials-16.vtu"/>
+    <DataSet timestep="0.8421052631578947" part="0" file="multiple_materials-17.vtu"/>
+    <DataSet timestep="0.8947368421052632" part="0" file="multiple_materials-18.vtu"/>
+    <DataSet timestep="0.9473684210526315" part="0" file="multiple_materials-19.vtu"/>
+    <DataSet timestep="1.0" part="0" file="multiple_materials-20.vtu"/>
+  </Collection>
+</VTKFile>
