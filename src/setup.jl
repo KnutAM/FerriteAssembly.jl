@@ -1,176 +1,104 @@
 """
-    AssemblyDomain(name, dh, material, cellvalues; cellset, colors=nothing, user_data=nothing)
+    DomainSpec(sdh::SubDofHandler, material, fe_values; set=getcellset(sdh), colors_or_chunks=nothing, user_data=nothing)
+    DomainSpec(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing)
 
-Create an `AssemblyDomain` that can be used when calling [`setup_assembly`](@ref) to assemble multiple domains.
-`name` is used to access the corresponding `DomainBuffer` and state variables returned by `setup_assembly`. 
-If not given, `cellset` is attempted to be inferred from the DofHandler, `dh`. 
+Create a `DomainSpec` that can be used to set up a domain buffer. 
+
+* `sdh`/`dh`: Give the `DofHandler` for the domain in question, or a `SubDofHandler` in case there are more than one in `DofHandler` 
+  (See `Ferrite.jl's documentation`)
+* `material`: Used for dispatch on the utilized `worker`'s function. 
+* `fe_values`: `CellValues` or `FaceValues` depending on the type of domain. 
+* `set`: The items in the domain, the element type determines the type of domain 
+  - Cell domain: `Int`
+  - Face domain: `FaceIndex`
+* `colors::Vector{Vector{I}}`: used to avoid race conditions when multithreading. 
+  For cell domains, `I=Int`, and for face domains, `I` can be either `Int` 
+  (denoting cell numbers) or `FaceIndex` for actual faces. If `I=Int`, it will be 
+  converted to `FaceIndex` internally. If `colors=nothing` and `chunks=nothing`, 
+  `Ferrite.jl`'s default coloring algorithm is used.
+* `chunks::Vector{Vector{Vector{I}}}`. During multithreading, each task works with 
+  items in one `chunk::Vector{I}` at a time. Items in `chunks[k][i]` and `chunks[k][j]`
+  should be independent (i.e. not share dofs). If given, this input takes precidence over 
+  `colors`. For `chunks`, `I` must be `Int` for cell domains and `FaceIndex` for face domains. 
+* `user_data`: Can be whatever the user wants to and is passed along by reference everywhere. 
+  It is accessible from the `ItemBuffer` (e.g. `CellBuffer`) given to the `worker`'s function
+  via the `get_user_data` function. However, since it is passed by reference, modifying values 
+  during work, care must be taken to ensure thread safety. 
+  To avoid allocations, caches can be created separately with `allocate_cell_cache` and 
+  `allocate_face_cache`.
 """
-struct AssemblyDomain
-    name::String
+struct DomainSpec{I}
     sdh::SubDofHandler
     material::Any
-    cellvalues::Union{CellValues,NamedTuple}
-    cellset::Union{AbstractVector{Int},AbstractSet{Int}} # Includes UnitRange
-    colors::Any
+    fe_values::Any
+    set::Union{AbstractVector{I},AbstractSet{I}}
+    colors_or_chunks::Any
     user_data::Any
 end
-function AssemblyDomain(name, sdh, material, cellvalues; cellset=getcellset(sdh), colors=nothing, user_data=nothing)
-    return AssemblyDomain(name, sdh, material, cellvalues, cellset, colors, user_data)
+function DomainSpec(sdh::SubDofHandler, material, values; set=getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing)
+    intersected_set = intersect_cellset_sort(set, getcellset(sdh))
+    colors_or_chunks = chunks!==nothing ? chunks : colors
+    return DomainSpec(sdh, material, values, intersected_set, colors_or_chunks, user_data)
 end
-function AssemblyDomain(name, dh::DofHandler, args...; kwargs...)
-    return AssemblyDomain(name, SubDofHandler(dh), args...; kwargs...)
+function DomainSpec(dh::DofHandler, args...; kwargs...)
+    return DomainSpec(SubDofHandler(dh), args...; kwargs...)
 end
-
-abstract type AbstractDomainBuffer end
-
-struct DomainBuffer{SDH<:SubDofHandler,CB<:AbstractCellBuffer} <: AbstractDomainBuffer
-    # TA=true if threaded, false if sequential
-    sdh::SDH                # SubDofHandler
-    cellset::Vector{Int}    # 
-    cellbuffer::CB          # AbstractCellBuffer
-end
-function DomainBuffer(sdh::SubDofHandler, cellset, cellbuffer::AbstractCellBuffer)
-    cellset_ = sort!(collect(intersect(getcellset(sdh), cellset))) # Saves a copy that is also sorted, making sure it is always Vector{Int}
-    return DomainBuffer(sdh, cellset_, cellbuffer)
-end
-"""
-    get_material(buffer::AbstractDomainBuffer)
-    get_material(buffers::Dict{String,<:AbstractDomainBuffer}, name::String)
-
-Get the material stored in `buffer` or `buffers[name]`. Note that when called for 
-`buffers::Dict`, the output will be type-unstable and care must be taken (by e.g. function barriers)
-if used in performance sensitive locations. 
-"""
-get_material(buffer::DomainBuffer) = get_material(buffer.cellbuffer)
 
 """
-    modify_material!(fun, buffer)
+    setup_domainbuffers(domains::Dict{String,DomainSpec}; kwargs...)
 
-Modify the material(s) in the buffer returned by `setup_assembly`
-as `m = fun(m)`. Note that `typeof(m)==typeof(fun(m))` must hold true.
+Setup multiple domain buffers, one for each `DomainSpec` in `domains`.
+See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
 """
-modify_material!(fun, buffer::DomainBuffer) = modify_material!(fun, buffer.cellbuffer)
-
-struct ThreadedDomainBuffer{SDH<:SubDofHandler, CB<:AbstractCellBuffer} <: AbstractDomainBuffer
-    sdh::SDH 
-    cellset::Vector{Int}
-    colors::Vector{Vector{Int}}
-    saved_set_chunks::Vector{Vector{Vector{Int}}}
-    cellbuffers::TaskLocals{CB,CB}
-end
-# Threaded
-function ThreadedDomainBuffer(sdh::SubDofHandler, cellset, colors::Vector, cellbuffer::AbstractCellBuffer)
-    cellset_intersect = sort!(collect(intersect(cellset, getcellset(sdh))))
-    colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset_intersect), colors)
-    cellbuffers = TaskLocals(cellbuffer)
-    # See TaskChunks.jl for create_chunks
-    saved_set_chunks = [create_chunks(set) for set in colors_intersect]
-    return ThreadedDomainBuffer(sdh, cellset_intersect, colors_intersect, saved_set_chunks, cellbuffers)
+function setup_domainbuffers(domains::Dict{String,<:DomainSpec}; kwargs...)
+    return Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
 end
 
-get_material(buffer::ThreadedDomainBuffer) = get_material(get_base(buffer.cellbuffers))
-get_material(buffers::Dict{String,<:AbstractDomainBuffer}, name::String) = get_material(buffers[name]) # Note: Not typestable!
+"""
+    setup_domainbuffer(domain::DomainSpec; a=nothing, threading=false, autodiffbuffer=false)
 
-function modify_material!(fun, buffer::ThreadedDomainBuffer)
-    modify_material!(fun, get_base(buffer.cellbuffers))
-    for cellbuffer in get_locals(buffer.cellbuffers)
-        modify_material!(fun, cellbuffer)
-    end
-end
-function modify_material!(fun, buffers::Dict{String,<:AbstractDomainBuffer})
-    for (_, buffer) in buffers
-        modify_material!(fun, buffer)
-    end
+Setup a domain buffer for a single grid domain, `domain`. 
+* `a::Vector`: The global degree of freedom values are used to pass the 
+  local element dof values to the [`create_cell_state`](@ref) function, 
+  making it possible to create the initial state dependent on the initial 
+  conditions for the field variables. 
+* `threading`: Should a `ThreadedDomainBuffer` be created to work the grid multithreaded
+  if supported by the used `worker`?
+* `autodiffbuffer`: Should a custom itembuffer be used to speed up the automatic 
+  differentiation (if supported by the itembuffer)
+"""
+function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
+    return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
-Ferrite.getcellset(b::Union{DomainBuffer, ThreadedDomainBuffer}) = b.cellset
+create_states(domain::DomainSpec{Int}, a) = create_states(domain.sdh, domain.material, domain.fe_values, a, domain.set, create_dofrange(domain.sdh))
+create_states(::DomainSpec{FaceIndex}, ::Any) = Dict{Int,Nothing}()
+
+function setup_itembuffer(adb, domain::DomainSpec{FaceIndex}, args...)
+    dofrange = create_dofrange(domain.sdh)
+    return setup_facebuffer(adb, domain.sdh, domain.fe_values, domain.material, dofrange, domain.user_data)
+end
+function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
+    dofrange = create_dofrange(domain.sdh)
+    return setup_cellbuffer(adb, domain.sdh, domain.fe_values, domain.material, first(values(states)), dofrange, domain.user_data)
+end
+
+function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false))
+    states = create_states(domain, a)
+    old_states = create_states(domain, a)
+    itembuffer = setup_itembuffer(autodiffbuffer, domain, states)
+    return _setup_domainbuffer(threaded, domain.set, itembuffer, states, old_states, domain.sdh, domain.colors_or_chunks)
+end
 
 # Type-unstable switch
-setup_domainbuffer(threaded::Bool, args...; kwargs...) = setup_domainbuffer(Val(threaded), args...; kwargs...)
-
+function _setup_domainbuffer(threaded::Bool, args...)
+    return _setup_domainbuffer(Val(threaded), args...)
+end
 # Sequential
-setup_domainbuffer(::Val{false}, sdh, cellset, cellbuffer, colors) = DomainBuffer(sdh, cellset, cellbuffer)
-
+function _setup_domainbuffer(::Val{false}, set, itembuffer, states, old_states, sdh, args...)
+    return DomainBuffer(set, itembuffer, states, old_states, sdh)
+end
 # Threaded
-function setup_domainbuffer(::Val{true}, sdh, cellset, cellbuffer, colors::Nothing)
-    _colors = create_coloring(_getgrid(sdh), cellset)
-    return ThreadedDomainBuffer(sdh, cellset, _colors, cellbuffer)
-end
-function setup_domainbuffer(::Val{true}, sdh, cellset, cellbuffer, colors)
-    return ThreadedDomainBuffer(sdh, cellset, colors, cellbuffer)
-end
-
-"""
-    setup_assembly(dh, material, cellvalues; kwargs...)
-
-Setup assembly for a single domain (i.e. the same material and interpolations everywhere).
-Returns the `buffer`, `old_states`, and `new_states` to be used in [`doassemble!`](@ref).
-The state variables are created by calling the user-defined [`create_cell_state`](@ref) function. 
-Available keyword arguments
-- `a=nothing`: Give the global dof vector to pass element dofs, `ae`, to `create_cell_state` (`NaN`-values otherwise)
-- `threading=Val(false)`: Set to `Val(true)` to setup threaded assembly. More elaborate settings may be added in the future. 
-- `autodiffbuffer=Val(false)`: Set to `true` or `Val(true)` (for type stable construction) to use `AutoDiffCellBuffer`
-  instead of `CellBuffer`.
-- `user_data=nothing`: The `user_data` is passed to each `AbstractCellBuffer` by reference (when threaded)
-- `colors=nothing`: Give colors for the grid from `Ferrite.create_coloring` to setup threaded colored assembly. 
-  If `nothing`, Ferrite's default coloring algorithm is used.
-- `cellset="all cells in dh"`: Which cells to assemble. In most cases, it is better to setup `AssemblyDomain`s 
-  to assemble different domains. But this option can be used to assemble only a subset of the grid.
-"""
-setup_assembly(dh::DofHandler, args...; kwargs...) = setup_assembly(SubDofHandler(dh), args...; kwargs...)
-function setup_assembly(sdh::SubDofHandler, material, cellvalues; a=nothing, user_data=nothing, 
-        autodiffbuffer=Val(false), threading=Val(false), colors=nothing, cellset=getcellset(sdh)
-        )
-    dofrange = create_dofrange(sdh)
-    new_states = create_states(sdh, material, cellvalues, a, cellset, dofrange)
-    old_states = create_states(sdh, material, cellvalues, a, cellset, dofrange)
-
-    cell_state = last(first(old_states))
-    cellbuffer = setup_cellbuffer(autodiffbuffer, sdh, cellvalues, material, cell_state, dofrange, user_data)
-
-    domainbuffer = setup_domainbuffer(threading, sdh, cellset, cellbuffer, colors)
-
-    return domainbuffer, new_states, old_states
-end
-
-"""
-    setup_assembly(domains::Vector{<:AssemblyDomain}; kwargs...)
-
-Setup assembly for each [`AssemblyDomain`](@ref) in `domains`. 
-Returns the `Dict`s `buffers`, `old_states`, and `new_states` to be used in [`doassemble!`](@ref).
-The state variables are created by calling the user-defined [`create_cell_state`](@ref) function. 
-Available keyword arguments
-- `a=nothing`: Give the global dof vector to pass element dofs, `ae`, to `create_cell_state` (`NaN`-values otherwise)
-- `autodiffbuffer=Val(false)`: Set to `true` or `Val(true)` (for type stable construction) to use `AutoDiffCellBuffer`
-  instead of `CellBuffer`.
-- `threading=Val(false)`: Set to `Val(true)` to setup threaded assembly. More elaborate settings may be added in the future. 
-"""
-function setup_assembly(domains::Vector{<:AssemblyDomain}; a=nothing, autodiffbuffer=Val(false), threading=Val(false))
-    buffers = Dict{String,Any}()
-    new_states = Dict{String,Dict{Int}}()
-    old_states = Dict{String,Dict{Int}}()
-    num_cells_grid = getncells(_getgrid(domains[1].sdh))
-    added_cells = sizehint!(Set{Int}(), num_cells_grid)
-    local buffer # Gives access after loop
-    for d in domains
-        n = d.name
-        buffer, new_states[n], old_states[n] =
-            setup_assembly(d.sdh, d.material, d.cellvalues; 
-                a=a, threading=threading, autodiffbuffer=autodiffbuffer, 
-                cellset=d.cellset, colors=d.colors, user_data=d.user_data)
-        buffers[n] = buffer
-        
-        # Checks if some cells have been added before, and warn if that is the case.
-        old_num = length(added_cells)
-        num_add = length(getcellset(buffer))
-        union!(added_cells, getcellset(buffer))
-        length(added_cells) < (old_num + num_add) && @warn("The domain $n has cells that overlap with previous domains")
-    end
-    # Check that all cells have been added and warn otherwise. 
-    num_cells_added = length(added_cells)
-    num_cells_grid != num_cells_added && @warn("There are $num_cells_grid cells in the grid, but only $num_cells_added have been added")
-    # Make the returned buffer dict have the type of buffer as a type parameter (for dispatch)
-    BT = isa(buffer, DomainBuffer) ? DomainBuffer : ThreadedDomainBuffer
-    buffers_typed = Dict{String,BT}(key=>val for (key,val) in buffers) # 
-    return buffers_typed, new_states, old_states
+function _setup_domainbuffer(::Val{true}, set, itembuffer, states, old_states, sdh, args...)
+    return ThreadedDomainBuffer(set, itembuffer, states, old_states, sdh, args...)
 end

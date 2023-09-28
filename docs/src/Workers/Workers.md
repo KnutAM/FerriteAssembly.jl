@@ -1,0 +1,16 @@
+# Workers
+There are currently two categories of workers implemented:
+- [Assemblers](@ref): Calculate system matrices and vectors 
+- [Integrators](@ref): Integrate a function over the domain
+
+## Perform the work
+Having setup a [`DomainBuffer`](@ref Setup-API) and a worker, work is performed by calling the function `work!`
+```@docs
+work!
+```
+
+A worker needs to define what to do for different domains, 
+specifically it needs to define 
+`work_single_cell!` and `work_single_face!`. Further details 
+about writing custom workers can be found in the 
+[Customizations](@ref Assembler-interface) section.

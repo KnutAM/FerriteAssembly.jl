@@ -4,33 +4,23 @@ CurrentModule = FerriteAssembly
 
 # FerriteAssembly
 The goal of [FerriteAssembly](https://github.com/KnutAM/FerriteAssembly.jl) 
-is to provide a simple structure for assembling in 
-[Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl/).
+is make it convenient to iterate over a grid and perform some task for each item.
+The primary use is to iterate over all cells and assemble into global matrices and 
+vectors. However, it makes many other tasks easy as well, for example iterating over faces for adding boundary conditions, or integrating a function over a given domain. 
 
-## Key features
-* Easy switching between *sequential* and *threaded* assembly
-* *Multiple domains* with different fields, interpolations, and/or element routines.
-* Efficient *automatic differentiation* if analytical tangent is not implemented. 
-* Support for handling of (old and new) *state variables*
-* Easy [*integration*](@ref Integration) of a function over the domain
+The design is built around two main types of objects
+1. **Workers**: What to do for a given item
+2. **Domains**: What items to work on
 
-## Typical workflow
-1. Define your custom type and associated element routine (See [Example elements](@ref))
-2. Setup Ferrite's `DofHandler` and `CellValues` as usual, and call [`setup_assembly`](@ref)
-3. For each assembly, call [`doassemble!`](@ref)
+The package user is responsible for writing the code for the actual work (e.g., writing the element routine). A given combination of a worker and a type of domain requires the user to overload a specific function. For example, an assembler (worker) and a cell domain requires overloading [`element_routine!`](@ref) or [`element_residual!`](@ref).
 
-## Heat equation example
-```@eval
-# Include the example here, but modify the Literate output to suit being embedded
-using Literate, Markdown
-filename = "firstexample_literate"
-Literate.markdown(filename*".jl"; execute=true)
-contents = read(filename*".md", String)
-Literate.script(filename*".jl"; name="firstexample")
-rm(filename*".jl")
-rm(filename*".md")
-header_end = last(findnext("```", contents, 4))+1
-Markdown.parse(replace(contents[header_end:end], 
-    "*This page was generated using [Literate.jl]"=>"*The examples were generated using [Literate.jl]")
-    )
-```
+## Documentation structure
+The documentation has two main parts
+
+| 1) Learning by doing: *runnable examples*                | 2) Reference: *explanations and docstrings*              | 
+| :------------------------------------------------------- | :------------------------------------------------------- |
+| Tutorials: Complete examples                             | Domains: *What items to work on*                         |
+| Short guides for specific tasks                          | Workers: *What to do for an item*                        | 
+|                                                          | Convenience: *Premade solutions to make life easy*       |
+|                                                          | Customizations: *When the standard isn't good enough*    |
+|                                                          | Internals: *Developer documentation*                     |

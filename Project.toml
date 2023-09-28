@@ -14,8 +14,9 @@ ForwardDiff = "0.10"
 julia = "1.8"
 
 [extras]
-SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [targets]
-test = ["Test", "SparseArrays"]
+test = ["Test", "Logging", "SparseArrays"]

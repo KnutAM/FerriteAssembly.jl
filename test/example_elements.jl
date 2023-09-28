@@ -10,18 +10,18 @@ function get_dh_cv(grid, ::Val{true})
 end
 
 function assemble_test(dh, cv, m, a, aold, Δt)
-    buffer, new_states, old_states = setup_assembly(dh, m, cv; a=a)
-    
+    buffer = setup_domainbuffer(DomainSpec(dh, m, cv); a=a)
+    set_time_increment!(buffer, Δt)
     # Assemble both K and r
     K = create_sparsity_pattern(dh)
     r = zeros(ndofs(dh))
     assembler = start_assemble(K, r)
-    doassemble!(assembler, new_states, buffer; a=a, aold=aold, old_states=old_states, Δt=Δt)
+    work!(assembler, buffer; a=a, aold=aold)
     
     # Assemble only r
     r_direct = zeros(ndofs(dh))
     r_assembler = ReAssembler(r_direct)
-    doassemble!(r_assembler, new_states, buffer; a=a, aold=aold, old_states=old_states, Δt=Δt)
+    work!(r_assembler, buffer; a=a, aold=aold)
     
     return K, r, r_direct
 end
@@ -41,12 +41,6 @@ function test_equality(m1, m2, is_vector::Val)
     @test r1 ≈ r2
     @test K1 ≈ K2
 end
-
-# Test material from MaterialModelsBase
-struct MMB_Test_Elastic{TT<:SymmetricTensor{4}} <: MMB.AbstractMaterial
-    C::TT
-end
-MMB.material_response(m::MMB_Test_Elastic, ϵ, old, args...; kwargs...) = (m.C ⊡ ϵ, m.C, old)
 
 @testset "HeatEquation" begin
     @testset "StationaryFourier" begin
@@ -70,9 +64,37 @@ end
         G = E/(2*(1+ν)); K = E/(3*(1-2ν))
         m = EE.ElasticPlaneStrain(;E=E, ν=ν)
         weak = EE.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> (∇δu ⊡ (2*G*dev(symmetric(∇u)) + 3*K*vol(∇u))))
-        mmb = MMB_Test_Elastic(m.C)
+        mmb = MMB.ReducedStressState(MMB.PlaneStrain(),
+            EE.J2Plasticity(;E=E, ν=ν, σ0=Inf, H=1.0))
         test_equality(m, weak, Val(true))
         test_equality(m, mmb, Val(true))
+    end
+    @testset "J2Plasticity" begin
+        E = 1.0 + rand()
+        H = 0.1 + 0.9*rand()
+        ν = 0.1 + rand()/3 #∈ [0.1, 0.433]
+        σ0 = E/(100*(1+rand()))
+        m = MMB.ReducedStressState(MMB.UniaxialStress(),
+            EE.J2Plasticity(;E, ν, σ0, H))
+
+        ϵv = collect(range(0, 2σ0/E, 100))
+        σv = Float64[]
+        dσdϵ_v = Float64[]
+        ϵ22v = Float64[]
+        state = MMB.initial_material_state(m)
+        for ϵ in ϵv 
+            ϵt = SymmetricTensor{2,1}((ϵ,))
+            σ, dσdϵ, state, ϵf = MMB.material_response(m, ϵt, state)
+            push!(σv, σ[1,1])
+            push!(dσdϵ_v, dσdϵ[1,1,1,1])
+            push!(ϵ22v, ϵf[2,2])
+        end
+        Hp = E*H/(E+H)
+        @test dσdϵ_v[1] ≈ E 
+        @test σv[2]-σv[1] ≈ E*(ϵv[2]-ϵv[1])
+        @test ϵ22v[2] ≈ -ν*ϵv[2]
+        @test dσdϵ_v[end] ≈ Hp
+        @test σv[end]-σv[end-1] ≈ Hp*(ϵv[end]-ϵv[end-1])
     end
 end
 

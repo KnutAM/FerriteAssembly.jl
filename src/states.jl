@@ -8,7 +8,7 @@ Overload this function to create the state which should be passed into the
 `x` is the cell's coordinates, `ae` the element degree of freedom values, and 
 `dofrange::NamedTuple` containing the local dof range for each field. 
 As for the element routines, `ae`, is filled with `NaN` unless the global degree 
-of freedom vector is given to the [`setup_assembly`](@ref) function.
+of freedom vector is given to the [`setup_domainbuffer`](@ref) function.
 """
 create_cell_state(args...) = nothing
 
@@ -19,12 +19,12 @@ Internal function to reinit and extract the relevant quantities from the
 `cell::CellCache`, reinit cellvalues, update `ae` from `a`, and 
 pass these into the `create_cell_state` function that the user should specify. 
 """
-function _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr)
-    reinit!(cell, cellnr)
-    x = getcoordinates(cell)
-    reinit!(cellvalues, x)
-    _copydofs!(ae, a, celldofs(cell))
-    return create_cell_state(material, cellvalues, x, ae, dofrange)
+function _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr)
+    getcoordinates!(coords, _getgrid(sdh), cellnr)
+    reinit!(cellvalues, coords)
+    celldofs!(dofs, sdh.dh, cellnr)
+    _copydofs!(ae, a, dofs)
+    return create_cell_state(material, cellvalues, coords, ae, dofrange)
 end
 
 """
@@ -36,49 +36,29 @@ define the [`create_cell_state`](@ref) function for their `material` (and corres
 """
 function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
     ae = zeros(ndofs_per_cell(sdh))
-    cell = CellCache(sdh.dh)
-    return Dict(cellnr => _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr) for cellnr in cellset)
+    coords = getcoordinates(_getgrid(sdh), first(cellset))
+    dofs = zeros(Int, ndofs_per_cell(sdh))
+    return Dict(cellnr => _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr) for cellnr in cellset)
 end
 
 """
-    update_states!(old_states, new_states)
+    update_states!(old_states, states)
 
-Update `old_states` with the values from `new_states`. This is typically done after a converged time increment.
-
-This method tries to avoid allocating new values where possible. 
-Currently, if [`create_cell_state`](@ref) returns `T` or `Vector{T}` where `isbitstype(T)`, this works.
-
-If needed/wanted, it should be relatively easy to provide an interface to make it possible to have allocation free 
-for custom cell states.
+In most cases, this 2-argument function is not required, and the 
+entire domain buffer can be passed instead, see
+[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)).
+This 2-argument function will then be called for the stored state variables. 
 """ 
-function update_states!(old_states::T, new_states::T) where T<:Union{Dict{String,<:Dict{Int}}, Dict{Int,<:Vector}}
-    for (key, new_s) in new_states
+function update_states!(old_states::T, states::T) where T<:Dict{Int,<:Vector}
+    for (key, new_s) in states
         update_states!(old_states[key], new_s)
     end
 end
-function update_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing}}
+function update_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing},Dict{Int,Vector{Nothing}}}
     return nothing 
 end
-@inline function update_states!(old_states::T, new_states::T) where T<:Union{Vector{ET},Dict{Int,ET}} where ET
-    copy_states!(Val(isbitstype(ET)), old_states, new_states)
+@inline function update_states!(old_states::T, states::T) where T<:Union{Vector{ET},Dict{Int,ET}} where ET
+    copy_states!(Val(isbitstype(ET)), old_states, states)
 end
-@inline copy_states!(::Val{true},  old_states, new_states) = copy!(old_states,new_states)
-@inline copy_states!(::Val{false}, old_states, new_states) = copy!(old_states,deepcopy(new_states))
-
-#= # Something like this with replacing old_states[key] = deepcopy(new_s) with 
-# copy_states!(old_states, key, new_s) to dispatch on new_s could work, 
-# but otherwise directy copy!(dst, deepcopy(src)) seems better
-function copy_states!(::Val{false}, old_states, new_states)
-    for (key, new_s) in pairs(new_states)
-        old_states[key] = deepcopy(new_s)
-    end
-end
-=#
-
-#= # Not used anymore (required if states are stored as vectors at top level instad of Dict{Int})
-function update_states!(old_states::T, new_states::T) where T<:Vector{<:Vector}
-    for (old_s, new_s) in zip(old_states, new_states)
-        update_states!(old_s, new_s)
-    end
-end
-=#
+@inline copy_states!(::Val{true},  old_states, states) = copy!(old_states,states)
+@inline copy_states!(::Val{false}, old_states, states) = copy!(old_states,deepcopy(states))
