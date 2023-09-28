@@ -44,7 +44,7 @@ jobs:
             using Pkg
             packages = [
                 PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
-                PackageSpec(;url="url="https://github.com/Ferrite-FEM/Ferrite.jl.git"),
+                PackageSpec(;url="https://github.com/Ferrite-FEM/Ferrite.jl.git"),
                 ]
             Pkg.add(packages)
             Pkg.instantiate()'
@@ -71,13 +71,13 @@ jobs:
               ~/.julia/registries
             key: .julia-docs-${{ hashFiles('docs/Project.toml', 'docs/Manifest.toml') }}
         - name: Install dependencies
-          # Need to add this if using IGA.jl.: PackageSpec(;url="https://github.com/lijas/IGA.jl.git"),
           run: |
             julia --color=yes --project=docs -e '
             using Pkg
             packages = [
                 PackageSpec(;url="https://github.com/Ferrite-FEM/Ferrite.jl.git"),
                 PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
+                #PackageSpec(;url="https://github.com/lijas/IGA.jl.git"),
                 PackageSpec(path=pwd())
                 ]
             Pkg.develop(packages)
