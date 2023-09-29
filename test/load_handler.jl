@@ -32,12 +32,12 @@ end
     # Setup of test mesh
     Nx = 5; Ny = 5
     grid=generate_grid(Quadrilateral, (Nx, Ny));
-    dh=DofHandler(grid); add!(dh, :u, 2); close!(dh);
+    ip = Lagrange{RefQuadrilateral,1}()^2
+    dh=DofHandler(grid); add!(dh, :u, ip); close!(dh);
 
     # Create Neumann boundary condition
     nh = LoadHandler(dh)
-    fv = FaceVectorValues(
-        QuadratureRule{1, RefCube}(2), Lagrange{2, RefCube, 1}())
+    fv = FaceValues(FaceQuadratureRule{RefQuadrilateral}(2), ip)
     f_2d(_, t, _) = Vec{2}((t, 10t))
     add!(nh, Neumann(:u, fv, grid.facesets["right"], f_2d))
     
@@ -70,15 +70,15 @@ end
     Nx, Ny, Nz = (2,2,2)
     grid=generate_grid(Tetrahedron, (Nx, Ny, Nz));
     dh=DofHandler(grid); 
-    add!(dh, :u, 3); add!(dh, :p, 1); close!(dh);
+    ip = Lagrange{RefTetrahedron,1}()
+    add!(dh, :u, ip^3); add!(dh, :p, ip); close!(dh);
     fset = grid.facesets["right"]
 
     # Create Neumann boundary condition
     nh = LoadHandler(dh)
-    qr = QuadratureRule{2, RefTetrahedron}(2)
-    ip = Lagrange{3, RefTetrahedron, 1}()
-    fv = FaceVectorValues(qr, ip)
-    fv_s = FaceScalarValues(qr, ip)
+    qr = FaceQuadratureRule{RefTetrahedron}(2)
+    fv = FaceValues(qr, ip^3)
+    fv_s = FaceValues(qr, ip)
     x_scale, y_scale, z_scale = rand(3)
     ny = Vec{3}((0,1.,0)); nz = Vec{3}((0,0,1.))
     f_3d(_,t,n) = t*(x_scale*n + y_scale*ny + z_scale*nz)
@@ -140,21 +140,23 @@ end
     @test sum(f) ≈ area*(x_scale+y_scale+z_scale+p_scale)
 end
 
-@testset "MixedDofHandler" begin
-        # Test mixed dof handler
+@testset "Multiple SubDofHandlers" begin
         f_2d(_, t, _) = Vec{2}((t, 10t))
         Nx, Ny = (5,5)
         grid=generate_grid(Quadrilateral, (Nx, Ny));
-        dh=MixedDofHandler(grid);
+        ip = Lagrange{RefQuadrilateral,1}()
+        dh=DofHandler(grid);
         addcellset!(grid, "leftpart",  x -> x[1] <= eps(); all=false)
         addcellset!(grid, "rightpart", x -> x[1] >= eps(); all=true)
-        add!(dh, FieldHandler([Field(:v, Lagrange{2,RefCube,1}(), 2)], getcellset(grid, "leftpart")))
-        add!(dh, FieldHandler([Field(:u, Lagrange{2,RefCube,1}(), 2)], getcellset(grid, "rightpart")))
+        sdh_left = SubDofHandler(dh, getcellset(grid, "leftpart"))
+        add!(sdh_left, :v, ip^2)
+        sdh_right = SubDofHandler(dh, getcellset(grid, "rightpart"))
+        add!(sdh_right, :u, ip^2)
         close!(dh)
-        nh = LoadHandler(dh)
-        @test_logs min_level=Logging.Warn add!(nh, Neumann(:u, 2, getfaceset(grid, "right"), f_2d)) # no warning should be issued
+        lh = LoadHandler(dh)
+        @test_logs min_level=Logging.Warn add!(lh, Neumann(:u, 2, getfaceset(grid, "right"), f_2d)) # no warning should be issued
         f = zeros(ndofs(dh))
-        apply!(f, nh, 1.0)
+        apply!(f, lh, 1.0)
 
         # Use the ConstraintHandler to give fixed values on each dof
         # Note half load on node at the end of the edge
@@ -163,7 +165,7 @@ end
         dbc = Dirichlet(
             :u, grid.facesets["right"], 
             (x,t)-> (abs(x[2])<(1-eps()) ? 1.0 : 0.5)*f_2d(0,t,0), [1,2])
-        add!(ch, dh.fieldhandlers[2], dbc)
+        add!(ch, dbc)
         close!(ch)
         update!(ch, 1.0)
         apply!(a, ch)
@@ -171,25 +173,30 @@ end
         @test 2*a/Ny ≈ f   # Side length 2, force distributed per area.
 
         # Check that it warns because :u is not available on the left face
-        @test_logs (:warn,) add!(nh, Neumann(:u, 2, getfaceset(grid, "left"), f_2d))
+        @test_logs (:warn,) add!(lh, Neumann(:u, 2, getfaceset(grid, "left"), f_2d))
 end
 
 @testset "VolumeCalculation" begin
     lx, ly, lz = rand(3) .+ 1
     volume = lx*ly*lz
     grid = generate_grid(Hexahedron, (4,3,5), zero(Vec{3}), Vec((lx, ly, lz)))
-    dh = DofHandler(grid); add!(dh, :v, 1); add!(dh, :u, 3); close!(dh)
+    ip = Lagrange{RefHexahedron,1}()
+    dh = DofHandler(grid); add!(dh, :v, ip); add!(dh, :u, ip^3); close!(dh)
     nh = LoadHandler(dh)
     add!(nh, BodyLoad(:v, 1, Returns(1.0)))
     f = zeros(ndofs(dh))
     apply!(f, nh, 1.0)
     @test sum(f) ≈ volume
     
-    dh = MixedDofHandler(grid);
+    dh = DofHandler(grid);
+    ip = Lagrange{RefHexahedron,1}()
     addcellset!(grid, "leftpart",  x -> x[1] <= 0.5+eps(); all=true)
     addcellset!(grid, "rightpart", setdiff(Set(1:getncells(grid)), getcellset(grid, "leftpart")))
-    add!(dh, FieldHandler([Field(:v, Lagrange{3,RefCube,1}(), 1), Field(:u, Lagrange{3,RefCube,1}(), 3)], getcellset(grid, "leftpart")))
-    add!(dh, FieldHandler([Field(:v, Lagrange{3,RefCube,1}(), 1)], getcellset(grid, "rightpart")))
+    sdh_left = SubDofHandler(dh, getcellset(grid, "leftpart"))
+    add!(sdh_left, :v, ip)
+    add!(sdh_left, :u, ip^3)
+    sdh_right = SubDofHandler(dh, getcellset(grid, "rightpart"))
+    add!(sdh_right, :v, ip)
     close!(dh)
     nh = LoadHandler(dh)
     add!(nh, BodyLoad(:v, 1, Returns(1.0)))
@@ -199,7 +206,7 @@ end
 
     nh = LoadHandler(dh)
     add!(nh, BodyLoad(:u, 2, getcellset(grid, "leftpart"), Returns(Vec((0.0, 1.0, 0.0)))))
-    add!(nh, BodyLoad(:v, CellScalarValues(QuadratureRule{3,RefCube}(1), Lagrange{3,RefCube,1}()), (x,t)->t>2 ? 1.0 : 0.0))
+    add!(nh, BodyLoad(:v, CellValues(QuadratureRule{RefHexahedron}(1), ip), (x,t)->t>2 ? 1.0 : 0.0))
     fill!(f, 0)
     apply!(f, nh, 1.0)
     # Relative volume where :u lives
@@ -216,7 +223,8 @@ end
     bs(x,t) = cos(norm(x))*t 
     bv(x,t) = x*t 
     grid = generate_grid(Quadrilateral, (20,20))
-    dh = DofHandler(grid); add!(dh, :u, 1); add!(dh, :v, 2); close!(dh)
+    ip = Lagrange{RefQuadrilateral,1}()
+    dh = DofHandler(grid); add!(dh, :u, ip); add!(dh, :v, ip^2); close!(dh)
     nbc_s = Neumann(:u, 2, getfaceset(grid, "right"), fs)
     bld_s = BodyLoad(:u, 2, nothing, bs)
     nbc_v = Neumann(:v, 2, getfaceset(grid, "top"), fv)

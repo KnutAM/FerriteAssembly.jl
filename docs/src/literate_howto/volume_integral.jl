@@ -5,15 +5,15 @@ using Ferrite, FerriteAssembly, Printf
 # of some functions of the solution.
 # To start, we define the grid, dofs, and cellvalues.
 grid = generate_grid(Quadrilateral, (20,20))
+ip = Lagrange{RefQuadrilateral,1}()
 dh = DofHandler(grid)
-add!(dh, :u, 1)
-add!(dh, :v, 2)
+add!(dh, :u, ip)
+add!(dh, :v, ip^2)
 close!(dh)
 
-qr = QuadratureRule{2,RefCube}(2)
-ip = Lagrange{2,RefCube,1}()
-cv_scalar = CellScalarValues(qr,ip)
-cv_vector = CellVectorValues(qr,ip);
+qr = QuadratureRule{RefQuadrilateral}(2)
+cv_scalar = CellValues(qr, ip)
+cv_vector = CellValues(qr, ip^2);
 
 # Since this is a how-to, we won't solve a problem 
 # to get the solution, but normally, we would already 

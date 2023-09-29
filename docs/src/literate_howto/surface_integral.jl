@@ -5,9 +5,10 @@ using Ferrite, FerriteAssembly
 # building blocks, in this case a grid, dofhandler, 
 # and facevalues 
 grid = generate_grid(Hexahedron, (5,5,5))
-dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
-qr = QuadratureRule{2,RefCube}(2); ip = Lagrange{3,RefCube,1}()
-fv = FaceScalarValues(qr, ip);
+ip = Lagrange{RefHexahedron,1}()
+dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+qr = FaceQuadratureRule{RefHexahedron}(2); 
+fv = FaceValues(qr, ip);
 
 # We also need a solution vector to integrate, 
 # unless we only calculate geometric properties.

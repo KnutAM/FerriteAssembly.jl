@@ -1,11 +1,11 @@
 @testset "FaceResidual" begin
     nx, ny = (10, 10)
     grid = generate_grid(Quadrilateral, (nx, ny))
-    qr = QuadratureRule{1,RefCube}(2)
-    ip = Lagrange{2,RefCube,1}()
-    ipg = Lagrange{2,RefCube,1}()
-    dh = DofHandler(grid); add!(dh, :u, 1, ip); close!(dh)
-    fv = FaceScalarValues(qr, ip, ipg)
+    qr = FaceQuadratureRule{RefQuadrilateral}(2)
+    ip = Lagrange{RefQuadrilateral,1}()
+    ipg = Lagrange{RefQuadrilateral,1}()
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+    fv = FaceValues(qr, ip, ipg)
     a = zeros(ndofs(dh))
     # Add values only at the boundary
     apply_analytical!(a, dh, :u, x-> x[1] ≈ 1.0 ? 1.0 : 0.0)

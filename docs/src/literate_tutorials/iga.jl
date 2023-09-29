@@ -36,12 +36,12 @@ ip = BernsteinBasis{2,orders}()
 qr_cell = QuadratureRule{2,RefCube}(4)
 qr_face = QuadratureRule{1,RefCube}(3)
 
-cv = BezierCellValues( CellVectorValues(qr_cell, ip) );
-fv = BezierFaceValues( FaceVectorValues(qr_face, ip) );
+cv = BezierCellValues( CellValues(qr_cell, ip^2) );
+fv = BezierFaceValues( FaceValues(qr_face, ip^2) );
 
 # Distribute dofs as normal
-dh = MixedDofHandler(grid)
-push!(dh, :u, 2, ip)
+dh = DofHandler(grid)
+add!(dh, :u, ip^2)
 close!(dh);
 
 # And allocate system matrices and vectors

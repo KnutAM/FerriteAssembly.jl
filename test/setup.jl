@@ -7,8 +7,9 @@
         grid = generate_grid(Quadrilateral, (10,10))
         addcellset!(grid, "left", x -> x[1]<0.0)
         addcellset!(grid, "right", setdiff(1:getncells(grid), getcellset(grid, "left")))
-        dh = DofHandler(grid); add!(dh, :u, 1); close!(dh);
-        cv = CellScalarValues(QuadratureRule{2,RefCube}(2), Lagrange{2,RefCube,1}())
+        ip = Lagrange{RefQuadrilateral,1}()
+        dh = DofHandler(grid); add!(dh, :u, ip); close!(dh);
+        cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
         userdata = [1.0]
         domains = Dict(key => DomainSpec(dh, CellMatCache(), cv; set=getcellset(grid, key), user_data=userdata) for key in ("left", "right"))
         buffers = setup_domainbuffers(domains)
@@ -42,8 +43,9 @@
         struct FaceMatCache end 
         FerriteAssembly.allocate_face_cache(::FaceMatCache, ::Any) = ones(1)
         grid = generate_grid(Quadrilateral, (10,10), Vec((0.0, 0.0)), Vec((1.0, 1.0)))
-        dh = DofHandler(grid); add!(dh, :u, 1); close!(dh);
-        fv = FaceScalarValues(QuadratureRule{1,RefCube}(2), Lagrange{2,RefCube,1}())
+        ip = Lagrange{RefQuadrilateral,1}()
+        dh = DofHandler(grid); add!(dh, :u, ip); close!(dh);
+        fv = FaceValues(FaceQuadratureRule{RefQuadrilateral}(2), ip)
         userdata = [1.0]
         domains = Dict(key => DomainSpec(dh, FaceMatCache(), fv; set=getfaceset(grid, key), user_data=userdata) for key in ("left", "right", "top", "bottom"))
         buffers = setup_domainbuffers(domains)

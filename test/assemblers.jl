@@ -1,13 +1,14 @@
 @testset "Assemblers" begin
     # The Ferrite assembler has been tested other places, so we use that as the correct one here 
     grid = generate_grid(Quadrilateral, (10,8))
-    dh = DofHandler(grid); add!(dh, :p, 1); add!(dh, :u, 2); close!(dh)
+    ip = Lagrange{RefQuadrilateral,1}()
+    dh = DofHandler(grid); add!(dh, :p, ip); add!(dh, :u, ip^2); close!(dh)
     ch = ConstraintHandler(dh); 
     add!(ch, Dirichlet(:p, getfaceset(grid, "left"), Returns(1.0))); 
     add!(ch, Dirichlet(:u, getfaceset(grid, "top"), Returns(Vec((2.0, 3.0)))))
     close!(ch)
-    qr = QuadratureRule{2,RefCube}(2); ip = Lagrange{2,RefCube,1}()
-    cv = (p=CellScalarValues(qr, ip), u=CellVectorValues(qr, ip))
+    qr = QuadratureRule{RefQuadrilateral}(2); ip = Lagrange{RefQuadrilateral,1}()
+    cv = (p=CellValues(qr, ip), u=CellValues(qr, ip^2))
     material = EE.PoroElasticPlaneStrain(;E=rand(), ν=rand()/2, k=rand(), α=rand(), β=rand())
     buffer = setup_domainbuffer(DomainSpec(dh, material, cv))
 
@@ -49,7 +50,7 @@
 
     K04 = copy(K0); r04 = copy(r0)
     apply!(K04, r04, ch)
-    a04 = K04 \ r04  
+    a04 = K04 \ r04
     a4 = K4\r4
     @test a04 ≈ a4
 end

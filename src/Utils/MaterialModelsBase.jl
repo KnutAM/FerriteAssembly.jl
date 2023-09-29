@@ -3,7 +3,7 @@ import MaterialModelsBase as MMB
 """
     FerriteAssembly.element_routine!(
         Ke, re, state::Vector{<:MMB.AbstractMaterialState}, ae, 
-        m::MMB.AbstractMaterial, cv::CellVectorValues, buffer)
+        m::MMB.AbstractMaterial, cv::CellValues, buffer)
 
 Solve the weak form 
 ```math
@@ -17,7 +17,7 @@ Note that `create_cell_state` is already implemented for `<:AbstractMaterial`.
 """
 function FerriteAssembly.element_routine!(
     Ke, re, state::Vector{<:MMB.AbstractMaterialState},
-    ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
+    ae, material::MMB.AbstractMaterial, cellvalues::CellValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     state_old = FerriteAssembly.get_old_state(buffer)
@@ -43,14 +43,14 @@ end
 """
     FerriteAssembly.element_residual!(
         re, state::Vector{<:MMB.AbstractMaterialState}, ae, 
-        m::MMB.AbstractMaterial, cv::CellVectorValues, buffer)
+        m::MMB.AbstractMaterial, cv::CellValues, buffer)
 
 The `element_residual!` implementation corresponding to the `element_routine!` implementation
 for a `MaterialModelsBase.AbstractMaterial`
 """
 function FerriteAssembly.element_residual!(
     re, state::Vector{<:MMB.AbstractMaterialState},
-    ae, material::MMB.AbstractMaterial, cellvalues::CellVectorValues, buffer)
+    ae, material::MMB.AbstractMaterial, cellvalues::CellValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     state_old = FerriteAssembly.get_old_state(buffer)
@@ -68,12 +68,12 @@ function FerriteAssembly.element_residual!(
 end
 
 """
-    FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVectorValues, args...)
+    FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellValues, args...)
 
 Create a `Vector{<:MMM.AbstractMaterialState}` where each element is the output from 
 `MMB.initial_material_state(m)` and the length is the number of quadrature points in `cv`.
 """
-function FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellVectorValues, args...)
+function FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::CellValues, args...)
     return [MMB.initial_material_state(m) for _ in 1:getnquadpoints(cv)]
 end
 

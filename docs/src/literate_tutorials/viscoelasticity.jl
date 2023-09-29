@@ -53,8 +53,9 @@ end;
 # We then define how to the initial state variables should look like, which also defines the structure 
 # of the state variables. In this case, we will just have states being a single tensor (viscous strain)
 # for each integration point
-function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::CellVectorValues{dim}, args...) where dim
-    return [zero(SymmetricTensor{2,dim}) for _ in 1:getnquadpoints(cv)]
+function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::CellValues, args...)
+    ϵ_template = shape_symmetric_gradient(cv, 1, 1) # ::SymmetricTensor
+    return [zero(ϵ_template) for _ in 1:getnquadpoints(cv)]
 end;
 
 # Following this, we define the `element_residual!` function (we will use automatic differentiation 
@@ -87,10 +88,10 @@ end;
 grid = generate_grid(Quadrilateral, (2,2))
 ip = Ferrite.default_interpolation(Quadrilateral)
 dh = DofHandler(grid)
-add!(dh, :u, 2, ip)
+add!(dh, :u, ip^2)
 close!(dh)
-qr = QuadratureRule{2,RefCube}(2)
-cv = CellVectorValues(qr, ip, ip)
+qr = QuadratureRule{RefQuadrilateral}(2)
+cv = CellValues(qr, ip^2, ip)
 m = ZenerMaterial()
 domain = DomainSpec(dh, m, cv)
 buffer = setup_domainbuffer(domain);

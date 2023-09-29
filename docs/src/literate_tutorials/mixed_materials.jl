@@ -28,11 +28,11 @@ end
 grid = create_grid_with_inclusion();
 
 # Define interpolation
-ip = Lagrange{2,RefCube,1}();
+ip = Lagrange{RefQuadrilateral,1}()^2;
 
 # Followed by the dof handler 
 dh = DofHandler(grid)
-add!(dh, :u, 2, ip)
+add!(dh, :u, ip)
 close!(dh);
 
 # And then Dirichlet conditions
@@ -44,7 +44,7 @@ close!(ch);
 
 # Define cellvalues 
 qr = QuadratureRule{2,RefCube}(2)
-cv = CellVectorValues(qr, ip);
+cv = CellValues(qr, ip);
 
 # ## FerriteAssembly setup 
 # We first define materials for a plane strain state. The `J2Plasticity` model 

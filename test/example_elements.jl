@@ -1,11 +1,16 @@
 function get_dh_cv(grid, ::Val{false})
-    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
-    cv = CellScalarValues(QuadratureRule{2,RefCube}(2), Ferrite.default_interpolation(getcelltype(grid,1)))
+    ip = Ferrite.default_interpolation(getcelltype(grid,1))
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+    RefShape = Ferrite.getrefshape(ip)
+    cv = CellValues(QuadratureRule{RefShape}(2), ip)
     return dh, cv
 end
 function get_dh_cv(grid, ::Val{true})
-    dh = DofHandler(grid); add!(dh, :u, 2); close!(dh)
-    cv = CellVectorValues(QuadratureRule{2,RefCube}(2), Ferrite.default_interpolation(getcelltype(grid,1)))
+    ip = Ferrite.default_interpolation(getcelltype(grid,1))
+    dim = Ferrite.getdim(ip)
+    dh = DofHandler(grid); add!(dh, :u, ip^dim); close!(dh)
+    RefShape = Ferrite.getrefshape(ip)
+    cv = CellValues(QuadratureRule{RefShape}(2), ip^dim)
     return dh, cv
 end
 
@@ -109,13 +114,13 @@ end
             m_darcy = EE.WeakForm((δp, ∇δp, p, ∇p, p_dot, ∇p_dot) -> δp*β*p_dot + k*(∇δp ⋅ ∇p))
 
             grid = generate_grid(Quadrilateral, (1,1)) # Single element test
-            dh = DofHandler(grid); add!(dh, :u, 2); add!(dh, :p, 1); close!(dh)
-            dh_mech = DofHandler(grid); add!(dh_mech, :u, 2); close!(dh_mech)
-            dh_darcy = DofHandler(grid); add!(dh_darcy, :p, 1); close!(dh_darcy)
+            ip = Lagrange{RefQuadrilateral,1}()
+            dh = DofHandler(grid); add!(dh, :u, ip^2); add!(dh, :p, ip); close!(dh)
+            dh_mech = DofHandler(grid); add!(dh_mech, :u, ip^2); close!(dh_mech)
+            dh_darcy = DofHandler(grid); add!(dh_darcy, :p, ip); close!(dh_darcy)
 
-            qr = QuadratureRule{2,RefCube}(2)
-            ip = Ferrite.default_interpolation(getcelltype(grid))
-            cv = (u=CellVectorValues(qr, ip), p=CellScalarValues(qr, ip))
+            qr = QuadratureRule{Ferrite.getrefshape(ip)}(2)
+            cv = (u=CellValues(qr, ip^2), p=CellValues(qr, ip))
             i_mech = 1:ndofs(dh_mech); i_darcy = ndofs(dh_mech) .+ (1:ndofs(dh_darcy))
             a = rand(ndofs(dh)); a_mech = a[i_mech]; a_darcy = a[i_darcy]
             aold = rand(ndofs(dh)); aold_mech = aold[i_mech]; aold_darcy = aold[i_darcy];
@@ -123,8 +128,8 @@ end
             K, r = assemble_test(dh, cv, m, a, aold, Δt)
             K_mech, r_mech = assemble_test(dh_mech, cv[:u], m_mech, a_mech, aold_mech, Δt)
             K_darcy, r_darcy = assemble_test(dh_darcy, cv[:p], m_darcy, a_darcy, aold_darcy, Δt)
-            @test K[i_mech, i_mech] ≈ K_mech
-            @test K[i_darcy, i_darcy] ≈ K_darcy
+            @test K[i_mech, i_mech] ≈ K_mech 
+            @test K[i_darcy, i_darcy] ≈ K_darcy 
             if α == 0.0 # No coupling
                 # Should be no coupling, so check this first
                 @test norm(K[i_mech,i_darcy]) < 1e-10*norm(K)
