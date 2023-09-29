@@ -4,6 +4,8 @@
 [![Build Status](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/KnutAM/FerriteAssembly.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/KnutAM/FerriteAssembly.jl)
 
+**NOTE:** The main branch only supports Ferrite#master (soon v1.0).
+
 # FerriteAssembly
 The goal of [FerriteAssembly](https://github.com/KnutAM/FerriteAssembly.jl) 
 is to provide a simple, but versatile and efficient, structure for assembling in 
