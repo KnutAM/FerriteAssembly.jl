@@ -6,7 +6,7 @@ struct RobinBC{T}
 end
 
 function FerriteAssembly.face_routine!(
-        Ke, re, ae, rbc::RobinBC, fv::FaceScalarValues, facebuffer
+        Ke, re, ae, rbc::RobinBC, fv::FaceValues, facebuffer
         )
     for q_point in 1:getnquadpoints(fv)
         dΓ = getdetJdV(fv, q_point)
@@ -24,18 +24,18 @@ function FerriteAssembly.face_routine!(
 end;
 
 grid = generate_grid(Quadrilateral, (10,10))
-ip = Lagrange{2,RefCube,1}()
+ip = Lagrange{RefQuadrilateral,1}()
 
 dh = DofHandler(grid)
-add!(dh, :u, 1, ip)
+add!(dh, :u, ip)
 close!(dh)
 
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh))
 a = zeros(ndofs(dh));
 
-face_qr = QuadratureRule{1,RefCube}(2);
-fv = FaceScalarValues(face_qr, ip);
+face_qr = FaceQuadratureRule{RefQuadrilateral}(2);
+fv = FaceValues(face_qr, ip);
 rbc = RobinBC(1.0, -1.0);
 
 domainbuffer = setup_domainbuffer(DomainSpec(dh, rbc, fv; set=getfaceset(grid, "right")))

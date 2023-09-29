@@ -58,8 +58,8 @@ function solve(;ν, ipu, ipp)
     # Grid and dofhandler
     grid = create_cook_grid(;nx=50, ny=50)
     dh = DofHandler(grid)
-    add!(dh, :u, 2, ipu) # displacement
-    add!(dh, :p, 1, ipp) # pressure
+    add!(dh, :u, ipu) # displacement
+    add!(dh, :p, ipp) # pressure
     close!(dh)
 
     # Boundary conditions
@@ -74,8 +74,8 @@ function solve(;ν, ipu, ipp)
     # Cellvalues
     qr = QuadratureRule{2,RefTetrahedron}(3)
     ip_geo = Lagrange{2,RefTetrahedron,1}()
-    cvu = CellVectorValues(qr, ipu, ip_geo)
-    cvp = CellScalarValues(qr, ipp, ip_geo)
+    cvu = CellValues(qr, ipu, ip_geo)
+    cvp = CellValues(qr, ipp, ip_geo)
 
     # Setup assembly
     cv = (u=cvu, p=cvp) # Will be replaced by MultiCellValues in the future
@@ -101,10 +101,10 @@ function solve(;ν, ipu, ipp)
     return u
 end
 
-linear_ip    = Lagrange{2,RefTetrahedron,1}()
-quadratic_ip = Lagrange{2,RefTetrahedron,2}()
+linear_ip    = Lagrange{RefTriangle,1}()
+quadratic_ip = Lagrange{RefTriangle,2}()
 
-u1 = solve(;ν=0.4999999, ipu=linear_ip, ipp=linear_ip)
-u2 = solve(;ν=0.4999999, ipu=quadratic_ip, ipp=linear_ip);
+u1 = solve(;ν=0.4999999, ipu=linear_ip^2, ipp=linear_ip)
+u2 = solve(;ν=0.4999999, ipu=quadratic_ip^2, ipp=linear_ip);
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl

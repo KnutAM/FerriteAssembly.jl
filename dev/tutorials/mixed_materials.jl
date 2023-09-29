@@ -11,10 +11,10 @@ function create_grid_with_inclusion()
 end
 grid = create_grid_with_inclusion();
 
-ip = Lagrange{2,RefCube,1}();
+ip = Lagrange{RefQuadrilateral,1}()^2;
 
 dh = DofHandler(grid)
-add!(dh, :u, 2, ip)
+add!(dh, :u, ip)
 close!(dh);
 
 ch = ConstraintHandler(dh)
@@ -24,7 +24,7 @@ add!(ch, Dirichlet(:u, getfaceset(grid, "right"), f_dbc))
 close!(ch);
 
 qr = QuadratureRule{2,RefCube}(2)
-cv = CellVectorValues(qr, ip);
+cv = CellValues(qr, ip);
 
 elastic_material = ElasticPlaneStrain(;E=210e3, ν=0.3)
 plastic_material = ReducedStressState(
