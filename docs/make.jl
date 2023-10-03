@@ -68,4 +68,5 @@ deploydocs(;
     repo="github.com/KnutAM/FerriteAssembly.jl.git",
     devbranch="main",
     push_preview=true,
+    versions = ["dev" => "dev", "stable" => "v^", "v#.#"] # dev first makes this default redirect
 )
