@@ -23,7 +23,7 @@ f_dbc(x,t) = Vec((0.05*t, 0.0))
 add!(ch, Dirichlet(:u, getfaceset(grid, "right"), f_dbc))
 close!(ch);
 
-qr = QuadratureRule{2,RefCube}(2)
+qr = QuadratureRule{RefQuadrilateral}(2)
 cv = CellValues(qr, ip);
 
 elastic_material = ElasticPlaneStrain(;E=210e3, ν=0.3)

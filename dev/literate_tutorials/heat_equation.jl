@@ -12,7 +12,7 @@ using Ferrite, FerriteAssembly
 grid = generate_grid(Quadrilateral, (20, 20))
 ip = Lagrange{RefQuadrilateral,1}()
 dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
-cellvalues = CellValues(QuadratureRule{2, RefCube}(2), ip);
+cellvalues = CellValues(QuadratureRule{RefQuadrilateral}(2), ip);
 K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh));
 

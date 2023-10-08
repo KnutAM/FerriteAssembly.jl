@@ -91,8 +91,8 @@ function solve(;ν, ipu, ipp)
     add!(lh, Neumann(:u, 3, getfaceset(dh.grid, "right"), Returns(Vec{2}((0.0, 1/16)))))
 
     ## Cellvalues
-    qr = QuadratureRule{2,RefTetrahedron}(3)
-    ip_geo = Lagrange{2,RefTetrahedron,1}()
+    qr = QuadratureRule{RefTriangle}(3)
+    ip_geo = Lagrange{RefTriangle,1}()
     cvu = CellValues(qr, ipu, ip_geo)
     cvp = CellValues(qr, ipp, ip_geo)
 
