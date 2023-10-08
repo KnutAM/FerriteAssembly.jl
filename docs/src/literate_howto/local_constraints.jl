@@ -20,7 +20,7 @@ add!(ch, Dirichlet(:u, getfaceset(grid, "right"), Returns(1.0), [1,]))
 close!(ch)
 update!(ch, 0.0)
 
-qr = QuadratureRule{2,RefCube}(2)
+qr = QuadratureRule{RefQuadrilateral}(2)
 cv = CellValues(qr, ip, ip)
 m = ElasticPlaneStrain(;E=80e3, ν=0.3)
 

@@ -43,7 +43,7 @@ add!(ch, Dirichlet(:u, getfaceset(grid, "right"), f_dbc))
 close!(ch);
 
 # Define cellvalues 
-qr = QuadratureRule{2,RefCube}(2)
+qr = QuadratureRule{RefQuadrilateral}(2)
 cv = CellValues(qr, ip);
 
 # ## FerriteAssembly setup 

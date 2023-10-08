@@ -9,7 +9,7 @@
     # First, just do some high-level setup and extract the low-level items we need for testing 
     grid = generate_grid(Quadrilateral, (1,1))
     ip = Lagrange{RefQuadrilateral,1}()
-    qr = QuadratureRule{2,RefCube}(2)
+    qr = QuadratureRule{RefQuadrilateral}(2)
     dh = DofHandler(grid); add!(dh, :u, ip^2); add!(dh, :p, ip); close!(dh)
     m = EE.StationaryFourier(1.0)
     cv = (u=CellValues(qr, ip^2, ip), p=CellValues(qr, ip, ip))

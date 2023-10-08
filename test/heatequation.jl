@@ -141,7 +141,7 @@
         elseif isa(material, Dict) && length(dh.subdofhandlers) > 1
             sdh1 = dh.subdofhandlers[1]
             sdh2 = dh.subdofhandlers[2]
-            set1 = getcellset(sdh1)
+            set1 = sdh1.cellset
             setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
 
             ad1 = DomainSpec(sdh1, material["A"], cv; set=intersect(setA, set1)) # sdh1A
@@ -156,7 +156,7 @@
         elseif length(dh.subdofhandlers) > 1
             sdh1 = dh.subdofhandlers[1]
             sdh2 = dh.subdofhandlers[2]
-            set1 = getcellset(sdh1); set2 = getcellset(sdh2)
+            set1 = sdh1.cellset; set2 = sdh2.cellset
             ad1 = DomainSpec(sdh1, material, cv; set=set1)
             ad2 = DomainSpec(sdh2, material, cv; set=set2)
             buffer = setup_domainbuffers(Dict("sdh1"=>ad1, "sdh2"=>ad2); autodiffbuffer=autodiff_cb, threading=threaded)

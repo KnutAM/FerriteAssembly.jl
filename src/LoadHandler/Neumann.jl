@@ -70,7 +70,7 @@ end
 function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::DofHandler)
     contribution = false
     for sdh in dh.subdofhandlers
-        overlaps = overlaps_with_cellset(nbc.faceset, getcellset(sdh))
+        overlaps = overlaps_with_cellset(nbc.faceset,_getcellset(sdh))
         if overlaps && nbc.fieldname ∈ Ferrite.getfieldnames(sdh)
             contribution = true
             add_neumann!(nbcs, nbc, sdh)

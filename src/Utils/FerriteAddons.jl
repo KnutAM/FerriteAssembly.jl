@@ -2,9 +2,7 @@
 # SubDofHandler                                     #
 # ================================================= #
 _getgrid(sdh::SubDofHandler) = sdh.dh.grid
-
-# Type piracy:
-Ferrite.getcellset(sdh::SubDofHandler) = sdh.cellset
+_getcellset(sdh::SubDofHandler) = sdh.cellset
 
 # Custom functions for SubDofHandler
 function create_dofrange(sdh::SubDofHandler)

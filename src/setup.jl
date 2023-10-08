@@ -1,5 +1,5 @@
 """
-    DomainSpec(sdh::SubDofHandler, material, fe_values; set=getcellset(sdh), colors_or_chunks=nothing, user_data=nothing)
+    DomainSpec(sdh::SubDofHandler, material, fe_values; set=_getcellset(sdh), colors_or_chunks=nothing, user_data=nothing)
     DomainSpec(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing)
 
 Create a `DomainSpec` that can be used to set up a domain buffer. 
@@ -35,8 +35,8 @@ struct DomainSpec{I}
     colors_or_chunks::Any
     user_data::Any
 end
-function DomainSpec(sdh::SubDofHandler, material, values; set=getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing)
-    intersected_set = intersect_cellset_sort(set, getcellset(sdh))
+function DomainSpec(sdh::SubDofHandler, material, values; set=_getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing)
+    intersected_set = intersect_cellset_sort(set,_getcellset(sdh))
     colors_or_chunks = chunks!==nothing ? chunks : colors
     return DomainSpec(sdh, material, values, intersected_set, colors_or_chunks, user_data)
 end

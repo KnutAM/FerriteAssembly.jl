@@ -64,7 +64,7 @@ function add_bodyload!(bodyloads::Dict{String,BT}, bodyload::BodyLoad, sdh::SubD
     ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
     cv = autogenerate_cellvalues(bodyload.cv_info, ip, ip_geo)
 
-    set = bodyload.cellset===nothing ? getcellset(sdh) : bodyload.cellset
+    set = bodyload.cellset===nothing ? _getcellset(sdh) : bodyload.cellset
     
     domain_spec = DomainSpec(sdh, material, cv; set=set)
     threading = BT <: ThreadedDomainBuffer
@@ -74,7 +74,7 @@ end
 function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::DofHandler)
     contribution = false
     for sdh in dh.subdofhandlers
-        overlaps = overlaps_with_cellset(bodyload.cellset, getcellset(sdh))
+        overlaps = overlaps_with_cellset(bodyload.cellset, _getcellset(sdh))
         if overlaps && bodyload.fieldname ∈ Ferrite.getfieldnames(sdh)
             contribution = true
             add_bodyload!(bodyloads, bodyload, sdh)

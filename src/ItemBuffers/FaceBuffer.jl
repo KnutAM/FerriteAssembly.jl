@@ -50,7 +50,7 @@ end
 setup_facebuffer(ad::Bool, args...; kwargs...) = setup_facebuffer(Val(ad), args...; kwargs...)
 function setup_facebuffer(::Val{false}, sdh, fv, material, dofrange, user_data)
     numdofs = ndofs_per_cell(sdh)
-    coords = getcoordinates(_getgrid(sdh), first(getcellset(sdh)))
+    coords = getcoordinates(_getgrid(sdh), first(_getcellset(sdh)))
     return FaceBuffer(numdofs, coords, fv, material, dofrange, user_data)
 end
 

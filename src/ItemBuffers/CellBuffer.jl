@@ -54,7 +54,7 @@ end
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
 function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange, user_data)
     numdofs = ndofs_per_cell(sdh)
-    coords = getcoordinates(_getgrid(sdh), first(getcellset(sdh)))
+    coords = getcoordinates(_getgrid(sdh), first(_getcellset(sdh)))
     return CellBuffer(numdofs, coords, cv, material, cell_state, dofrange, user_data)
 end
 
