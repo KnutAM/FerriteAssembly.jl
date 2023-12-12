@@ -9,9 +9,10 @@ ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
 
 [compat]
+julia = "1.8"
 Ferrite = "0.3.11"
 ForwardDiff = "0.10"
-julia = "1.8"
+MaterialModelsBase = "0.2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

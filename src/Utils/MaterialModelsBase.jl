@@ -80,6 +80,6 @@ end
 """
     FerriteAssembly.allocate_cell_cache(m::MMB.AbstractMaterial, ::Any)
 
-Create the material cache defined by the `MMB.get_cache(m)` function.
+Create the material cache defined by the `MMB.allocate_material_cache(m)` function.
 """
-allocate_cell_cache(m::MMB.AbstractMaterial, ::Any) = MMB.get_cache(m)
+allocate_cell_cache(m::MMB.AbstractMaterial, ::Any) = MMB.allocate_material_cache(m)
