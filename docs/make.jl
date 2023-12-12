@@ -64,6 +64,10 @@ makedocs(;
     #strict=true,
 )
 
+# Remove output files from build directory
+clean_output_files(joinpath(@__DIR__, "build", "tutorials"))
+clean_output_files(joinpath(@__DIR__, "build", "howto"))
+
 deploydocs(;
     repo="github.com/KnutAM/FerriteAssembly.jl.git",
     devbranch="main",

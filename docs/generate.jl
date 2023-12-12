@@ -1,6 +1,19 @@
 # generate examples
 import Literate
 
+function clean_output_files(dir)
+    num_deleted = 0
+    cd(dir) do 
+        for file in readdir()
+            if any(ext -> endswith(file, ext), (".vtu", ".pvd"))
+                rm(file)
+                num_deleted += 1
+            end
+        end
+    end
+    @info "Deleted $num_deleted output files from $dir"
+end
+
 # type="tutorials" or "howto" 
 function build_examples(jl_files; type)
     EXAMPLEDIR = joinpath(@__DIR__, "src", "literate_$type")
@@ -32,10 +45,7 @@ function build_examples(jl_files; type)
         Literate.markdown(input, GENERATEDDIR, postprocess = mdpost)
         Literate.notebook(input, GENERATEDDIR, execute = is_ci) # Don't execute locally
     end
-
-    cd(GENERATEDDIR) do
-        foreach(file -> any(endswith(file, ext) for ext in (".vtu", ".pvd", ".jld2")) && rm(file), readdir())
-    end
+    clean_output_files(GENERATEDDIR)
     
     return map(f->joinpath(type, replace(f, ".jl"=>".md")), jl_files)
 end
