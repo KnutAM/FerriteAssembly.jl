@@ -87,7 +87,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
             i == maxiter && error("Did not converge")
             # Solve the linear system and update the dof vector
             a .-= K\r
-            apply!(a, ch) # Make sure Dirichlet BC are exactly fullfilled
+            apply!(a, ch) # Make sure Dirichlet BC are exactly fulfilled
         end
         # If converged, update the old state variables to the current.
         update_states!(buffer)
