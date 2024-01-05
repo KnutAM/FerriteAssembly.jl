@@ -61,7 +61,7 @@ end
 # Work dispatch 
 work_single!(worker, fb::FaceBuffer) = work_single_face!(worker, fb)
 
-# Acess functions
+# Access functions
 get_ae(fb::FaceBuffer) = fb.ae
 get_aeold(fb::FaceBuffer) = fb.ae_old
 get_re(fb::FaceBuffer) = fb.re 

@@ -22,9 +22,9 @@ function build_examples(jl_files; type)
     mkpath(GENERATEDDIR)
 
     # Copy supplementary files first
-    suplementary_fileextensions = [".inp", ".svg", ".png", ".jpg", ".gif"]
+    supplementary_fileextensions = [".inp", ".svg", ".png", ".jpg", ".gif"]
     for example in readdir(EXAMPLEDIR)
-        supplementary_ext = any(endswith.(example, suplementary_fileextensions))
+        supplementary_ext = any(endswith.(example, supplementary_fileextensions))
         supplementary_jl = endswith(example, ".jl") && example ∉ jl_files
         if supplementary_ext || supplementary_jl
             cp(joinpath(EXAMPLEDIR, example), joinpath(GENERATEDDIR, example); force=true)

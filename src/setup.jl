@@ -18,7 +18,7 @@ Create a `DomainSpec` that can be used to set up a domain buffer.
   `Ferrite.jl`'s default coloring algorithm is used.
 * `chunks::Vector{Vector{Vector{I}}}`. During multithreading, each task works with 
   items in one `chunk::Vector{I}` at a time. Items in `chunks[k][i]` and `chunks[k][j]`
-  should be independent (i.e. not share dofs). If given, this input takes precidence over 
+  should be independent (i.e. not share dofs). If given, this input takes precedence over 
   `colors`. For `chunks`, `I` must be `Int` for cell domains and `FaceIndex` for face domains. 
 * `user_data`: Can be whatever the user wants to and is passed along by reference everywhere. 
   It is accessible from the `ItemBuffer` (e.g. `CellBuffer`) given to the `worker`'s function

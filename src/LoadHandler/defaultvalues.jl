@@ -1,4 +1,4 @@
-# Create FaceValues or CellValues automatically with minimial input 
+# Create FaceValues or CellValues automatically with minimal input 
 
 """
     autogenerate_facevalues(fv::FaceValues, args...)
