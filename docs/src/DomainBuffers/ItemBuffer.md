@@ -3,7 +3,7 @@ CurrentModule = FerriteAssembly
 ```
 
 # AbstractItemBuffer
-Depening on the domain that is worked over, different item buffers are available, 
+Depending on the domain that is worked over, different item buffers are available, 
 e.g. `CellBuffer` and `FaceBuffer`. These are set up during call to `setup_domainbuffer`.
 
 For each item (cell or face), the values in the buffer are updated to the current item,

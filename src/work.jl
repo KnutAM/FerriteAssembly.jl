@@ -1,7 +1,7 @@
 """
     work!(worker, buffer; a=nothing, aold=nothing)
 
-Perform the work according to `worker` over the domain(s) specificed by 
+Perform the work according to `worker` over the domain(s) specified by 
 `buffer`. Current, `a`, and old, `aold`, global degree of freedom vectors 
 are passed to get these values passed into the innermost user-defined functions.
 If not passed (or as `nothing`), `NaN` values are passed into the innermost functions. 

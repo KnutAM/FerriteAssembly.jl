@@ -1,6 +1,6 @@
 abstract type AbstractItemBuffer end
 
-# Acess functions
+# Access functions
 function get_ae end
 """
     get_aeold(itembuffer::AbstractItemBuffer)
