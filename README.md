@@ -5,6 +5,12 @@
 [![Coverage](https://codecov.io/gh/KnutAM/FerriteAssembly.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/KnutAM/FerriteAssembly.jl)
 
 **NOTE:** The main branch only supports Ferrite#master (soon v1.0).
+To install, run
+```julia
+pkg> add Ferrite#master
+pkg> add https://github.com/KnutAM/MaterialModelsBase.jl.git
+pkg> add https://github.com/KnutAM/FerriteAssembly.jl.git
+```
 
 # FerriteAssembly
 The goal of [FerriteAssembly](https://github.com/KnutAM/FerriteAssembly.jl) 
