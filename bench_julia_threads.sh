@@ -2,16 +2,12 @@
 #SBATCH --partition=standard  # Partition (queue), some alt: standard, shortrun_large, shortrun_small, testing, fat, gpu01queue, gpu02queue, gpu03queue
 #SBATCH -N 1                  # Number of nodes
 #SBATCH -n 20                 # Number of processes
-#SBATCH --time=0-01:00:00     # Time (1h default)
+#SBATCH --time=0-00:20:00     # Time (20 min default)
+#SBATCH -J bench              # jobname ("bench" as default)
 # Start a job by calling 
 # `sbatch <sbatch_options> <path/to/run_julia.sh> -s <path/to/julia/script.jl>`
 # from the folder containing the Project.toml
-# The sbatch options are any options available for the currently used sbatch, and will override settings in this file
-# An example call could be 
-# sbatch -J myjob -n 2 --time=2-00:00:00 $SBATCH_SCRIPTS/run_julia.sh -s runsim.jl
-# Assuming that the environment variable $SBATCH_SCRIPTS contains the path to the `sbatch` folder
-# Here, the job name is set to "myjob", the number of processors to 2, and the time limit to 2 days
-
+# Example call: `sbatch bench_julia_threads.sh -s benchmarks/threaded_elasticity.jl`
 
 # Get input options
 while getopts ":s:" opt; do
