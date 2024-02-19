@@ -4,22 +4,30 @@ import FerriteAssembly.ExampleElements: LinearElastic
 
 threading = Threads.nthreads() > 0
 n = 30
-grid = generate_grid(Hexahedron, (10*n,n,n))
+print("Create grid: ")
+grid = @time generate_grid(Hexahedron, (10*n,n,n))
 
 ip = Lagrange{RefHexahedron,1}()^3
 qr = QuadratureRule{RefHexahedron}(2)
 dh = DofHandler(grid)
 add!(dh, :u, ip)
-close!(dh)
+print("Close dh: ")
+@time close!(dh)
+
 cv = CellValues(qr, ip)
 material = LinearElastic(E=200e9, ν=0.3)
-buffer = setup_domainbuffer(DomainSpec(dh, material, cv); threading)
 
-K = create_sparsity_pattern(dh)
+print("setup domainbuffer: ")
+buffer = @time setup_domainbuffer(DomainSpec(dh, material, cv); threading)
+
+print("sparsity pattern: ")
+K = @time create_sparsity_pattern(dh)
 r = zeros(ndofs(dh))
 assembler = start_assemble(K, r)
 
-work!(assembler, buffer)
+print("Work: ")
+@time work!(assembler, buffer)
+println("Done setting up")
 
 function dotiming(K, r, buffer)
     assembler = start_assemble(K, r)

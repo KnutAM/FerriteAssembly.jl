@@ -35,17 +35,21 @@ fi
 julia --project=. --threads $SLURM_NPROCS -e 'using Pkg; Pkg.instantiate()'
 
 # Run benchmark
-echo "Threads = 1"
-julia --project=. --threads 1 $script
+echo "Threads = 20"
+julia --project=. --threads 20 $script
 
-echo "Threads = 2"
-julia --project=. --threads 2 $script
-
-echo "Threads = 4"
-julia --project=. --threads 4 $script
+echo "Threads = 16"
+julia --project=. --threads 16 $script
 
 echo "Threads = 8"
 julia --project=. --threads 8 $script
 
-echo "Threads = 16"
-julia --project=. --threads 16 $script
+echo "Threads = 4"
+julia --project=. --threads 4 $script
+
+echo "Threads = 2"
+julia --project=. --threads 2 $script
+
+echo "Threads = 1"
+julia --project=. --threads 1 $script
+
