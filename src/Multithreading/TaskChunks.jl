@@ -115,8 +115,9 @@ end
 
 # Colors not given
 function create_chunks(grid::Grid, intersected_set::Vector, ::Nothing)
-    # first.(intersected_set) gives extra alloc for Vector{Int}: TODO: Optimize
-    return create_chunks(grid, intersected_set, create_coloring(grid, first.(intersected_set)))
+    makecellset(v::Vector{Int}) = Set(v)
+    makecellset(v::Vector) = Set(first.(v))
+    return create_chunks(grid, intersected_set, create_coloring(grid, makecellset(intersected_set)))
 end
 
 # Convert chunks for cells to chunks for faces by adding all face::FaceIndex with the same cell in the same chunk
