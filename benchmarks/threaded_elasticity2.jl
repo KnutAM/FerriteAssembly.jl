@@ -38,7 +38,7 @@ end
 # End of LinearStiffness implementation
 
 threading = Threads.nthreads() > 0
-n = 20
+n = 50
 grid = generate_grid(Hexahedron, (10*n,n,n))
 
 ip = Lagrange{RefHexahedron,1}()^3
