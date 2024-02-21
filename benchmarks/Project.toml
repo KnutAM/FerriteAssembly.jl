@@ -1,0 +1,5 @@
+[deps]
+Ferrite = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
+FerriteAssembly = "fd21fc07-c509-4fe1-9468-19963fd5935d"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+ThreadPinning = "811555cd-349b-4f26-b7bc-1f208b848042"

@@ -1,4 +1,4 @@
-using Ferrite, SparseArrays, LIKWID
+using Ferrite, SparseArrays
 
 using ThreadPinning
 pinthreads(:cores)
@@ -137,7 +137,7 @@ function assemble_cell!(scratch::ScratchValues, cell::Int, K::SparseMatrixCSC,
     assemble!(assembler, global_dofs, fe, Ke)
 end;
 
-function run_assemble()
+function setup_assemble()
     refshape = RefHexahedron
     dim = 3
     n = 30
@@ -150,16 +150,22 @@ function run_assemble()
     scratches = create_scratchvalues(K, f, dh)
     b = Vec{3}((0.0, 0.0, 0.0))
     ## compilation
-    doassemble(K, colors, grid, dh, C, f, scratches, b);
-    return @perfmon ("FLOPS_DP", "BRANCH", "L2", "L3", "CACHE", "ICACHE", "TLB") doassemble(K, colors, grid, dh, C, f, scratches, b);
-    # return doassemble(K, colors, grid, dh, C, f, scratches, b);
+    return K, colors, grid, dh, C, f, scratches, b
 end
 
-metrics, events = run_assemble();
-clocks = [res["Clock [MHz]"] for res in metrics["FLOPS_DP"]]
-println("Clock [MHz] (min, avg, max): ", minimum(clocks), " | ", mean(clocks), " | " , maximum(clocks)) 
+function timeit(args...)
+    return @elapsed doassemble(args...)
+end
 
-thread_times = [res["Runtime unhalted [s]"] for res in metrics["FLOPS_DP"]]
-println("Runtime unhalted [s] (min, avg, max): ", minimum(thread_times), " | ", mean(thread_times), " | " , maximum(thread_times))
+args = setup_assemble()
+doassemble(args...) # compilation
 
-println("Total runtime [s] ", first([res["Runtime (RDTSC) [s]"] for res in metrics["FLOPS_DP"]]))
+open(joinpath(@__DIR__, "dennis.txt"); append=true) do io
+    write(io, string(Threads.nthreads()))
+    for _ in 1:3
+        t = timeit(args...)
+        write(io, ", ", string(t))
+    end
+    write(io, "\n")
+end
+
