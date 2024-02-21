@@ -140,7 +140,7 @@ end;
 function setup_assemble()
     refshape = RefHexahedron
     dim = 3
-    n = 30
+    n = 50
     grid, colors = create_colored_cantilever_grid(Hexahedron, n);
     dh = create_dofhandler(grid);
 
