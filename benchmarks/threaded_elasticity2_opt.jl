@@ -73,8 +73,8 @@ function dotiming(K, r, buffer)
     assembler = start_assemble(K, r)
     @elapsed work!(assembler, buffer)
 end
-#=
-open("threaded_elasticity2.txt"; append=true) do fid
+
+open("threaded_elasticity2_opt.txt"; append=true) do fid
     write(fid, string(Threads.nthreads()))
     write(fid, " ")
     for _ in 1:3
@@ -84,4 +84,4 @@ open("threaded_elasticity2.txt"; append=true) do fid
     end
     write(fid, "\n")
 end
-=#
+
