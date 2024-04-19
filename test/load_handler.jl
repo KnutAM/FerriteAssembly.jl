@@ -141,39 +141,65 @@ end
 end
 
 @testset "Multiple SubDofHandlers" begin
-        f_2d(_, t, _) = Vec{2}((t, 10t))
-        Nx, Ny = (5,5)
-        grid=generate_grid(Quadrilateral, (Nx, Ny));
-        ip = Lagrange{RefQuadrilateral,1}()
-        dh=DofHandler(grid);
-        addcellset!(grid, "leftpart",  x -> x[1] <= eps(); all=false)
-        addcellset!(grid, "rightpart", x -> x[1] >= eps(); all=true)
-        sdh_left = SubDofHandler(dh, getcellset(grid, "leftpart"))
-        add!(sdh_left, :v, ip^2)
-        sdh_right = SubDofHandler(dh, getcellset(grid, "rightpart"))
-        add!(sdh_right, :u, ip^2)
-        close!(dh)
+    f_2d(_, t, _) = Vec{2}((t, 10t))
+    Nx, Ny = (5,5)
+    grid=generate_grid(Quadrilateral, (Nx, Ny));
+    ip = Lagrange{RefQuadrilateral,1}()
+    dh=DofHandler(grid);
+    addcellset!(grid, "leftpart",  x -> x[1] <= eps(); all=false)
+    addcellset!(grid, "rightpart", x -> x[1] >= eps(); all=true)
+    sdh_left = SubDofHandler(dh, getcellset(grid, "leftpart"))
+    add!(sdh_left, :v, ip^2)
+    sdh_right = SubDofHandler(dh, getcellset(grid, "rightpart"))
+    add!(sdh_right, :u, ip^2)
+    close!(dh)
+    lh = LoadHandler(dh)
+    @test_logs min_level=Logging.Warn add!(lh, Neumann(:u, 2, getfaceset(grid, "right"), f_2d)) # no warning should be issued
+    f = zeros(ndofs(dh))
+    apply!(f, lh, 1.0)
+
+    # Use the ConstraintHandler to give fixed values on each dof
+    # Note half load on node at the end of the edge
+    a = zeros(ndofs(dh))
+    ch = ConstraintHandler(dh); 
+    dbc = Dirichlet(
+        :u, grid.facesets["right"], 
+        (x,t)-> (abs(x[2])<(1-eps()) ? 1.0 : 0.5)*f_2d(0,t,0), [1,2])
+    add!(ch, dbc)
+    close!(ch)
+    update!(ch, 1.0)
+    apply!(a, ch)
+
+    @test 2*a/Ny ≈ f   # Side length 2, force distributed per area.
+
+    # Check that it warns because :u is not available on the left face
+    @test_logs (:warn,) add!(lh, Neumann(:u, 2, getfaceset(grid, "left"), f_2d))
+end
+
+@testset "DofLoad" begin
+    dh = DofHandler(generate_grid(Quadrilateral, (4,4)))
+    add!(dh, :u, Lagrange{RefQuadrilateral, 1}())
+    close!(dh)
+    f = zeros(ndofs(dh))
+    
+    for dof in [1, rand(2:(ndofs(dh)-1)), ndofs(dh)]
+        fill!(f, 0)
         lh = LoadHandler(dh)
-        @test_logs min_level=Logging.Warn add!(lh, Neumann(:u, 2, getfaceset(grid, "right"), f_2d)) # no warning should be issued
-        f = zeros(ndofs(dh))
+        add!(lh, DofLoad(dof, t -> 2*t))
         apply!(f, lh, 1.0)
+        
+        @test f[dof] ≈ 2  # Correct value set 
+        @test norm(f) ≈ 2 # No other dofs affected
 
-        # Use the ConstraintHandler to give fixed values on each dof
-        # Note half load on node at the end of the edge
-        a = zeros(ndofs(dh))
-        ch = ConstraintHandler(dh); 
-        dbc = Dirichlet(
-            :u, grid.facesets["right"], 
-            (x,t)-> (abs(x[2])<(1-eps()) ? 1.0 : 0.5)*f_2d(0,t,0), [1,2])
-        add!(ch, dbc)
-        close!(ch)
-        update!(ch, 1.0)
-        apply!(a, ch)
+        apply!(f, lh, 2.0)
+        @test f[dof] ≈ 6 # Additive update (+2*2=+4)
+        @test norm(f) ≈ 6 # 
 
-        @test 2*a/Ny ≈ f   # Side length 2, force distributed per area.
-
-        # Check that it warns because :u is not available on the left face
-        @test_logs (:warn,) add!(lh, Neumann(:u, 2, getfaceset(grid, "left"), f_2d))
+        map!(_->rand(), f, 1:ndofs(dh)) # rand!(f)?
+        n = norm(f)
+        apply!(f, lh, 0.0)
+        @test n ≈ norm(f) # No influence (e.g. zeroing not caught above) of other dofs.
+    end
 end
 
 @testset "VolumeCalculation" begin

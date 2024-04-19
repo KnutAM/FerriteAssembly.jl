@@ -33,7 +33,7 @@ export work!, update_states!, set_time_increment!
 export ReAssembler, KeReAssembler   # Assemblers
 export Integrator, SimpleIntegrator # Integrators
 # Builtin convenience 
-export LoadHandler, Neumann, BodyLoad
+export LoadHandler, Neumann, BodyLoad, DofLoad
 export ElementResidualScaling, reset_scaling!
 
 """
