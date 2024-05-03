@@ -1,3 +1,7 @@
+abstract type AbstractFaceBuffer <: AbstractItemBuffer end
+
+work_single!(worker, fb::AbstractFaceBuffer) = work_single_face!(worker, fb)
+
 """
     work_single_face!(worker, facebuffer)
 
@@ -5,7 +9,8 @@ Each worker that supports for a facebuffer should overload this function.
 """
 function work_single_face! end
 
-mutable struct FaceBuffer{T,CC,FV,DR,MT,UD,UC} <: AbstractItemBuffer
+
+mutable struct FaceBuffer{T,CC,FV,DR,MT,UD,UC} <: AbstractFaceBuffer
     const ae_old::Vector{T}           # Old element dof values
     const ae::Vector{T}               # New element dof values
     const re::Vector{T}               # Residual/force vector 
@@ -57,9 +62,6 @@ end
 function setup_facebuffer(::Val{true}, args...)
     error("AutoDiffBuffer not implemented for FaceBuffer")
 end
-
-# Work dispatch 
-work_single!(worker, fb::FaceBuffer) = work_single_face!(worker, fb)
 
 # Access functions
 get_ae(fb::FaceBuffer) = fb.ae

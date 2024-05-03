@@ -1,11 +1,13 @@
+abstract type AbstractCellBuffer <: AbstractItemBuffer end
+
+work_single!(worker, cb::AbstractCellBuffer) = work_single_cell!(worker, cb)
+
 """
     work_single_cell!(worker, cellbuffer)
 
 Each worker that supports a cellbuffer should overload this function.
 """
 function work_single_cell! end
-
-abstract type AbstractCellBuffer <: AbstractItemBuffer end
 
 mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC} <: AbstractCellBuffer
     const ae_old::Vector{T}           # Old element dof values
@@ -61,8 +63,6 @@ end
 function setup_cellbuffer(::Val{true}, args...)
     return AutoDiffCellBuffer(setup_cellbuffer(Val(false), args...))
 end
-
-work_single!(worker, cb::AbstractCellBuffer) = work_single_cell!(worker, cb)
 
 # Required functions for a custom CellBuffer (only required internally)
 # TaskLocals interface (only `create_local` required for other `AbstractCellBuffer`s) (unless gather! is req.)
