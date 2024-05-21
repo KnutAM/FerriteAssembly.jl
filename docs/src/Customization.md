@@ -38,7 +38,7 @@ The interface for creating an assembler is that the assembler must support the `
 as well as the methods,
 
 * `FerriteAssembly.work_single_cell!(assembler, buffer::AbstractCellBuffer)`
-* `FerriteAssembly.work_single_face!(assembler, buffer::FaceBuffer)`
+* `FerriteAssembly.work_single_facet!(assembler, buffer::FacetBuffer)`
 
 The internal methods for builtin assemblers can be used as examples.
 

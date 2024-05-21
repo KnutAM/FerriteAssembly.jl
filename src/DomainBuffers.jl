@@ -107,15 +107,15 @@ getset(b::DomainBuffers, domain) = getset(b[domain])
 struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     set::Vector{I}
     itembuffer::B
-    states::Dict{Int,S}     # Always indexed by cell. If desired to have 1 state per e.g. face, need to have e.g. S::Vector{FS}
+    states::Dict{Int,S}     # Always indexed by cell. If desired to have 1 state per e.g. facet, need to have e.g. S::Vector{FS}
     old_states::Dict{Int,S} # For interfaces, it is possible/likely that state_here and state_there can be given. 
     sdh::SDH
 end
 
 struct ThreadedDomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
-    chunks::Vector{Vector{Vector{I}}}   # I=Int (cell), I=FaceIndex (face), or
-    set::Vector{I}                      # I=NTuple{2,FaceIndex} (interface)
-    itembuffer::TaskLocals{B,B}         # cell, face, or interface buffer 
+    chunks::Vector{Vector{Vector{I}}}   # I=Int (cell), I=FacetIndex (facet), or
+    set::Vector{I}                      # I=NTuple{2,FacetIndex} (interface)
+    itembuffer::TaskLocals{B,B}         # cell, facet, or interface buffer 
     states::Dict{Int,S}                 # To be updated during "work"
     old_states::Dict{Int,S}             # Only for reference
     sdh::SDH
@@ -133,7 +133,7 @@ get_chunks(db::ThreadedDomainBuffer) = db.chunks
 const StdDomainBuffer = Union{DomainBuffer, ThreadedDomainBuffer}
 
 #Ferrite.getcellset(b::StdDomainBuffer{Int}) = b.set
-#Ferrite.getfaceset(b::StdDomainBuffer{FaceIndex}) = b.set
+#Ferrite.getfacetset(b::StdDomainBuffer{FacetIndex}) = b.set
 getset(b::StdDomainBuffer) = b.set
 
 get_dofhandler(b::StdDomainBuffer) = b.sdh.dh

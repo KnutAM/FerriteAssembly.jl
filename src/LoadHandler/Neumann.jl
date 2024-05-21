@@ -1,5 +1,5 @@
 """
-    Neumann(field_name::Symbol, fv_info::Union{FaceValues,QuadratureRule,Int}, faceset::Set{FaceIndex}, f)
+    Neumann(field_name::Symbol, fv_info::Union{FacetValues,QuadratureRule,Int}, facetset::AbstractSet{FacetIndex}, f)
 
 Define a Neumann contribution with the weak forms according to 
 ```math
@@ -17,21 +17,21 @@ defined by a function with signatures
 `f(x::Vec, t::Real, n::Vec) -> Vec{dim}` (Vector field)
 
 where `x` is the spatial position of the current quadrature point, `t` is the 
-current time, and `n` is the face normal vector. The remaining input arguments are
+current time, and `n` is the facet normal vector. The remaining input arguments are
 
 * `fieldname` describes the field on which the boundary condition should abstract
-* `fv_info` gives required input to determine the facevalues. The following input types are accepted:
-  - `Int` giving the integration order to use. `FaceValues` are deduced from the interpolation 
+* `fv_info` gives required input to determine the facetvalues. The following input types are accepted:
+  - `Int` giving the integration order to use. `FacetValues` are deduced from the interpolation 
     of `fieldname` and the output of `f`. 
-  - `QuadratureRule` matching the interpolation for `fieldname` for faces in `faceset` `FaceValues` are deduced 
+  - `QuadratureRule` matching the interpolation for `fieldname` for facets in `facetset` `FacetValues` are deduced 
     from the output of `f`
-  - `FaceValues` matching the interpolation for `fieldname` for the faces in `faceset` and output of `f`
-* `faceset` describes which faces the BC is applied to
+  - `FacetValues` matching the interpolation for `fieldname` for the facets in `facetset` and output of `f`
+* `facetset` describes which facets the BC is applied to
 """
 struct Neumann{FVI,FUN}
     fieldname::Symbol
     fv_info::FVI
-    faceset::Set{FaceIndex}
+    facetset::AbstractSet{FacetIndex}
     f::FUN # f(x::Vec, time, n::Vec)->{ip::ScalarInterpolation ? Number : Vec}
 end
 
@@ -40,12 +40,12 @@ struct NeumannMaterial{FUN}
     f::FUN
     dr::UnitRange{Int}
 end
-function face_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::FaceValues, facebuffer)
+function facet_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::FacetValues, facetbuffer)
     checkbounds(fe, m.dr)
-    t = get_time_increment(facebuffer) # Abuse...
+    t = get_time_increment(facetbuffer) # Abuse...
     for q_point in 1:getnquadpoints(fv)
         dΓ = getdetJdV(fv, q_point)
-        x = spatial_coordinate(fv, q_point, getcoordinates(facebuffer))
+        x = spatial_coordinate(fv, q_point, getcoordinates(facetbuffer))
         n = getnormal(fv, q_point)
         b = m.f(x, t, n)
         for (i, I) in pairs(m.dr)
@@ -60,9 +60,9 @@ function add_neumann!(nbcs::Dict{String,BT}, nbc::Neumann, sdh::SubDofHandler) w
 
     ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
     ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
-    fv = autogenerate_facevalues(nbc.fv_info, ip, ip_geo)
+    fv = autogenerate_facetvalues(nbc.fv_info, ip, ip_geo)
     
-    domain_spec = DomainSpec(sdh, material, fv; set=nbc.faceset)
+    domain_spec = DomainSpec(sdh, material, fv; set=nbc.facetset)
     threading = BT <: ThreadedDomainBuffer
     nbcs[string(length(nbcs)+1)] = setup_domainbuffer(domain_spec; threading=threading)
 end
@@ -70,7 +70,7 @@ end
 function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::DofHandler)
     contribution = false
     for sdh in dh.subdofhandlers
-        overlaps = overlaps_with_cellset(nbc.faceset,_getcellset(sdh))
+        overlaps = overlaps_with_cellset(nbc.facetset, _getcellset(sdh))
         if overlaps && nbc.fieldname ∈ Ferrite.getfieldnames(sdh)
             contribution = true
             add_neumann!(nbcs, nbc, sdh)

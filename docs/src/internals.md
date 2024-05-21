@@ -8,15 +8,15 @@ FerriteAssembly._copydofs!
 FerriteAssembly._create_cell_state
 FerriteAssembly.CellBuffer
 FerriteAssembly.AutoDiffCellBuffer
-FerriteAssembly.FaceBuffer
+FerriteAssembly.FacetBuffer
 FerriteAssembly.get_itembuffer
 FerriteAssembly.skip_this_domain
 FerriteAssembly.can_thread
 FerriteAssembly.fast_getindex
 FerriteAssembly.work_single_cell!
-FerriteAssembly.work_single_face!
+FerriteAssembly.work_single_facet!
 FerriteAssembly.autogenerate_cellvalues
-FerriteAssembly.autogenerate_facevalues
+FerriteAssembly.autogenerate_facetvalues
 ```
 
 ## Threading model

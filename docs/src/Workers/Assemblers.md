@@ -2,8 +2,8 @@
 Assemblers are used to assemble the system matrices and residual vectors. To calculate the contribution to these matrices, one or more of the following functions should be overloaded for the specific `material`:
 * [`element_routine!`](@ref FerriteAssembly.element_routine!)
 * [`element_residual!`](@ref FerriteAssembly.element_residual!)
-* [`face_residual!`](@ref FerriteAssembly.face_residual!)
-* [`face_routine!`](@ref FerriteAssembly.face_routine!)
+* [`facet_residual!`](@ref FerriteAssembly.facet_residual!)
+* [`facet_routine!`](@ref FerriteAssembly.facet_routine!)
 
 
 ## Available assemblers 
@@ -13,17 +13,17 @@ The following assemblers can be used to assemble the system matrix and vector:
 - [`ReAssembler`](@ref)
 
 ### Ferrite assemblers 
-Ferrite assemblers are supported and are used to assemble both a matrix and a vector. They are created by calling Ferrite's `start_assemble` function. They will primarily call `element_routine!` or `face_routine!`. 
-However, if not defined for the given material, automatic differentiation will be used to get the matrix contribution by calling `element_residual!` or `face_residual!` instead.
+Ferrite assemblers are supported and are used to assemble both a matrix and a vector. They are created by calling Ferrite's `start_assemble` function. They will primarily call `element_routine!` or `facet_routine!`. 
+However, if not defined for the given material, automatic differentiation will be used to get the matrix contribution by calling `element_residual!` or `facet_residual!` instead.
 
 ### ReAssembler
-The `ReAssembler` assembles only the residual vector, and will thus call `element_residual!` or `face_residual!`.
+The `ReAssembler` assembles only the residual vector, and will thus call `element_residual!` or `facet_residual!`.
 ```@docs 
 ReAssembler
 ```
 
 ### KeReAssembler
-The `KeReAssembler` assembles both the residual vector and the system matrix, similar to Ferrite's assemblers. It will also primarily call `element_routine!` or `face_routine!` and fall back to automatic differentiation of `element_residual!` and `face_residual!` if the former methods are not defined. 
+The `KeReAssembler` assembles both the residual vector and the system matrix, similar to Ferrite's assemblers. It will also primarily call `element_routine!` or `facet_routine!` and fall back to automatic differentiation of `element_residual!` and `facet_residual!` if the former methods are not defined. 
 ```@docs
 KeReAssembler
 ```
@@ -32,8 +32,8 @@ KeReAssembler
 ```@docs
 FerriteAssembly.element_routine!
 FerriteAssembly.element_residual!
-FerriteAssembly.face_routine!
-FerriteAssembly.face_residual!
+FerriteAssembly.facet_routine!
+FerriteAssembly.facet_residual!
 ```
 
 ## Residual scaling

@@ -19,7 +19,7 @@ function get_values end
 """
     get_old_state(itembuffer::AbstractCellBuffer)
 
-Get the old state variables for the cell. Currently only available for cells and not for faces. 
+Get the old state variables for the cell. Currently only available for cells and not for facets. 
 """
 function get_old_state end
 function get_state end 
@@ -87,7 +87,7 @@ function _replace_material(buf::AbstractItemBuffer, replacement_function)
     return _replace_material_with(buf, new_material)
 end
 
-# Common parts for taskLocals interface
+# Common parts for TaskLocals interface
 function scatter!(task::AbstractItemBuffer, base::AbstractItemBuffer)
     set_time_increment!(task, get_time_increment(base))
 end

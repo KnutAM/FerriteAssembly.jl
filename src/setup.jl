@@ -7,25 +7,25 @@ Create a `DomainSpec` that can be used to set up a domain buffer.
 * `sdh`/`dh`: Give the `DofHandler` for the domain in question, or a `SubDofHandler` in case there are more than one in `DofHandler` 
   (See `Ferrite.jl's documentation`)
 * `material`: Used for dispatch on the utilized `worker`'s function. 
-* `fe_values`: `CellValues` or `FaceValues` depending on the type of domain. 
+* `fe_values`: `CellValues` or `FacetValues` depending on the type of domain. 
 * `set`: The items in the domain, the element type determines the type of domain 
   - Cell domain: `Int`
-  - Face domain: `FaceIndex`
+  - Facet domain: `FacetIndex`
 * `colors::Vector{Vector{I}}`: used to avoid race conditions when multithreading. 
-  For cell domains, `I=Int`, and for face domains, `I` can be either `Int` 
-  (denoting cell numbers) or `FaceIndex` for actual faces. If `I=Int`, it will be 
-  converted to `FaceIndex` internally. If `colors=nothing` and `chunks=nothing`, 
+  For cell domains, `I=Int`, and for facet domains, `I` can be either `Int` 
+  (denoting cell numbers) or `FacetIndex` for actual facets. If `I=Int`, it will be 
+  converted to `FacetIndex` internally. If `colors=nothing` and `chunks=nothing`, 
   `Ferrite.jl`'s default coloring algorithm is used.
 * `chunks::Vector{Vector{Vector{I}}}`. During multithreading, each task works with 
   items in one `chunk::Vector{I}` at a time. Items in `chunks[k][i]` and `chunks[k][j]`
   should be independent (i.e. not share dofs). If given, this input takes precedence over 
-  `colors`. For `chunks`, `I` must be `Int` for cell domains and `FaceIndex` for face domains. 
+  `colors`. For `chunks`, `I` must be `Int` for cell domains and `FacetIndex` for facet domains. 
 * `user_data`: Can be whatever the user wants to and is passed along by reference everywhere. 
   It is accessible from the `ItemBuffer` (e.g. `CellBuffer`) given to the `worker`'s function
   via the `get_user_data` function. However, since it is passed by reference, modifying values 
   during work, care must be taken to ensure thread safety. 
   To avoid allocations, caches can be created separately with `allocate_cell_cache` and 
-  `allocate_face_cache`.
+  `allocate_facet_cache`.
 """
 struct DomainSpec{I}
     sdh::SubDofHandler
@@ -73,11 +73,11 @@ function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
 end
 
 create_states(domain::DomainSpec{Int}, a) = create_states(domain.sdh, domain.material, domain.fe_values, a, domain.set, create_dofrange(domain.sdh))
-create_states(::DomainSpec{FaceIndex}, ::Any) = Dict{Int,Nothing}()
+create_states(::DomainSpec{FacetIndex}, ::Any) = Dict{Int,Nothing}()
 
-function setup_itembuffer(adb, domain::DomainSpec{FaceIndex}, args...)
+function setup_itembuffer(adb, domain::DomainSpec{FacetIndex}, args...)
     dofrange = create_dofrange(domain.sdh)
-    return setup_facebuffer(adb, domain.sdh, domain.fe_values, domain.material, dofrange, domain.user_data)
+    return setup_facetbuffer(adb, domain.sdh, domain.fe_values, domain.material, dofrange, domain.user_data)
 end
 function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
     dofrange = create_dofrange(domain.sdh)

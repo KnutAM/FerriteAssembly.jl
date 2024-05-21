@@ -106,7 +106,7 @@ function create_chunks(g::Grid, intersected_set::Vector{I}, colors::Vector{Vecto
     return create_chunks(g, intersected_set, chunks)
 end
 # Colors given with different type as set
-function create_chunks(g::Grid, intersected_set::Vector{FaceIndex}, colors::Vector{Vector{Int}})
+function create_chunks(g::Grid, intersected_set::Vector{FacetIndex}, colors::Vector{Vector{Int}})
     cellset = first.(intersected_set)
     colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset), colors)
     chunks = [convert_chunk(split_in_chunks(set), intersected_set) for set in colors_intersect]
@@ -120,18 +120,18 @@ function create_chunks(grid::Grid, intersected_set::Vector, ::Nothing)
     return create_chunks(grid, intersected_set, create_coloring(grid, makecellset(intersected_set)))
 end
 
-# Convert chunks for cells to chunks for faces by adding all face::FaceIndex with the same cell in the same chunk
-function convert_chunk(cellchunks::Vector{Vector{Int}}, set::Vector{FaceIndex})
-    facechunks = Vector{FaceIndex}[]
-    facechunk = FaceIndex[] # workspace
+# Convert chunks for cells to chunks for facets by adding all facet::FacetIndex with the same cell in the same chunk
+function convert_chunk(cellchunks::Vector{Vector{Int}}, set::Vector{FacetIndex})
+    facetchunks = Vector{FacetIndex}[]
+    facetchunk = FacetIndex[] # workspace
     for cellchunk in cellchunks
-        facechunk = sizehint!(FaceIndex[], length(cellchunk))
+        facetchunk = sizehint!(FacetIndex[], length(cellchunk))
         for cellnr in cellchunk
-            for (cellnr_set, facenr) in set
-                cellnr_set == cellnr && push!(facechunk, FaceIndex(cellnr, facenr))
+            for (cellnr_set, facetnr) in set
+                cellnr_set == cellnr && push!(facetchunk, FacetIndex(cellnr, facetnr))
             end
         end
-        push!(facechunks, facechunk)
+        push!(facetchunks, facetchunk)
     end
-    return facechunks
+    return facetchunks
 end

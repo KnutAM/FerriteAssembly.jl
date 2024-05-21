@@ -34,10 +34,10 @@ function intersect_cellset_sort(set::Union{AbstractSet{Int},AbstractVector{Int}}
     intersected = set===cellset ? set : intersect(set, cellset)
     return sort!(collect(intersected))
 end
-function intersect_cellset_sort(set::Union{AbstractSet{FaceIndex},AbstractVector{FaceIndex}}, cellset)
-    intersected_set = resize!(Vector{FaceIndex}(undef, max(length(set),length(cellset))), 0)
-    for (cellnr, facenr) in set
-        cellnr ∈ cellset && push!(intersected_set, FaceIndex(cellnr, facenr))
+function intersect_cellset_sort(set::Union{AbstractSet{FacetIndex},AbstractVector{FacetIndex}}, cellset)
+    intersected_set = resize!(Vector{FacetIndex}(undef, max(length(set),length(cellset))), 0)
+    for (cellnr, facetnr) in set
+        cellnr ∈ cellset && push!(intersected_set, FacetIndex(cellnr, facetnr))
     end
     return sort!(intersected_set; by=first)
 end

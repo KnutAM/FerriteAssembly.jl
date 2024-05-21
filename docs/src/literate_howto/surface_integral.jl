@@ -3,20 +3,20 @@ using Ferrite, FerriteAssembly
 # This how-to shows integration of the normal flux 
 # on a surface. As usual, we need the basic Ferrite 
 # building blocks, in this case a grid, dofhandler, 
-# and facevalues 
+# and facetvalues 
 grid = generate_grid(Hexahedron, (5,5,5))
 ip = Lagrange{RefHexahedron,1}()
 dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
-qr = FaceQuadratureRule{RefHexahedron}(2); 
-fv = FaceValues(qr, ip);
+qr = FacetQuadratureRule{RefHexahedron}(2); 
+fv = FacetValues(qr, ip);
 
 # We also need a solution vector to integrate, 
 # unless we only calculate geometric properties.
 a = zeros(ndofs(dh))
 apply_analytical!(a, dh, :u, norm); # f(x)=norm(x)
 
-# And then we decide which faces to integrate over
-domainbuffer = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=getfaceset(grid, "right")));
+# And then we decide which facets to integrate over
+domainbuffer = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=getfacetset(grid, "right")));
 
 # ## Using `SimpleIntegrator`
 # Using the simple interface, `SimpleIntegrator`, we simply
@@ -32,11 +32,11 @@ println("Flux: ∫qₙ dA = ", s_integrator.val)
 # To demonstrate how the full-fledged interface can be used, we 
 # perform the same task by using the `Integrator`.
 # To do that, we have to define an integrand, let's call it `NormalFlux`,
-# and overload the face integration function
+# and overload the facet integration function
 mutable struct NormalFlux{T}
     qn::T 
 end
-function FerriteAssembly.integrate_face!(nf::NormalFlux, ae, material, fv, facebuffer)
+function FerriteAssembly.integrate_facet!(nf::NormalFlux, ae, material, fv, facetbuffer)
     for q_point in 1:getnquadpoints(fv)
         dA = getdetJdV(fv, q_point)
         ∇u = function_gradient(fv, q_point, ae)

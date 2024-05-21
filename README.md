@@ -21,8 +21,8 @@ At its core, `FerriteAssembly.jl` lets you overload some of the following functi
 ```julia
 element_routine!(Ke, re, state, ae, material, cellvalues, cellbuffer)
 element_residual!(re, state, ae, material, cellvalues, cellbuffer)
-face_routine!(Ke, re, ae, material, facevalues, facebuffer)
-face_residual!(re, ae, material, facevalues, facebuffer)
+facet_routine!(Ke, re, ae, material, facetvalues, facetbuffer)
+facet_residual!(re, ae, material, facetvalues, facetbuffer)
 ```
 define a `domainbuffer` with `setup_domainbuffer`,
 
