@@ -37,18 +37,18 @@ end
 
     # Create Neumann boundary condition
     nh = LoadHandler(dh)
-    fv = FaceValues(FaceQuadratureRule{RefQuadrilateral}(2), ip)
+    fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
     f_2d(_, t, _) = Vec{2}((t, 10t))
-    add!(nh, Neumann(:u, fv, grid.facesets["right"], f_2d))
+    add!(nh, Neumann(:u, fv, grid.facetsets["right"], f_2d))
     
     # Test applying the Neumann bc
     f = zeros(ndofs(dh))
     apply!(f, nh, 1.0)
 
-    # Test deduction of facevalues from just quadrature order
+    # Test deduction of facetvalues from just quadrature order
     f2 = zeros(ndofs(dh))
     nh2 = LoadHandler(dh)
-    add!(nh2, Neumann(:u, 2, getfaceset(grid, "right"), f_2d))
+    add!(nh2, Neumann(:u, 2, getfacetset(grid, "right"), f_2d))
     apply!(f2, nh2, 1.0)
     @test f2 ≈ f
 
@@ -57,7 +57,7 @@ end
     a = zeros(ndofs(dh))
     ch = ConstraintHandler(dh); 
     dbc = Dirichlet(
-        :u, grid.facesets["right"], 
+        :u, grid.facetsets["right"], 
         (x,t)-> (abs(x[2])<(1-eps()) ? 1.0 : 0.5)*[1.,10.], [1,2])
     add!(ch, dbc)
     close!(ch)
@@ -72,13 +72,13 @@ end
     dh=DofHandler(grid); 
     ip = Lagrange{RefTetrahedron,1}()
     add!(dh, :u, ip^3); add!(dh, :p, ip); close!(dh);
-    fset = grid.facesets["right"]
+    fset = grid.facetsets["right"]
 
     # Create Neumann boundary condition
     nh = LoadHandler(dh)
-    qr = FaceQuadratureRule{RefTetrahedron}(2)
-    fv = FaceValues(qr, ip^3)
-    fv_s = FaceValues(qr, ip)
+    qr = FacetQuadratureRule{RefTetrahedron}(2)
+    fv = FacetValues(qr, ip^3)
+    fv_s = FacetValues(qr, ip)
     x_scale, y_scale, z_scale = rand(3)
     ny = Vec{3}((0,1.,0)); nz = Vec{3}((0,0,1.))
     f_3d(_,t,n) = t*(x_scale*n + y_scale*ny + z_scale*nz)
@@ -87,7 +87,7 @@ end
     f_1d(args...) = p_scale
     add!(nh, Neumann(:p, fv_s, fset, f_1d))
 
-    # Create same conditions but deduce facevalue based on quadrature order and function
+    # Create same conditions but deduce facetvalue based on quadrature order and function
     nh_auto = LoadHandler(dh)
     add!(nh_auto, Neumann(:u, 2, fset, f_3d))
     add!(nh_auto, Neumann(:p, 2, fset, f_1d))
@@ -154,7 +154,7 @@ end
     add!(sdh_right, :u, ip^2)
     close!(dh)
     lh = LoadHandler(dh)
-    @test_logs min_level=Logging.Warn add!(lh, Neumann(:u, 2, getfaceset(grid, "right"), f_2d)) # no warning should be issued
+    @test_logs min_level=Logging.Warn add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), f_2d)) # no warning should be issued
     f = zeros(ndofs(dh))
     apply!(f, lh, 1.0)
 
@@ -163,7 +163,7 @@ end
     a = zeros(ndofs(dh))
     ch = ConstraintHandler(dh); 
     dbc = Dirichlet(
-        :u, grid.facesets["right"], 
+        :u, grid.facetsets["right"], 
         (x,t)-> (abs(x[2])<(1-eps()) ? 1.0 : 0.5)*f_2d(0,t,0), [1,2])
     add!(ch, dbc)
     close!(ch)
@@ -172,8 +172,8 @@ end
 
     @test 2*a/Ny ≈ f   # Side length 2, force distributed per area.
 
-    # Check that it warns because :u is not available on the left face
-    @test_logs (:warn,) add!(lh, Neumann(:u, 2, getfaceset(grid, "left"), f_2d))
+    # Check that it warns because :u is not available on the left facet
+    @test_logs (:warn,) add!(lh, Neumann(:u, 2, getfacetset(grid, "left"), f_2d))
 end
 
 @testset "DofLoad" begin
@@ -251,9 +251,9 @@ end
     grid = generate_grid(Quadrilateral, (20,20))
     ip = Lagrange{RefQuadrilateral,1}()
     dh = DofHandler(grid); add!(dh, :u, ip); add!(dh, :v, ip^2); close!(dh)
-    nbc_s = Neumann(:u, 2, getfaceset(grid, "right"), fs)
+    nbc_s = Neumann(:u, 2, getfacetset(grid, "right"), fs)
     bld_s = BodyLoad(:u, 2, nothing, bs)
-    nbc_v = Neumann(:v, 2, getfaceset(grid, "top"), fv)
+    nbc_v = Neumann(:v, 2, getfacetset(grid, "top"), fv)
     addcellset!(grid, "center", x -> norm(x) < 0.5)
     bld_v = BodyLoad(:v, 2, getcellset(grid, "center"), bv)
     # Sequential

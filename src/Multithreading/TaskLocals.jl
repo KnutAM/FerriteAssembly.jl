@@ -85,7 +85,7 @@ only affect the values in `base`.
 function gather! end
 
 
-# Idea for generic test interface
+# Idea for generic test interfacet
 #=
 function test_task_locals(modify_value!, read_value, base)
     # Test 

@@ -44,20 +44,20 @@ function work_single_cell!(assembler::Integrator, cellbuffer)
 end
 
 """
-    integrate_face!(val, ae, material, fv, facebuffer)
+    integrate_facet!(val, ae, material, fv, facetbuffer)
 
 Function to be overloaded for `val` (potentially in combination with `material`),
 and will be called when using [`Integrator`](@ref). Mutate `val` to add to the result.
 
 The order of the inputs is chosen to follow the element routines
 """
-function integrate_face! end
+function integrate_facet! end
 
-function work_single_face!(assembler::Integrator, facebuffer)
-    cv = get_values(facebuffer)
-    m = get_material(facebuffer)
-    ae = get_ae(facebuffer)
-    integrate_face!(assembler.val, ae, m, cv, facebuffer)
+function work_single_facet!(assembler::Integrator, facetbuffer)
+    cv = get_values(facetbuffer)
+    m = get_material(facetbuffer)
+    ae = get_ae(facetbuffer)
+    integrate_facet!(assembler.val, ae, m, cv, facetbuffer)
 end
 
 """
@@ -68,14 +68,14 @@ Calculate the integrals
 \\int_\\Omega f(u, \\nabla u, s)\\, \\mathrm{d}\\Omega
 \\int_\\Gamma f(u, \\nabla u, n)\\, \\mathrm{d}\\Gamma 
 ```
-for cell and face domains respectively. 
+for cell and facet domains respectively. 
 For single-field problems, `u` is the current function value, `∇u` the current function gradient.
 For multi-field problem, `u` and `∇u` are `NamedTuple`s,
 where the keys in `u` and `∇u` are the fieldnames. 
 
 For cell domains, `qp_state` the current state in the current quadrature point. 
 This assumes that `cell_state::AbstractVector`, otherwise, `qp_state = cell_state`.  
-For face domains, `n` is the face normal vector. 
+For facet domains, `n` is the facet normal vector. 
 
 It is the user's responsibility that `fun(args...)::typeof(val)`. 
 Additionally, the type of `val` must support
@@ -122,8 +122,8 @@ function work_single_cell!(assembler::SimpleIntegrator, cellbuffer)
     return work_single_cell!(Integrator(assembler), cellbuffer)
 end
 
-function work_single_face!(assembler::SimpleIntegrator, facebuffer)
-    return work_single_face!(Integrator(assembler), facebuffer)
+function work_single_facet!(assembler::SimpleIntegrator, facetbuffer)
+    return work_single_facet!(Integrator(assembler), facetbuffer)
 end
 
 # Helper function to get state for qp for both vector and non-vector cell_state 
@@ -164,8 +164,8 @@ function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv
     end
 end
 
-function integrate_face!(integrator::SimpleIntegrator, ae, ::Any, fv::FaceValues, facebuffer)
-    length(Ferrite.getfieldnames(facebuffer)) == 1 || throw(DimensionMismatch("Only one field supported for single `FaceValues`"))
+function integrate_facet!(integrator::SimpleIntegrator, ae, ::Any, fv::FacetValues, facetbuffer)
+    length(Ferrite.getfieldnames(facetbuffer)) == 1 || throw(DimensionMismatch("Only one field supported for single `FacetValues`"))
     for q_point in 1:getnquadpoints(fv)
         dΩ = getdetJdV(fv, q_point)
         u = function_value(fv, q_point, ae)
@@ -175,14 +175,14 @@ function integrate_face!(integrator::SimpleIntegrator, ae, ::Any, fv::FaceValues
     end
 end
 
-function integrate_face!(integrator::SimpleIntegrator, ae, ::Any, fv::NamedTuple, facebuffer)
-    length(Ferrite.getfieldnames(facebuffer)) == length(fv) || throw(DimensionMismatch("Number of fields must match length of facevalues tuple"))
+function integrate_facet!(integrator::SimpleIntegrator, ae, ::Any, fv::NamedTuple, facetbuffer)
+    length(Ferrite.getfieldnames(facetbuffer)) == length(fv) || throw(DimensionMismatch("Number of fields must match length of facetvalues tuple"))
     fv0 = first(values(fv))
     for q_point in 1:getnquadpoints(fv0)
         dΩ = getdetJdV(fv0, q_point)
         # Haven't benchmarked and `NamedTuple`s are tricky: Might need optimization to avoid dynamical dispatch/allocs:
-        u = NamedTuple{keys(fv)}(map((k,v) -> function_value(v, q_point, ae, dof_range(facebuffer, k)), keys(fv), values(fv)))
-        ∇u = NamedTuple{keys(fv)}(map((k,v) -> function_gradient(v, q_point, ae, dof_range(facebuffer, k)), keys(fv), values(fv)))
+        u = NamedTuple{keys(fv)}(map((k,v) -> function_value(v, q_point, ae, dof_range(facetbuffer, k)), keys(fv), values(fv)))
+        ∇u = NamedTuple{keys(fv)}(map((k,v) -> function_gradient(v, q_point, ae, dof_range(facetbuffer, k)), keys(fv), values(fv)))
         f_val = integrator.fun(u, ∇u, getnormal(fv0, q_point))
         add_to_val!(integrator, f_val, dΩ)
     end

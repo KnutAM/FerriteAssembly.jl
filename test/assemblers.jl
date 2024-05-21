@@ -4,8 +4,8 @@
     ip = Lagrange{RefQuadrilateral,1}()
     dh = DofHandler(grid); add!(dh, :p, ip); add!(dh, :u, ip^2); close!(dh)
     ch = ConstraintHandler(dh); 
-    add!(ch, Dirichlet(:p, getfaceset(grid, "left"), Returns(1.0))); 
-    add!(ch, Dirichlet(:u, getfaceset(grid, "top"), Returns(Vec((2.0, 3.0)))))
+    add!(ch, Dirichlet(:p, getfacetset(grid, "left"), Returns(1.0))); 
+    add!(ch, Dirichlet(:u, getfacetset(grid, "top"), Returns(Vec((2.0, 3.0)))))
     close!(ch)
     qr = QuadratureRule{RefQuadrilateral}(2); ip = Lagrange{RefQuadrilateral,1}()
     cv = (p=CellValues(qr, ip), u=CellValues(qr, ip^2))

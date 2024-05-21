@@ -4,9 +4,9 @@ CurrentModule = FerriteAssembly
 
 # AbstractItemBuffer
 Depending on the domain that is worked over, different item buffers are available, 
-e.g. `CellBuffer` and `FaceBuffer`. These are set up during call to `setup_domainbuffer`.
+e.g. `CellBuffer` and `FacetBuffer`. These are set up during call to `setup_domainbuffer`.
 
-For each item (cell or face), the values in the buffer are updated to the current item,
+For each item (cell or facet), the values in the buffer are updated to the current item,
 and can be accessed with the following functions:
 
 ```@docs
@@ -29,9 +29,9 @@ To allocate the user cache, overload `allocate_cell_cache`:
 allocate_cell_cache(::Any, ::Any)
 ```
 
-## FaceBuffer
-The `FaceBuffer` is similar to the `CellBuffer`, except that it has `FaceValues` instead of `CellValues`
-and that state variables are not supported. To allocate user cache, overload `allocate_face_cache`:
+## FacetBuffer
+The `FacetBuffer` is similar to the `CellBuffer`, except that it has `FacetValues` instead of `CellValues`
+and that state variables are not supported. To allocate user cache, overload `allocate_facet_cache`:
 ```@docs
-allocate_face_cache
+allocate_facet_cache
 ```

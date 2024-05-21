@@ -33,7 +33,7 @@ current time. The remaining input arguments are
 struct BodyLoad{CVI,FUN}
     fieldname::Symbol
     cv_info::CVI
-    cellset::Union{Set{Int},Nothing}
+    cellset::Union{AbstractSet{Int},Nothing}
     f::FUN # f(x::Vec, time)->{ip::ScalarInterpolation ? Number : Vec}
 end
 BodyLoad(fieldname::Symbol, cv_info, f) = BodyLoad(fieldname, cv_info, nothing, f)

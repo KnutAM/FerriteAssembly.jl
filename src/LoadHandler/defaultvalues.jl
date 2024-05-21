@@ -1,18 +1,18 @@
-# Create FaceValues or CellValues automatically with minimal input 
+# Create FacetValues or CellValues automatically with minimal input 
 
 """
-    autogenerate_facevalues(fv::FaceValues, args...)
+    autogenerate_facetvalues(fv::FacetValues, args...)
 
-Just return the provided FaceValues 
+Just return the provided FacetValues 
 
-    autogenerate_facevalues(order::Int, ip_fun::Interpolation{RefShape}, ip_geo::Interpolation{RefShape})
+    autogenerate_facetvalues(order::Int, ip_fun::Interpolation{RefShape}, ip_geo::Interpolation{RefShape})
 
-Using quadrature rule, `fqr = FaceQuadratureRule{RefShape}(order)`, 
-create `FaceValues(fqr, ip_fun, ip_geo)`
+Using quadrature rule, `fqr = FacetQuadratureRule{RefShape}(order)`, 
+create `FacetValues(fqr, ip_fun, ip_geo)`
 """
-autogenerate_facevalues(fv::FaceValues, args...) = fv
-function autogenerate_facevalues(order::Int, ip::Interpolation{RefShape}, ip_geo::Interpolation{RefShape}) where RefShape
-    return FaceValues(FaceQuadratureRule{RefShape}(order), ip, ip_geo)
+autogenerate_facetvalues(fv::FacetValues, args...) = fv
+function autogenerate_facetvalues(order::Int, ip::Interpolation{RefShape}, ip_geo::Interpolation{RefShape}) where RefShape
+    return FacetValues(FacetQuadratureRule{RefShape}(order), ip, ip_geo)
 end
 
 """

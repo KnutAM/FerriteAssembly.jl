@@ -15,7 +15,7 @@ include("DomainBuffers.jl")
 include("setup.jl")
 
 include("ItemBuffers/CellBuffer.jl")
-include("ItemBuffers/FaceBuffer.jl")
+include("ItemBuffers/FacetBuffer.jl")
 include("Autodiff/autodiff.jl")
 
 include("work.jl")
@@ -81,20 +81,20 @@ it is possible to overload `element_residual!` instead of `element_routine!`. Se
 function element_residual! end
 
 """
-    face_routine!(Ke, re, ae, material, facevalues, facebuffer)
+    facet_routine!(Ke, re, ae, material, facetvalues, facetbuffer)
 
 Calculate contributions to the stiffness matrix and residual vector from a 
-face domain. It can be used, for example, to implement Robin boundary conditions.
+facet domain. It can be used, for example, to implement Robin boundary conditions.
 """
-function face_routine! end
+function facet_routine! end
 
 """
-    face_residual!(re, ae, material, facevalues, facebuffer)
+    facet_residual!(re, ae, material, facetvalues, facetbuffer)
 
-Calculate contributions to the residual vector from a face domain. 
+Calculate contributions to the residual vector from a facet domain. 
 Internally, this is used for calculating Neumann boundary conditions. 
 """
-function face_residual! end 
+function facet_residual! end 
 
 
 include("Utils/MaterialModelsBase.jl")

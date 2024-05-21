@@ -1,16 +1,16 @@
-@testset "FaceResidual" begin
+@testset "FacetResidual" begin
     nx, ny = (10, 10)
     grid = generate_grid(Quadrilateral, (nx, ny))
-    qr = FaceQuadratureRule{RefQuadrilateral}(2)
+    qr = FacetQuadratureRule{RefQuadrilateral}(2)
     ip = Lagrange{RefQuadrilateral,1}()
     ipg = Lagrange{RefQuadrilateral,1}()
     dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
-    fv = FaceValues(qr, ip, ipg)
+    fv = FacetValues(qr, ip, ipg)
     a = zeros(ndofs(dh))
     # Add values only at the boundary
     apply_analytical!(a, dh, :u, x-> x[1] ≈ 1.0 ? 1.0 : 0.0)
-    struct FaceMaterial end 
-    function FerriteAssembly.face_residual!(re, ae, ::FaceMaterial, fv, fb)
+    struct FacetMaterial end 
+    function FerriteAssembly.facet_residual!(re, ae, ::FacetMaterial, fv, fb)
         dofrange = dof_range(fb, :u)
         for q_point in 1:getnquadpoints(fv)
             dΓ = getdetJdV(fv, q_point)
@@ -21,16 +21,16 @@
             end
         end
     end
-    set = getfaceset(grid, "right")
-    buffer = setup_domainbuffer(DomainSpec(dh, FaceMaterial(), fv; set=set))
+    set = getfacetset(grid, "right")
+    buffer = setup_domainbuffer(DomainSpec(dh, FacetMaterial(), fv; set=set))
     r = zeros(ndofs(dh))
     worker = ReAssembler(r)
     work!(worker, buffer; a=a)
     @test sum(r) ≈ 2*sum(a)/(length(set)+1)
 
     # Full assembler 
-    function FerriteAssembly.face_routine!(Ke, re, ae, ::FaceMaterial, fv::FaceValues, facebuffer)
-        dofrange = dof_range(facebuffer, :u)
+    function FerriteAssembly.facet_routine!(Ke, re, ae, ::FacetMaterial, fv::FacetValues, facetbuffer)
+        dofrange = dof_range(facetbuffer, :u)
         for q_point in 1:getnquadpoints(fv)
             dΓ = getdetJdV(fv, q_point)
             u = function_value(fv, q_point, ae)

@@ -8,10 +8,10 @@ The worker is the simplest object, and determines what is done for each item in 
 
 ## Domain buffer
 Two domain buffer types are implemented, a regular and a threaded version. To understand the structure, it sufficies to to understand the regular buffer. The threaded version just contains additional values to have per-task buffers etc. 
-The key fields of the `DomainBuffer` type are (1) a `set` of items to iterate over (for example a vector of `Int` for a list of cells or a vector of `FaceIndex` for a list of faces) and an `itembuffer` (e.g., `CellBuffer` or `FaceBuffer`) containing the data required to do something for each entity. 
+The key fields of the `DomainBuffer` type are (1) a `set` of items to iterate over (for example a vector of `Int` for a list of cells or a vector of `FacetIndex` for a list of facets) and an `itembuffer` (e.g., `CellBuffer` or `FacetBuffer`) containing the data required to do something for each entity. 
 
 ### ItemBuffer
-The most important fields in an item buffer are the user-defined `material` and the `FEValues` (e.g. `CellValues` or `FaceValues`). 
+The most important fields in an item buffer are the user-defined `material` and the `FEValues` (e.g. `CellValues` or `FacetValues`). 
 
 ### Requirements for being a domain
 In addition to having the same `FEValues` and `material`, 
@@ -48,10 +48,10 @@ several functions that happen at the innermost part of the iteration of items in
 * `element_residual!`: Calculate `re`, and `state`
 * `create_cell_state`: For the given material and initial cell dof values, return the initial value of the cell state. Typically one value per integration point. 
 * `allocate_cell_cache`: Define workspace for calculation on a single cell
-* `allocate_face_cache`: Same as above, but for a face 
+* `allocate_facet_cache`: Same as above, but for a facet 
 
 ### State variables
-State variables (both current and old) are stored as a `Dict{Int}` in the domain buffer (for cells, not for faces, this may be added in the future). 
+State variables (both current and old) are stored as a `Dict{Int}` in the domain buffer (for cells, not for facets, this may be added in the future). 
 The key corresponds to the cell id, and the state can be gotten with the 
 `get_state` and `get_old_state` functions. 
 

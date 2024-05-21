@@ -19,7 +19,7 @@ generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [
     "threaded_assembly.jl", "automatic_differentiation.jl", "local_constraints.jl",
     "robin_bc.jl", "volume_integral.jl", 
-    "surface_integral.jl"]
+    "surfacet_integral.jl"]
 generated_howto = build_examples(howto; type="howto")
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)

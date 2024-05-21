@@ -11,6 +11,6 @@ work!
 
 A worker needs to define what to do for different domains, 
 specifically it needs to define 
-`work_single_cell!` and `work_single_face!`. Further details 
+`work_single_cell!` and `work_single_facet!`. Further details 
 about writing custom workers can be found in the 
 [Customizations](@ref Assembler-interface) section.

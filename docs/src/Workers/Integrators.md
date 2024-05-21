@@ -21,5 +21,5 @@ Using the `Integrator` requires the following functions
 to be overloaded, depending on the type of domain
 ```@docs
 FerriteAssembly.integrate_cell!
-FerriteAssembly.integrate_face!
+FerriteAssembly.integrate_facet!
 ```

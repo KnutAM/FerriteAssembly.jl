@@ -12,9 +12,9 @@
 # from the domain to the outside, where the latter has a constant temperature $u_\mathrm{b}$. 
 
 # ## Implementing Robin BC
-# To implement this, we will overload the `face_routine!` function, which allows us to calculate 
-# both a residual and stiffness contribution from faces. Hence, we first define a "material", 
-# `RobinBC`, and implement the `face_routine!` that encodes the contribution to the weak form as 
+# To implement this, we will overload the `facet_routine!` function, which allows us to calculate 
+# both a residual and stiffness contribution from facets. Hence, we first define a "material", 
+# `RobinBC`, and implement the `facet_routine!` that encodes the contribution to the weak form as 
 # outlined above.  
 using Ferrite, FerriteAssembly
 
@@ -23,8 +23,8 @@ struct RobinBC{T}
     ub::T
 end
 
-function FerriteAssembly.face_routine!(
-        Ke, re, ae, rbc::RobinBC, fv::FaceValues, facebuffer
+function FerriteAssembly.facet_routine!(
+        Ke, re, ae, rbc::RobinBC, fv::FacetValues, facetbuffer
         )
     for q_point in 1:getnquadpoints(fv)
         dΓ = getdetJdV(fv, q_point)
@@ -57,18 +57,18 @@ a = zeros(ndofs(dh));
 
 # ## Using Robin BC
 # For the Robin boundary condition, we also need to define the integration via 
-# FaceValues, in addition to an instance of `RobinBC`, for which we set the 
+# FacetValues, in addition to an instance of `RobinBC`, for which we set the 
 # "outside temperature" to -1.0. 
-face_qr = FaceQuadratureRule{RefQuadrilateral}(2); 
-fv = FaceValues(face_qr, ip);
+facet_qr = FacetQuadratureRule{RefQuadrilateral}(2); 
+fv = FacetValues(facet_qr, ip);
 rbc = RobinBC(1.0, -1.0);
 
-# Finally, we set up a domain buffer with the actual materials and faceset,
+# Finally, we set up a domain buffer with the actual materials and facetset,
 # and create an assembler. Naturally, the boundary conditions are combined with
 # other contributions, such as the assembly over cells. Typically, the same 
 # assembler can be used. If not, it is important to set the keyword arguments 
 # such that `K` and `r` are not zeroed between different calls to `work!`.
-domainbuffer = setup_domainbuffer(DomainSpec(dh, rbc, fv; set=getfaceset(grid, "right")))
+domainbuffer = setup_domainbuffer(DomainSpec(dh, rbc, fv; set=getfacetset(grid, "right")))
 assembler = start_assemble(K, r)
 work!(assembler, domainbuffer; a=a);
 

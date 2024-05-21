@@ -18,14 +18,14 @@ function work_single_cell!(assembler::Ferrite.AbstractSparseAssembler, cellbuffe
     assemble!(assembler, celldofs(cellbuffer), Ke, re)
 end
 
-function work_single_face!(assembler::Ferrite.AbstractSparseAssembler, facebuffer)
-    Ke = get_Ke(facebuffer)
-    re = get_re(facebuffer)
-    ae = get_ae(facebuffer)
-    material = get_material(facebuffer)
-    cellvalues = get_values(facebuffer)
-    face_routine!(Ke, re, ae, material, cellvalues, facebuffer)
-    assemble!(assembler, celldofs(facebuffer), Ke, re)
+function work_single_facet!(assembler::Ferrite.AbstractSparseAssembler, facetbuffer)
+    Ke = get_Ke(facetbuffer)
+    re = get_re(facetbuffer)
+    ae = get_ae(facetbuffer)
+    material = get_material(facetbuffer)
+    cellvalues = get_values(facetbuffer)
+    facet_routine!(Ke, re, ae, material, cellvalues, facetbuffer)
+    assemble!(assembler, celldofs(facetbuffer), Ke, re)
 end
 
 # Assemble only the residual
@@ -72,14 +72,14 @@ function work_single_cell!(assembler::ReAssembler, cellbuffer)
     assemble!(assembler.r, celldofs(cellbuffer), re)
 end
 
-function work_single_face!(assembler::ReAssembler, facebuffer)
-    re = get_re(facebuffer)
-    ae = get_ae(facebuffer)
-    material = get_material(facebuffer)
-    facevalues = get_values(facebuffer)
-    face_residual!(re, ae, material, facevalues, facebuffer)
-    update_scaling!(assembler.scaling, re, facebuffer)
-    assemble!(assembler.r, celldofs(facebuffer), re)
+function work_single_facet!(assembler::ReAssembler, facetbuffer)
+    re = get_re(facetbuffer)
+    ae = get_ae(facetbuffer)
+    material = get_material(facetbuffer)
+    facetvalues = get_values(facetbuffer)
+    facet_residual!(re, ae, material, facetvalues, facetbuffer)
+    update_scaling!(assembler.scaling, re, facetbuffer)
+    assemble!(assembler.r, celldofs(facetbuffer), re)
 end
 
 """
@@ -164,12 +164,12 @@ function work_single_cell!(assembler::KeReAssembler, cellbuffer)
     assemble_contributions!(assembler, cellbuffer)
 end
 
-function work_single_face!(assembler::KeReAssembler, facebuffer)
-    Ke = get_Ke(facebuffer)
-    re = get_re(facebuffer)
-    ae = get_ae(facebuffer)
-    material = get_material(facebuffer)
-    cellvalues = get_values(facebuffer)
-    face_routine!(Ke, re, ae, material, cellvalues, facebuffer)
-    assemble_contributions!(assembler, facebuffer)
+function work_single_facet!(assembler::KeReAssembler, facetbuffer)
+    Ke = get_Ke(facetbuffer)
+    re = get_re(facetbuffer)
+    ae = get_ae(facetbuffer)
+    material = get_material(facetbuffer)
+    cellvalues = get_values(facetbuffer)
+    facet_routine!(Ke, re, ae, material, cellvalues, facetbuffer)
+    assemble_contributions!(assembler, facetbuffer)
 end

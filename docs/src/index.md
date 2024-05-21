@@ -6,7 +6,7 @@ CurrentModule = FerriteAssembly
 The goal of [FerriteAssembly](https://github.com/KnutAM/FerriteAssembly.jl) 
 is make it convenient to iterate over a grid and perform some task for each item.
 The primary use is to iterate over all cells and assemble into global matrices and 
-vectors. However, it makes many other tasks easy as well, for example iterating over faces for adding boundary conditions, or integrating a function over a given domain. 
+vectors. However, it makes many other tasks easy as well, for example iterating over facets for adding boundary conditions, or integrating a function over a given domain. 
 
 The design is built around two main types of objects
 1. **Workers**: What to do for a given item

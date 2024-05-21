@@ -83,12 +83,12 @@ function solve(;ν, ipu, ipp)
     
     ## Boundary conditions 
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(dh.grid, "left"), (x,t) -> zero(Vec{2})))
+    add!(ch, Dirichlet(:u, getfacetset(dh.grid, "left"), (x,t) -> zero(Vec{2})))
     close!(ch)
     update!(ch, 0.0)
 
     lh = LoadHandler(dh)
-    add!(lh, Neumann(:u, 3, getfaceset(dh.grid, "right"), Returns(Vec{2}((0.0, 1/16)))))
+    add!(lh, Neumann(:u, 3, getfacetset(dh.grid, "right"), Returns(Vec{2}((0.0, 1/16)))))
 
     ## Cellvalues
     qr = QuadratureRule{RefTriangle}(3)

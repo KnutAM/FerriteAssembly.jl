@@ -21,10 +21,10 @@
         n_half = getncells(grid)÷2
         dh = DofHandler(grid)
         
-        sdh1 = SubDofHandler(dh, Set(collect(1:n_half)))
+        sdh1 = SubDofHandler(dh, collect(1:n_half))
         add!(sdh1, :u, ip)
 
-        sdh2 = SubDofHandler(dh, Set(collect((n_half+1):getncells(grid))))
+        sdh2 = SubDofHandler(dh, collect((n_half+1):getncells(grid)))
         add!(sdh2, :u, ip)
 
         close!(dh)
@@ -191,6 +191,9 @@
                         assembler = isa(scaling, FerriteAssembly.NoScaling) ? ferrite_assembler : FerriteAssembly.KeReAssembler(ferrite_assembler; scaling=scaling)
                         work!(assembler, buffer; a=a)
                         isa(scaling, ElementResidualScaling) && @test scaling.factors[:u] ≈ sum(abs, r)  # As we use the 1-norm and all r's have the same sign
+                        # Note that these tests rely on the same dof-ordering.
+                        # Currently, this is ensured by giving cellsets 1:(n/2) and (n/2+1):n to the subdofhandlers above to have same as for a single subdofhandler.
+                        # In case this isn't true anymore, comparing reductions, e.g. `sum(f, r)` for different `f` could be a nice way to be ordering independent. 
                         @test K_ref ≈ K 
                         @test r_ref ≈ r
                         if mattype == :ad    

@@ -7,8 +7,8 @@ module TestIntegrators
     function FerriteAssembly.integrate_cell!(val::MySimpleIntegrand, cell_state, ae, _, cv, cellbuffer)
         FerriteAssembly.integrate_cell!(val.integrator, cell_state, ae, nothing, cv, cellbuffer)
     end
-    function FerriteAssembly.integrate_face!(val::MySimpleIntegrand, ae, _, fv, buffer)
-        FerriteAssembly.integrate_face!(val.integrator, ae, nothing, fv, buffer)
+    function FerriteAssembly.integrate_facet!(val::MySimpleIntegrand, ae, _, fv, buffer)
+        FerriteAssembly.integrate_facet!(val.integrator, ae, nothing, fv, buffer)
     end
 end
 
@@ -40,8 +40,8 @@ import .TestIntegrators: MySimpleIntegrand
             ip = Lagrange{RefHexahedron,1}()
             dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
             ch = ConstraintHandler(dh)
-            add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(0.0))) 
-            add!(ch, Dirichlet(:u, getfaceset(grid, "right"), Returns(1.0)))
+            add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(0.0))) 
+            add!(ch, Dirichlet(:u, getfacetset(grid, "right"), Returns(1.0)))
             close!(ch)
             update!(ch, 0.0)
             m = EE.StationaryFourier(1.0)
@@ -91,8 +91,8 @@ import .TestIntegrators: MySimpleIntegrand
             ip = Lagrange{RefTriangle,1}()^2
             dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
             ch = ConstraintHandler(dh)
-            add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{2}))))
-            add!(ch, Dirichlet(:u, getfaceset(grid, "right"), Returns(Vec((0.0, 0.1)))))
+            add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(zero(Vec{2}))))
+            add!(ch, Dirichlet(:u, getfacetset(grid, "right"), Returns(Vec((0.0, 0.1)))))
             close!(ch)
             update!(ch, 0.0)
             m = EE.ElasticPlaneStrain(;E=100.0, ν=0.3)
@@ -143,10 +143,10 @@ import .TestIntegrators: MySimpleIntegrand
             grid = generate_grid(Triangle, (3,3), zero(Vec{2}), Vec(lx, ly))
             dh = DofHandler(grid); add!(dh, :u, ip_u); add!(dh, :p, ip_p); close!(dh)
             ch = ConstraintHandler(dh)
-            add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{2}))))
-            add!(ch, Dirichlet(:u, getfaceset(grid, "right"), Returns(Vec((0.1, 0.0)))))
-            add!(ch, Dirichlet(:p, getfaceset(grid, "left"), Returns(0.0)))
-            add!(ch, Dirichlet(:p, getfaceset(grid, "right"), Returns(1.0)))
+            add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(zero(Vec{2}))))
+            add!(ch, Dirichlet(:u, getfacetset(grid, "right"), Returns(Vec((0.1, 0.0)))))
+            add!(ch, Dirichlet(:p, getfacetset(grid, "left"), Returns(0.0)))
+            add!(ch, Dirichlet(:p, getfacetset(grid, "right"), Returns(1.0)))
             close!(ch)
             update!(ch, 0.0)
             m = EE.PoroElasticPlaneStrain(;E=100.0, ν=ν, k=1.0, 
@@ -224,8 +224,8 @@ import .TestIntegrators: MySimpleIntegrand
             ip = Lagrange{RefHexahedron,1}()
             dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
             ch = ConstraintHandler(dh)
-            add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(0.0))) 
-            add!(ch, Dirichlet(:u, getfaceset(grid, "right"), Returns(1.0)))
+            add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(0.0))) 
+            add!(ch, Dirichlet(:u, getfacetset(grid, "right"), Returns(1.0)))
             close!(ch)
             update!(ch, 0.0)
             m = EE.StationaryFourier(1.0)
@@ -277,14 +277,14 @@ import .TestIntegrators: MySimpleIntegrand
 
 end
 
-@testset "FaceIntegration" begin
+@testset "FacetIntegration" begin
     @testset "Geometric tests" begin
         w, h = rand(2)
         grid = generate_grid(Quadrilateral, (10,10), Vec((0.0, 0.0)), Vec((w, h)))
         ip = Lagrange{RefQuadrilateral,1}()
         dh = DofHandler(grid); add!(dh, :u, ip); close!(dh);
-        fv = FaceValues(FaceQuadratureRule{RefQuadrilateral}(2), ip)
-        domains = Dict(key => DomainSpec(dh, nothing, fv; set=getfaceset(grid, key)) for key in ("left", "right", "top", "bottom"))
+        fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
+        domains = Dict(key => DomainSpec(dh, nothing, fv; set=getfacetset(grid, key)) for key in ("left", "right", "top", "bottom"))
         buffers = setup_domainbuffers(domains)
         for (Aref, domain_keys) in ((2*(w+h), nothing), (2*w, ("top", "bottom"), (h, "left")))
             ig = SimpleIntegrator((u,∇u,n)->1.0, 0.0; domains=domain_keys)
@@ -301,14 +301,14 @@ end
         grid = generate_grid(Tetrahedron, (10,10,10), -p, p)
         ip = Lagrange{RefTetrahedron,1}()
         dh = DofHandler(grid); add!(dh, :u, ip^3); add!(dh, :v, ip); close!(dh);
-        qr = FaceQuadratureRule{RefTetrahedron}(2)
-        fv_u = FaceValues(qr, ip^3)
-        fv_v = FaceValues(qr, ip)
+        qr = FacetQuadratureRule{RefTetrahedron}(2)
+        fv_u = FacetValues(qr, ip^3)
+        fv_v = FacetValues(qr, ip)
 
         a = zeros(ndofs(dh))
         apply_analytical!(a, dh, :u, identity) # set dofs equal to coordinates
         apply_analytical!(a, dh, :v, first)  # 
-        domains = Dict(key => DomainSpec(dh, nothing, (u=fv_u, v=fv_v); set=getfaceset(grid, key)) for key in ("left", "right", "top", "bottom"))
+        domains = Dict(key => DomainSpec(dh, nothing, (u=fv_u, v=fv_v); set=getfacetset(grid, key)) for key in ("left", "right", "top", "bottom"))
         buffers = setup_domainbuffers(domains)
 
         ig = SimpleIntegrator((u,∇u,n)->(1.0, u.u ⋅ n, u.v), (0.0, 0.0, 0.0))

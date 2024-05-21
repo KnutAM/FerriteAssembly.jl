@@ -37,9 +37,9 @@ close!(dh);
 
 # And then Dirichlet conditions
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid,"left"), Returns(zero(Vec{2}))))
+add!(ch, Dirichlet(:u, getfacetset(grid,"left"), Returns(zero(Vec{2}))))
 f_dbc(x,t) = Vec((0.05*t, 0.0))
-add!(ch, Dirichlet(:u, getfaceset(grid, "right"), f_dbc))
+add!(ch, Dirichlet(:u, getfacetset(grid, "right"), f_dbc))
 close!(ch);
 
 # Define cellvalues 
