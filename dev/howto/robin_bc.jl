@@ -5,8 +5,8 @@ struct RobinBC{T}
     ub::T
 end
 
-function FerriteAssembly.face_routine!(
-        Ke, re, ae, rbc::RobinBC, fv::FaceValues, facebuffer
+function FerriteAssembly.facet_routine!(
+        Ke, re, ae, rbc::RobinBC, fv::FacetValues, facetbuffer
         )
     for q_point in 1:getnquadpoints(fv)
         dΓ = getdetJdV(fv, q_point)
@@ -34,16 +34,16 @@ K = create_sparsity_pattern(dh)
 r = zeros(ndofs(dh))
 a = zeros(ndofs(dh));
 
-face_qr = FaceQuadratureRule{RefQuadrilateral}(2);
-fv = FaceValues(face_qr, ip);
+facet_qr = FacetQuadratureRule{RefQuadrilateral}(2);
+fv = FacetValues(facet_qr, ip);
 rbc = RobinBC(1.0, -1.0);
 
-domainbuffer = setup_domainbuffer(DomainSpec(dh, rbc, fv; set=getfaceset(grid, "right")))
+domainbuffer = setup_domainbuffer(DomainSpec(dh, rbc, fv; set=getfacetset(grid, "right")))
 assembler = start_assemble(K, r)
 work!(assembler, domainbuffer; a=a);
 
-vtk_grid("RobinBC", grid) do vtk
-    vtk_point_data(vtk, dh, r)
+VTKFile("RobinBC", grid) do vtk
+    write_solution(vtk, dh, r)
 end;
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl

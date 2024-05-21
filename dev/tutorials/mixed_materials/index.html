@@ -11,9 +11,9 @@ end
 grid = create_grid_with_inclusion();</code></pre><p>Define interpolation</p><pre><code class="language-julia hljs">ip = Lagrange{RefQuadrilateral,1}()^2;</code></pre><p>Followed by the dof handler</p><pre><code class="language-julia hljs">dh = DofHandler(grid)
 add!(dh, :u, ip)
 close!(dh);</code></pre><p>And then Dirichlet conditions</p><pre><code class="language-julia hljs">ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid,&quot;left&quot;), Returns(zero(Vec{2}))))
+add!(ch, Dirichlet(:u, getfacetset(grid,&quot;left&quot;), Returns(zero(Vec{2}))))
 f_dbc(x,t) = Vec((0.05*t, 0.0))
-add!(ch, Dirichlet(:u, getfaceset(grid, &quot;right&quot;), f_dbc))
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;right&quot;), f_dbc))
 close!(ch);</code></pre><p>Define cellvalues</p><pre><code class="language-julia hljs">qr = QuadratureRule{RefQuadrilateral}(2)
 cv = CellValues(qr, ip);</code></pre><h2 id="FerriteAssembly-setup"><a class="docs-heading-anchor" href="#FerriteAssembly-setup">FerriteAssembly setup</a><a id="FerriteAssembly-setup-1"></a><a class="docs-heading-anchor-permalink" href="#FerriteAssembly-setup" title="Permalink"></a></h2><p>We first define materials for a plane strain state. The <code>J2Plasticity</code> model is only implemented for 3d, so we use the <code>ReducedStressState</code> wrapper from <code>MaterialModelsBase.jl</code> together with the <code>PlaneStrain</code> state.</p><pre><code class="language-julia hljs">elastic_material = ElasticPlaneStrain(;E=210e3, ν=0.3)
 plastic_material = ReducedStressState(
@@ -27,13 +27,10 @@ plastic_material = ReducedStressState(
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     # Prepare postprocessing
-    pvd = paraview_collection(&quot;multiple_materials.pvd&quot;);
-    stepnr = 0
-    vtk_grid(&quot;multiple_materials-$stepnr&quot;, dh) do vtk
-        vtk_point_data(vtk, dh, a)
-        vtk_cellset(vtk, dh.grid, &quot;inclusion&quot;)
-        vtk_save(vtk)
-        pvd[0.0] = vtk
+    pvd = VTKFileCollection(&quot;multiple_materials.pvd&quot;, dh);
+    addstep!(pvd, 0.0) do io
+        write_solution(io, dh, a)
+        Ferrite.write_cellset(io, dh.grid, &quot;inclusion&quot;)
     end
     for t in time_history
         # Update and apply the Dirichlet boundary conditions
@@ -53,17 +50,14 @@ plastic_material = ReducedStressState(
             apply!(a, ch)
         end
         # Postprocess
-        stepnr += 1
-        vtk_grid(&quot;multiple_materials-$stepnr&quot;, dh) do vtk
-            vtk_point_data(vtk, dh, a)
-            vtk_cellset(vtk, dh.grid, &quot;inclusion&quot;)
-            vtk_save(vtk)
-            pvd[t] = vtk
+        addstep!(pvd, 0.0) do io
+            write_solution(io, dh, a)
+            Ferrite.write_cellset(io, dh.grid, &quot;inclusion&quot;)
         end
         # If converged, update the old state variables to the current.
         update_states!(buffer)
     end
-    vtk_save(pvd);
+    close(pvd)
     return nothing
 end;
 solve_nonlinear_timehistory(buffer, dh, ch; time_history=collect(range(0,1,20)));</code></pre><h2 id="mixed_materials_plain_program"><a class="docs-heading-anchor" href="#mixed_materials_plain_program">Plain program</a><a id="mixed_materials_plain_program-1"></a><a class="docs-heading-anchor-permalink" href="#mixed_materials_plain_program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../mixed_materials.jl"><code>mixed_materials.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, MaterialModelsBase
@@ -86,9 +80,9 @@ add!(dh, :u, ip)
 close!(dh);
 
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid,&quot;left&quot;), Returns(zero(Vec{2}))))
+add!(ch, Dirichlet(:u, getfacetset(grid,&quot;left&quot;), Returns(zero(Vec{2}))))
 f_dbc(x,t) = Vec((0.05*t, 0.0))
-add!(ch, Dirichlet(:u, getfaceset(grid, &quot;right&quot;), f_dbc))
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;right&quot;), f_dbc))
 close!(ch);
 
 qr = QuadratureRule{RefQuadrilateral}(2)
@@ -112,13 +106,10 @@ function solve_nonlinear_timehistory(buffer, dh, ch; time_history)
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     # Prepare postprocessing
-    pvd = paraview_collection(&quot;multiple_materials.pvd&quot;);
-    stepnr = 0
-    vtk_grid(&quot;multiple_materials-$stepnr&quot;, dh) do vtk
-        vtk_point_data(vtk, dh, a)
-        vtk_cellset(vtk, dh.grid, &quot;inclusion&quot;)
-        vtk_save(vtk)
-        pvd[0.0] = vtk
+    pvd = VTKFileCollection(&quot;multiple_materials.pvd&quot;, dh);
+    addstep!(pvd, 0.0) do io
+        write_solution(io, dh, a)
+        Ferrite.write_cellset(io, dh.grid, &quot;inclusion&quot;)
     end
     for t in time_history
         # Update and apply the Dirichlet boundary conditions
@@ -138,19 +129,16 @@ function solve_nonlinear_timehistory(buffer, dh, ch; time_history)
             apply!(a, ch)
         end
         # Postprocess
-        stepnr += 1
-        vtk_grid(&quot;multiple_materials-$stepnr&quot;, dh) do vtk
-            vtk_point_data(vtk, dh, a)
-            vtk_cellset(vtk, dh.grid, &quot;inclusion&quot;)
-            vtk_save(vtk)
-            pvd[t] = vtk
+        addstep!(pvd, 0.0) do io
+            write_solution(io, dh, a)
+            Ferrite.write_cellset(io, dh.grid, &quot;inclusion&quot;)
         end
         # If converged, update the old state variables to the current.
         update_states!(buffer)
     end
-    vtk_save(pvd);
+    close(pvd)
     return nothing
 end;
 solve_nonlinear_timehistory(buffer, dh, ch; time_history=collect(range(0,1,20)));
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Multiple fields</a><a class="docs-footer-nextpage" href="../../howto/threaded_assembly/">Threaded assembly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 3 May 2024 18:04">Friday 3 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Multiple fields</a><a class="docs-footer-nextpage" href="../../howto/threaded_assembly/">Threaded assembly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Tuesday 21 May 2024 18:14">Tuesday 21 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

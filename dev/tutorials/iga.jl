@@ -22,9 +22,9 @@ function create_mesh(;nels=(20,10))
     nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels) 
     grid = BezierGrid(nurbsmesh)
 
-    addfaceset!(grid, "left", (x) -> x[1] ≈ -4.0)
-    addfaceset!(grid, "bot", (x) -> x[2] ≈ 0.0)
-    addfaceset!(grid, "right", (x) -> x[1] ≈ 0.0)
+    addfacetset!(grid, "left", (x) -> x[1] ≈ -4.0)
+    addfacetset!(grid, "bot", (x) -> x[2] ≈ 0.0)
+    addfacetset!(grid, "right", (x) -> x[1] ≈ 0.0)
 
     return grid 
 end
@@ -34,10 +34,10 @@ grid = create_mesh();
 orders=(2,2)
 ip = BernsteinBasis{2,orders}()
 qr_cell = QuadratureRule{2,RefCube}(4)
-qr_face = QuadratureRule{1,RefCube}(3)
+qr_facet = QuadratureRule{1,RefCube}(3)
 
 cv = BezierCellValues( CellValues(qr_cell, ip^2) );
-fv = BezierFaceValues( FaceValues(qr_face, ip^2) );
+fv = BezierFacetValues( FacetValues(qr_facet, ip^2) );
 
 # Distribute dofs as normal
 dh = DofHandler(grid)
@@ -50,11 +50,11 @@ r = zeros(ndofs(dh))
 K = create_sparsity_pattern(dh);
 
 # Starting with Dirichlet conditions: 
-# 1) Bottom face should only be able to move in x-direction
+# 1) Bottom facet should only be able to move in x-direction
 # 2) Right boundary should only be able to move in y-direction
 ch = ConstraintHandler(dh);
-add!(ch, Dirichlet(:u, getfaceset(grid, "bot"), Returns(0.0), 2))
-add!(ch, Dirichlet(:u, getfaceset(grid, "right"), Returns(0.0), 1))
+add!(ch, Dirichlet(:u, getfacetset(grid, "bot"), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, "right"), Returns(0.0), 1))
 close!(ch)
 update!(ch, 0.0);
 
@@ -63,7 +63,7 @@ update!(ch, 0.0);
 # taking the negative value since r = fint - fext.
 traction = Vec((-10.0, 0.0))
 lh = LoadHandler(dh)
-add!(lh, Neumann(:u, fv, getfaceset(grid, "left"), Returns(-traction)));
+add!(lh, Neumann(:u, fv, getfacetset(grid, "left"), Returns(-traction)));
 
 # FerriteAssembly setup 
 material = ElasticPlaneStrain(;E=100.0, ν=0.3)
@@ -109,10 +109,10 @@ projector = L2Projector(ip, grid)
 σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
 
 # Output results to VTK
-vtkgrid = vtk_grid("plate_with_hole.vtu", grid)
-vtk_point_data(vtkgrid, dh, a)
-vtk_point_data(vtkgrid, σ_nodes, "sigma", grid)
-vtk_save(vtkgrid);
+VTKFile("plate_with_hole.vtu", grid) do vtk
+    write_solution(vtk, dh, a)
+    write_node_data(vtk, σ_nodes, "sigma", grid)
+end
 
 using Test                                    #src
 @test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src

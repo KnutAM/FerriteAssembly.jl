@@ -48,12 +48,12 @@ cv = CellValues(qr, ip^2, ip)
 m = ZenerMaterial()
 domain = DomainSpec(dh, m, cv)
 buffer = setup_domainbuffer(domain);</code></pre><p>Simple sliding boundary conditions are used to ensure a uniaxial response.</p><pre><code class="language-julia hljs">ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid, &quot;left&quot;), Returns(0.0), 1))
-add!(ch, Dirichlet(:u, getfaceset(grid, &quot;bottom&quot;), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;left&quot;), Returns(0.0), 1))
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;bottom&quot;), Returns(0.0), 2))
 close!(ch)
 update!(ch, 0.0);</code></pre><p>We use <code>FerriteAssembly</code>&#39;s <code>LoadHandler</code> to apply the Neumann boundary conditions, which consist of a ramp followed by a hold.</p><pre><code class="language-julia hljs">lh = LoadHandler(dh)
 traction(t) = clamp(t, 0, 1)*Vec((1.0, 0.0))
-add!(lh, Neumann(:u, 2, getfaceset(grid, &quot;right&quot;), (x, t, n) -&gt; traction(t)));</code></pre><h2 id="Finite-element-solution"><a class="docs-heading-anchor" href="#Finite-element-solution">Finite element solution</a><a id="Finite-element-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Finite-element-solution" title="Permalink"></a></h2><p>Given this setup, we define a function that steps through the time history, and for each time step, iterates to find the correct solution. After convergence, we update the state variables.</p><pre><code class="language-julia hljs">function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
+add!(lh, Neumann(:u, 2, getfacetset(grid, &quot;right&quot;), (x, t, n) -&gt; traction(t)));</code></pre><h2 id="Finite-element-solution"><a class="docs-heading-anchor" href="#Finite-element-solution">Finite element solution</a><a id="Finite-element-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Finite-element-solution" title="Permalink"></a></h2><p>Given this setup, we define a function that steps through the time history, and for each time step, iterates to find the correct solution. After convergence, we update the state variables.</p><pre><code class="language-julia hljs">function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
     maxiter = 10
     tolerance = 1e-6
     K = create_sparsity_pattern(dh)
@@ -154,14 +154,14 @@ domain = DomainSpec(dh, m, cv)
 buffer = setup_domainbuffer(domain);
 
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid, &quot;left&quot;), Returns(0.0), 1))
-add!(ch, Dirichlet(:u, getfaceset(grid, &quot;bottom&quot;), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;left&quot;), Returns(0.0), 1))
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;bottom&quot;), Returns(0.0), 2))
 close!(ch)
 update!(ch, 0.0);
 
 lh = LoadHandler(dh)
 traction(t) = clamp(t, 0, 1)*Vec((1.0, 0.0))
-add!(lh, Neumann(:u, 2, getfaceset(grid, &quot;right&quot;), (x, t, n) -&gt; traction(t)));
+add!(lh, Neumann(:u, 2, getfacetset(grid, &quot;right&quot;), (x, t, n) -&gt; traction(t)));
 
 function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
     maxiter = 10
@@ -221,4 +221,4 @@ CM.lines!(ax_d, time_history, u1_max)
 CM.scatter!(ax_d, time_history, u1_max)
 fig
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../heat_equation/">« Heat Equation</a><a class="docs-footer-nextpage" href="../incompressible_elasticity/">Multiple fields »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 3 May 2024 18:04">Friday 3 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../heat_equation/">« Heat Equation</a><a class="docs-footer-nextpage" href="../incompressible_elasticity/">Multiple fields »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Tuesday 21 May 2024 18:14">Tuesday 21 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

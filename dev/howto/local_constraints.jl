@@ -8,8 +8,8 @@ add!(dh, :u, ip)
 close!(dh)
 
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{2}))))
-add!(ch, Dirichlet(:u, getfaceset(grid, "right"), Returns(1.0), [1,]))
+add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(zero(Vec{2}))))
+add!(ch, Dirichlet(:u, getfacetset(grid, "right"), Returns(1.0), [1,]))
 close!(ch)
 update!(ch, 0.0)
 

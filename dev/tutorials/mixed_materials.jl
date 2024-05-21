@@ -18,9 +18,9 @@ add!(dh, :u, ip)
 close!(dh);
 
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid,"left"), Returns(zero(Vec{2}))))
+add!(ch, Dirichlet(:u, getfacetset(grid,"left"), Returns(zero(Vec{2}))))
 f_dbc(x,t) = Vec((0.05*t, 0.0))
-add!(ch, Dirichlet(:u, getfaceset(grid, "right"), f_dbc))
+add!(ch, Dirichlet(:u, getfacetset(grid, "right"), f_dbc))
 close!(ch);
 
 qr = QuadratureRule{RefQuadrilateral}(2)
@@ -44,13 +44,10 @@ function solve_nonlinear_timehistory(buffer, dh, ch; time_history)
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     # Prepare postprocessing
-    pvd = paraview_collection("multiple_materials.pvd");
-    stepnr = 0
-    vtk_grid("multiple_materials-$stepnr", dh) do vtk
-        vtk_point_data(vtk, dh, a)
-        vtk_cellset(vtk, dh.grid, "inclusion")
-        vtk_save(vtk)
-        pvd[0.0] = vtk
+    pvd = VTKFileCollection("multiple_materials.pvd", dh);
+    addstep!(pvd, 0.0) do io
+        write_solution(io, dh, a)
+        Ferrite.write_cellset(io, dh.grid, "inclusion")
     end
     for t in time_history
         # Update and apply the Dirichlet boundary conditions
@@ -70,17 +67,14 @@ function solve_nonlinear_timehistory(buffer, dh, ch; time_history)
             apply!(a, ch)
         end
         # Postprocess
-        stepnr += 1
-        vtk_grid("multiple_materials-$stepnr", dh) do vtk
-            vtk_point_data(vtk, dh, a)
-            vtk_cellset(vtk, dh.grid, "inclusion")
-            vtk_save(vtk)
-            pvd[t] = vtk
+        addstep!(pvd, 0.0) do io
+            write_solution(io, dh, a)
+            Ferrite.write_cellset(io, dh.grid, "inclusion")
         end
         # If converged, update the old state variables to the current.
         update_states!(buffer)
     end
-    vtk_save(pvd);
+    close(pvd)
     return nothing
 end;
 solve_nonlinear_timehistory(buffer, dh, ch; time_history=collect(range(0,1,20)));

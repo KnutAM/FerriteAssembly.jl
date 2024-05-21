@@ -59,12 +59,12 @@ end;</code></pre><p>And then we create a function that can solve the problem</p>
 
     # Boundary conditions
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(dh.grid, &quot;left&quot;), (x,t) -&gt; zero(Vec{2})))
+    add!(ch, Dirichlet(:u, getfacetset(dh.grid, &quot;left&quot;), (x,t) -&gt; zero(Vec{2})))
     close!(ch)
     update!(ch, 0.0)
 
     lh = LoadHandler(dh)
-    add!(lh, Neumann(:u, 3, getfaceset(dh.grid, &quot;right&quot;), Returns(Vec{2}((0.0, 1/16)))))
+    add!(lh, Neumann(:u, 3, getfacetset(dh.grid, &quot;right&quot;), Returns(Vec{2}((0.0, 1/16)))))
 
     # Cellvalues
     qr = QuadratureRule{RefTriangle}(3)
@@ -90,8 +90,8 @@ end;</code></pre><p>And then we create a function that can solve the problem</p>
     # Export the results
     filename = &quot;cook_&quot; * (isa(ipu, Lagrange{2,RefTetrahedron,1}) ? &quot;linear&quot; : &quot;quadratic&quot;) *
                          &quot;_linear&quot;
-    vtk_grid(filename, dh) do vtkfile
-        vtk_point_data(vtkfile, dh, u)
+    VTKFile(filename, dh) do vtk
+        write_solution(vtk, dh, u)
     end
     return u
 end
@@ -166,12 +166,12 @@ function solve(;ν, ipu, ipp)
 
     # Boundary conditions
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(dh.grid, &quot;left&quot;), (x,t) -&gt; zero(Vec{2})))
+    add!(ch, Dirichlet(:u, getfacetset(dh.grid, &quot;left&quot;), (x,t) -&gt; zero(Vec{2})))
     close!(ch)
     update!(ch, 0.0)
 
     lh = LoadHandler(dh)
-    add!(lh, Neumann(:u, 3, getfaceset(dh.grid, &quot;right&quot;), Returns(Vec{2}((0.0, 1/16)))))
+    add!(lh, Neumann(:u, 3, getfacetset(dh.grid, &quot;right&quot;), Returns(Vec{2}((0.0, 1/16)))))
 
     # Cellvalues
     qr = QuadratureRule{RefTriangle}(3)
@@ -197,8 +197,8 @@ function solve(;ν, ipu, ipp)
     # Export the results
     filename = &quot;cook_&quot; * (isa(ipu, Lagrange{2,RefTetrahedron,1}) ? &quot;linear&quot; : &quot;quadratic&quot;) *
                          &quot;_linear&quot;
-    vtk_grid(filename, dh) do vtkfile
-        vtk_point_data(vtkfile, dh, u)
+    VTKFile(filename, dh) do vtk
+        write_solution(vtk, dh, u)
     end
     return u
 end
@@ -209,4 +209,4 @@ quadratic_ip = Lagrange{RefTriangle,2}()
 u1 = solve(;ν=0.4999999, ipu=linear_ip^2, ipp=linear_ip)
 u2 = solve(;ν=0.4999999, ipu=quadratic_ip^2, ipp=linear_ip);
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../viscoelasticity/">« Viscoelasticity with state variables</a><a class="docs-footer-nextpage" href="../mixed_materials/">Multiple materials »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Friday 3 May 2024 18:04">Friday 3 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../viscoelasticity/">« Viscoelasticity with state variables</a><a class="docs-footer-nextpage" href="../mixed_materials/">Multiple materials »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Tuesday 21 May 2024 18:14">Tuesday 21 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

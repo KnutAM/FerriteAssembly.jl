@@ -47,14 +47,14 @@ domain = DomainSpec(dh, m, cv)
 buffer = setup_domainbuffer(domain);
 
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(0.0), 1))
-add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(0.0), 1))
+add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), Returns(0.0), 2))
 close!(ch)
 update!(ch, 0.0);
 
 lh = LoadHandler(dh)
 traction(t) = clamp(t, 0, 1)*Vec((1.0, 0.0))
-add!(lh, Neumann(:u, 2, getfaceset(grid, "right"), (x, t, n) -> traction(t)));
+add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), (x, t, n) -> traction(t)));
 
 function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
     maxiter = 10

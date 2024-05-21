@@ -42,14 +42,14 @@ assembler = start_assemble(K, r);
 work!(assembler, buffer);
 
 ch = ConstraintHandler(dh)
-faceset = union((getfaceset(grid,k) for k in ("left", "right", "bottom", "top"))...)
-add!(ch, Dirichlet(:u, faceset, Returns(0.0)))
+facetset = union((getfacetset(grid,k) for k in ("left", "right", "bottom", "top"))...)
+add!(ch, Dirichlet(:u, facetset, Returns(0.0)))
 close!(ch);
 apply_zero!(K, r, ch)
 
 a = -K\r
-vtk_grid("heat_equation", grid) do vtk
-    vtk_point_data(vtk, dh, a)
+VTKFile("heat_equation", grid) do vtk
+    write_solution(vtk, dh, a)
 end;
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl

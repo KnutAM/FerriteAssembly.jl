@@ -98,8 +98,8 @@ buffer = setup_domainbuffer(domain);
 
 # Simple sliding boundary conditions are used to ensure a uniaxial response. 
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(0.0), 1))
-add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(0.0), 1))
+add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), Returns(0.0), 2))
 close!(ch)
 update!(ch, 0.0);
 
@@ -107,7 +107,7 @@ update!(ch, 0.0);
 # which consist of a ramp followed by a hold. 
 lh = LoadHandler(dh)
 traction(t) = clamp(t, 0, 1)*Vec((1.0, 0.0))
-add!(lh, Neumann(:u, 2, getfaceset(grid, "right"), (x, t, n) -> traction(t)));
+add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), (x, t, n) -> traction(t)));
 
 # ## Finite element solution 
 # Given this setup, we define a function that steps through the time history,

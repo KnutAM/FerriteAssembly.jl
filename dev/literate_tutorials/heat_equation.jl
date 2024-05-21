@@ -63,8 +63,8 @@ work!(assembler, buffer);
 # ## Solve the problem. 
 # To actually solve the problem, we also need Dirichlet boundary conditions.
 ch = ConstraintHandler(dh)
-faceset = union((getfaceset(grid,k) for k in ("left", "right", "bottom", "top"))...)
-add!(ch, Dirichlet(:u, faceset, Returns(0.0)))
+facetset = union((getfacetset(grid,k) for k in ("left", "right", "bottom", "top"))...)
+add!(ch, Dirichlet(:u, facetset, Returns(0.0)))
 close!(ch);
 apply_zero!(K, r, ch)
 # where we use `apply_zero!` since we assembled assuming a zero temperature. 
@@ -73,8 +73,8 @@ apply_zero!(K, r, ch)
 
 # Finally, we can solve the problem and save the results 
 a = -K\r
-vtk_grid("heat_equation", grid) do vtk
-    vtk_point_data(vtk, dh, a)
+VTKFile("heat_equation", grid) do vtk
+    write_solution(vtk, dh, a)
 end;
 
 #md # ## [Plain program](@id heat_equation_plain_program)
