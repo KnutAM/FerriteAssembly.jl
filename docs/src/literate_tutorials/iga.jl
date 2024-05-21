@@ -109,10 +109,10 @@ projector = L2Projector(ip, grid)
 σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
 
 # Output results to VTK
-vtkgrid = vtk_grid("plate_with_hole.vtu", grid)
-vtk_point_data(vtkgrid, dh, a)
-vtk_point_data(vtkgrid, σ_nodes, "sigma", grid)
-vtk_save(vtkgrid);
+VTKFile("plate_with_hole.vtu", grid) do vtk
+    write_solution(vtk, dh, a)
+    write_node_data(vtk, σ_nodes, "sigma", grid)
+end
 
 using Test                                    #src
 @test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src

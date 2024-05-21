@@ -73,8 +73,8 @@ apply_zero!(K, r, ch)
 
 # Finally, we can solve the problem and save the results 
 a = -K\r
-vtk_grid("heat_equation", grid) do vtk
-    vtk_point_data(vtk, dh, a)
+VTKFile("heat_equation", grid) do vtk
+    write_solution(vtk, dh, a)
 end;
 
 #md # ## [Plain program](@id heat_equation_plain_program)
