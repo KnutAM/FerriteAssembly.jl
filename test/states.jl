@@ -51,7 +51,7 @@ end
     
     for (CT, Dim) in ((Line, 1), (QuadraticTriangle, 2), (Hexahedron, 3))
         grid = generate_grid(CT, ntuple(_->3, Dim))
-        ip = Ferrite.default_interpolation(CT)
+        ip = geometric_interpolation(CT)
         dh = DofHandler(grid); add!(dh, :u, ip^Dim); close!(dh);
 
         K = create_sparsity_pattern(dh)

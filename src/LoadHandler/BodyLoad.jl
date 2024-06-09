@@ -61,7 +61,7 @@ function add_bodyload!(bodyloads::Dict{String,BT}, bodyload::BodyLoad, sdh::SubD
     material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, bodyload.fieldname)
-    ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
+    ip_geo = geometric_interpolation(getcelltype(sdh))
     cv = autogenerate_cellvalues(bodyload.cv_info, ip, ip_geo)
 
     set = bodyload.cellset===nothing ? _getcellset(sdh) : bodyload.cellset

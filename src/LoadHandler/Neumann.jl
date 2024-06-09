@@ -59,7 +59,7 @@ function add_neumann!(nbcs::Dict{String,BT}, nbc::Neumann, sdh::SubDofHandler) w
     material = NeumannMaterial(nbc.f, dof_range(sdh, nbc.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
-    ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
+    ip_geo = geometric_interpolation(getcelltype(sdh))
     fv = autogenerate_facetvalues(nbc.fv_info, ip, ip_geo)
     
     domain_spec = DomainSpec(sdh, material, fv; set=nbc.facetset)

@@ -86,7 +86,7 @@ end;
 # etc. as normally for `Ferrite` simulations. We also define the `Zener` material and create the 
 # domain buffer. 
 grid = generate_grid(Quadrilateral, (2,2))
-ip = Ferrite.default_interpolation(Quadrilateral)
+ip = geometric_interpolation(Quadrilateral)
 dh = DofHandler(grid)
 add!(dh, :u, ip^2)
 close!(dh)
