@@ -36,7 +36,7 @@ function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::
 end;
 
 grid = generate_grid(Quadrilateral, (2,2))
-ip = Ferrite.default_interpolation(Quadrilateral)
+ip = geometric_interpolation(Quadrilateral)
 dh = DofHandler(grid)
 add!(dh, :u, ip^2)
 close!(dh)

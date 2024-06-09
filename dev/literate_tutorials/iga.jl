@@ -87,7 +87,7 @@ struct CellStress{TT}
     s::Vector{Vector{TT}}
 end
 function CellStress(grid::Ferrite.AbstractGrid)
-    Tb = SymmetricTensor{2,Ferrite.getdim(grid)}
+    Tb = SymmetricTensor{2,Ferrite.getspatialdim(grid)}
     TT = Tb{Float64,Tensors.n_components(Tb)}
     return CellStress([TT[] for _ in 1:getncells(grid)])
 end
