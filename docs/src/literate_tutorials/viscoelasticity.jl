@@ -117,7 +117,7 @@ add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), (x, t, n) -> traction(t)));
 function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
     maxiter = 10
     tolerance = 1e-6
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
     f = zeros(ndofs(dh))
     a = zeros(ndofs(dh))

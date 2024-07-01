@@ -36,7 +36,7 @@
         qr = QuadratureRule{RefQuadrilateral}(2)
         cellvalues = CellValues(qr, ip);
         dh = DH==:singlesdh ? get_dh(ip) : get_mdh(ip)
-        K = create_sparsity_pattern(dh)
+        K = allocate_matrix(dh)
         return cellvalues, K, dh
     end
 

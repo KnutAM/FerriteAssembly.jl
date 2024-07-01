@@ -47,7 +47,7 @@ close!(dh);
 # And allocate system matrices and vectors
 a = zeros(ndofs(dh))
 r = zeros(ndofs(dh))
-K = create_sparsity_pattern(dh);
+K = allocate_matrix(dh);
 
 # Starting with Dirichlet conditions: 
 # 1) Bottom facet should only be able to move in x-direction

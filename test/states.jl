@@ -54,7 +54,7 @@ end
         ip = geometric_interpolation(CT)
         dh = DofHandler(grid); add!(dh, :u, ip^Dim); close!(dh);
 
-        K = create_sparsity_pattern(dh)
+        K = allocate_matrix(dh)
         r = zeros(ndofs(dh));
         kr_assembler = start_assemble(K, r)
         r_assembler = FerriteAssembly.ReAssembler(r)

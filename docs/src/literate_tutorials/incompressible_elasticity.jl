@@ -101,7 +101,7 @@ function solve(;ν, ipu, ipp)
     domainbuffer = setup_domainbuffer(DomainSpec(dh, mp, cv))
     
     ## Allocate and do the assembly
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     f = zeros(ndofs(dh))
     assembler = start_assemble(K, f)
     work!(assembler, domainbuffer) # Assemble the stiffness matrix

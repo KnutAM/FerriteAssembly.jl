@@ -17,7 +17,7 @@ function assemble_test(dh, cv, m, a, aold, Δt)
     buffer = setup_domainbuffer(DomainSpec(dh, m, cv); a=a)
     set_time_increment!(buffer, Δt)
     # Assemble both K and r
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
     assembler = start_assemble(K, r)
     work!(assembler, buffer; a=a, aold=aold)
