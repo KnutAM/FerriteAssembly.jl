@@ -51,7 +51,7 @@ dh = DofHandler(grid)
 add!(dh, :u, ip)
 close!(dh)
 
-K = create_sparsity_pattern(dh)
+K = allocate_matrix(dh)
 r = zeros(ndofs(dh))
 a = zeros(ndofs(dh));
 

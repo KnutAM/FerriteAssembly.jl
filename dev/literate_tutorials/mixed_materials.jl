@@ -70,7 +70,7 @@ buffer = setup_domainbuffers(domains);
 function solve_nonlinear_timehistory(buffer, dh, ch; time_history)
     maxiter = 10
     tolerance = 1e-6
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     ## Prepare postprocessing

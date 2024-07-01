@@ -18,7 +18,7 @@ cv = CellValues(qr, ip, ip)
 m = ElasticPlaneStrain(;E=80e3, ν=0.3)
 
 buffer = setup_domainbuffer(DomainSpec(dh, m, cv))
-K = create_sparsity_pattern(dh)
+K = allocate_matrix(dh)
 r = zeros(ndofs(dh))
 a = zeros(ndofs(dh));
 

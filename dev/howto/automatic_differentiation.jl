@@ -28,7 +28,7 @@ grid = generate_grid(Quadrilateral, (100, 100))
 ip = Lagrange{RefQuadrilateral,1}()
 dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
 cellvalues = CellValues(QuadratureRule{RefQuadrilateral}(2), ip);
-K = create_sparsity_pattern(dh)
+K = allocate_matrix(dh)
 r = zeros(ndofs(dh));
 
 domain = DomainSpec(dh, material, cellvalues)
