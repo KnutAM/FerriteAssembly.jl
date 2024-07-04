@@ -107,8 +107,7 @@ getset(b::DomainBuffers, domain) = getset(b[domain])
 struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     set::Vector{I}
     itembuffer::B
-    states::Dict{Int,S}     # Always indexed by cell. If desired to have 1 state per e.g. facet, need to have e.g. S::Vector{FS}
-    old_states::Dict{Int,S} # For interfaces, it is possible/likely that state_here and state_there can be given. 
+    states::StateVariables{S}
     sdh::SDH
 end
 
@@ -116,16 +115,15 @@ struct ThreadedDomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     chunks::Vector{Vector{Vector{I}}}   # I=Int (cell), I=FacetIndex (facet), or
     set::Vector{I}                      # I=NTuple{2,FacetIndex} (interface)
     itembuffer::TaskLocals{B,B}         # cell, facet, or interface buffer 
-    states::Dict{Int,S}                 # To be updated during "work"
-    old_states::Dict{Int,S}             # Only for reference
+    states::StateVariables{S}
     sdh::SDH
 end
-function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states, old_states, sdh::SubDofHandler, colors_or_chunks=nothing)
+function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states::StateVariables, sdh::SubDofHandler, colors_or_chunks=nothing)
     grid = _getgrid(sdh)
     set_vector = collect(set)
     chunks = create_chunks(grid, set_vector, colors_or_chunks)
     itembuffers = TaskLocals(itembuffer)
-    return ThreadedDomainBuffer(chunks, set_vector, itembuffers, states, old_states, sdh)
+    return ThreadedDomainBuffer(chunks, set_vector, itembuffers, states, sdh)
 end
 
 get_chunks(db::ThreadedDomainBuffer) = db.chunks
@@ -138,17 +136,15 @@ getset(b::StdDomainBuffer) = b.set
 
 get_dofhandler(b::StdDomainBuffer) = b.sdh.dh
 get_itembuffer(b::StdDomainBuffer) = b.itembuffer
-get_state(b::StdDomainBuffer, cellnum::Int) = fast_getindex(b.states, cellnum)
-get_old_state(b::StdDomainBuffer, cellnum::Int) = fast_getindex(b.old_states, cellnum)
+get_state(b::StdDomainBuffer, cellnum::Int) = fast_getindex(b.states.new, cellnum)
+get_old_state(b::StdDomainBuffer, cellnum::Int) = fast_getindex(b.states.old, cellnum)
 
-get_state(b::StdDomainBuffer) = b.states
-get_old_state(b::StdDomainBuffer) = b.old_states
+get_state(b::StdDomainBuffer) = b.states.new
+get_old_state(b::StdDomainBuffer) = b.states.old
 get_material(b::StdDomainBuffer) = get_material(get_base(get_itembuffer(b)))
 
-# Update old_states = states after convergence 
-function update_states!(b::AbstractDomainBuffer)
-    update_states!(get_old_state(b), get_state(b))
-end
+# Update old_states = new_states after convergence 
+update_states!(b::StdDomainBuffer) = update_states!(b.states)
 
 function set_time_increment!(b::StdDomainBuffer, Δt)
     set_time_increment!(get_base(get_itembuffer(b)), Δt)
@@ -164,3 +160,7 @@ function replace_material(db::ThreadedDomainBuffer, replacement_function)
     itembuffer = TaskLocals(base_ibuf, task_ibuf)
     return _replace_field(db, Val(:itembuffer), itembuffer)
 end
+
+# Experimental: Insert new states, allows reusing the buffer for multiple simulations with same 
+# initial state (grid, dh, etc.), but which experience different loading. Typically for RVE simulations. 
+replace_states!(db::StdDomainBuffer, states::StateVariables) = replace_states!(db.states, states)

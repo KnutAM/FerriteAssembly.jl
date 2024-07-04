@@ -135,8 +135,8 @@
             ad2 = DomainSpec(dh, material["B"], cv; set=setB)
             buffer = setup_domainbuffers(Dict("A"=>ad1, "B"=>ad2); autodiffbuffer=autodiff_cb, threading=threaded)
             @test isa(buffer, Dict{String,<:BufferType})
-            @test isa(FerriteAssembly.get_old_state(buffer, "A"), Dict{Int})
-            @test isa(FerriteAssembly.get_old_state(buffer, "B"), Dict{Int})
+            @test isa(FerriteAssembly.get_old_state(buffer, "A"), FerriteAssembly.StateVector)
+            @test isa(FerriteAssembly.get_old_state(buffer, "B"), FerriteAssembly.StateVector)
             return buffer
         elseif isa(material, Dict) && length(dh.subdofhandlers) > 1
             sdh1 = dh.subdofhandlers[1]
@@ -151,7 +151,7 @@
             ad4 = DomainSpec(sdh2, material["B"], cv; set=setB) # sdh2B
             buffer = setup_domainbuffers(Dict("sdh1A"=>ad1, "sdh1B"=>ad2, "sdh2A"=>ad3, "sdh2B"=>ad4); autodiffbuffer=autodiff_cb, threading=threaded)
             @test isa(buffer, Dict{String,<:BufferType})
-            @test isa(FerriteAssembly.get_old_state(buffer, "sdh1A"), Dict{Int})
+            @test isa(FerriteAssembly.get_old_state(buffer, "sdh1A"), FerriteAssembly.StateVector)
             return buffer
         elseif length(dh.subdofhandlers) > 1
             sdh1 = dh.subdofhandlers[1]
@@ -161,12 +161,12 @@
             ad2 = DomainSpec(sdh2, material, cv; set=set2)
             buffer = setup_domainbuffers(Dict("sdh1"=>ad1, "sdh2"=>ad2); autodiffbuffer=autodiff_cb, threading=threaded)
             @test isa(buffer, Dict{String,<:BufferType})
-            @test isa(FerriteAssembly.get_old_state(buffer, "sdh1"), Dict{Int})
+            @test isa(FerriteAssembly.get_old_state(buffer, "sdh1"), FerriteAssembly.StateVector)
             return buffer
         else
             buffer = setup_domainbuffer(DomainSpec(dh, material, cv); autodiffbuffer=autodiff_cb, threading=threaded)
             @test isa(buffer, BufferType)
-            @test isa(FerriteAssembly.get_old_state(buffer), Dict{Int})
+            @test isa(FerriteAssembly.get_old_state(buffer), FerriteAssembly.StateVector)
             return buffer
         end
     end
