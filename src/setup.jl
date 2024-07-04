@@ -85,10 +85,10 @@ function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
 end
 
 function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false))
-    states = create_states(domain, a)
+    new_states = create_states(domain, a)
     old_states = create_states(domain, a)
-    itembuffer = setup_itembuffer(autodiffbuffer, domain, states)
-    return _setup_domainbuffer(threaded, domain.set, itembuffer, states, old_states, domain.sdh, domain.colors_or_chunks)
+    itembuffer = setup_itembuffer(autodiffbuffer, domain, new_states)
+    return _setup_domainbuffer(threaded, domain.set, itembuffer, StateVariables(old_states, new_states), domain.sdh, domain.colors_or_chunks)
 end
 
 # Type-unstable switch
@@ -96,10 +96,10 @@ function _setup_domainbuffer(threaded::Bool, args...)
     return _setup_domainbuffer(Val(threaded), args...)
 end
 # Sequential
-function _setup_domainbuffer(::Val{false}, set, itembuffer, states, old_states, sdh, args...)
-    return DomainBuffer(set, itembuffer, states, old_states, sdh)
+function _setup_domainbuffer(::Val{false}, set, itembuffer, states, sdh, args...)
+    return DomainBuffer(set, itembuffer, states, sdh)
 end
 # Threaded
-function _setup_domainbuffer(::Val{true}, set, itembuffer, states, old_states, sdh, args...)
-    return ThreadedDomainBuffer(set, itembuffer, states, old_states, sdh, args...)
+function _setup_domainbuffer(::Val{true}, set, itembuffer, states, sdh, args...)
+    return ThreadedDomainBuffer(set, itembuffer, states, sdh, args...)
 end
