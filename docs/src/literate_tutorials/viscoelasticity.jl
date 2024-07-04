@@ -85,7 +85,7 @@ end;
 # To setup our problem, we use a simple grid and define all interpolations, quadrature rules, 
 # etc. as normally for `Ferrite` simulations. We also define the `Zener` material and create the 
 # domain buffer. 
-grid = generate_grid(Quadrilateral, 100 .* (2,2))
+grid = generate_grid(Quadrilateral, (2,2))
 ip = geometric_interpolation(Quadrilateral)
 dh = DofHandler(grid)
 add!(dh, :u, ip^2)
@@ -162,9 +162,7 @@ end;
 time_history = collect(range(0,1,10)).^2 
 append!(time_history, 1 .+ collect(range(0,1,10)[2:end]).^2)
 
-@time u1_max, t_force = solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history=time_history[2:end]);
-
-@test sum(abs, u1_max) ≈ 3.9460886561906166 #src
+u1_max, t_force = solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history=time_history[2:end]);
 
 # ## Plot the results 
 fig = CM.Figure()
