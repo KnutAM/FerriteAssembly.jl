@@ -35,7 +35,7 @@ function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::
     end
 end;
 
-grid = generate_grid(Quadrilateral, (2,2))
+grid = generate_grid(Quadrilateral, (20, 20))
 ip = geometric_interpolation(Quadrilateral)
 dh = DofHandler(grid)
 add!(dh, :u, ip^2)
@@ -44,16 +44,15 @@ qr = QuadratureRule{RefQuadrilateral}(2)
 cv = CellValues(qr, ip^2, ip)
 m = ZenerMaterial()
 domain = DomainSpec(dh, m, cv)
-buffer = setup_domainbuffer(domain);
+buffer = setup_domainbuffer(domain; autodiffbuffer=true);
 
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(0.0), 1))
-add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(zero(Vec{2}))))
 close!(ch)
 update!(ch, 0.0);
 
 lh = LoadHandler(dh)
-traction(t) = clamp(t, 0, 1)*Vec((1.0, 0.0))
+traction(t) = clamp(t, 0, 1)*Vec((0.0, 1.0))
 add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), (x, t, n) -> traction(t)));
 
 function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
