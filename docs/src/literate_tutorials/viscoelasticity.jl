@@ -85,7 +85,7 @@ end;
 # To setup our problem, we use a simple grid and define all interpolations, quadrature rules, 
 # etc. as normally for `Ferrite` simulations. We also define the `Zener` material and create the 
 # domain buffer. 
-grid = generate_grid(Quadrilateral, (2,2))
+grid = generate_grid(Quadrilateral, (20, 20))
 ip = geometric_interpolation(Quadrilateral)
 dh = DofHandler(grid)
 add!(dh, :u, ip^2)
@@ -94,19 +94,18 @@ qr = QuadratureRule{RefQuadrilateral}(2)
 cv = CellValues(qr, ip^2, ip)
 m = ZenerMaterial()
 domain = DomainSpec(dh, m, cv)
-buffer = setup_domainbuffer(domain);
+buffer = setup_domainbuffer(domain; autodiffbuffer=true);
 
-# Simple sliding boundary conditions are used to ensure a uniaxial response. 
+# Fix left side of beam, vertical load on right side.
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(0.0), 1))
-add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(zero(Vec{2}))))
 close!(ch)
 update!(ch, 0.0);
 
 # We use `FerriteAssembly`'s `LoadHandler` to apply the Neumann boundary conditions,
 # which consist of a ramp followed by a hold. 
 lh = LoadHandler(dh)
-traction(t) = clamp(t, 0, 1)*Vec((1.0, 0.0))
+traction(t) = clamp(t, 0, 1)*Vec((0.0, 1.0))
 add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), (x, t, n) -> traction(t)));
 
 # ## Finite element solution 
@@ -163,6 +162,11 @@ time_history = collect(range(0,1,10)).^2
 append!(time_history, 1 .+ collect(range(0,1,10)[2:end]).^2)
 
 u1_max, t_force = solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history=time_history[2:end]);
+
+# Test the results (hidden from docs)       #src
+using Test                                  #src
+@test sum(abs, u1_max) ≈ 25.076193714123683 #src
+nothing                                     #src
 
 # ## Plot the results 
 fig = CM.Figure()
