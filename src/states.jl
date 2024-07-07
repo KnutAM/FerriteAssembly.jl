@@ -21,7 +21,7 @@ end
 # Experimental, basically copy!, but use separate name for clarity
 function replace_states!(dst::StateVariables, src::StateVariables)
     dst.old.vals = src.old.vals 
-    dst.new.vals = dst.new.vals
+    dst.new.vals = src.new.vals
     return dst
 end
 

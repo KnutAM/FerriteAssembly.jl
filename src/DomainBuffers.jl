@@ -163,4 +163,11 @@ end
 
 # Experimental: Insert new states, allows reusing the buffer for multiple simulations with same 
 # initial state (grid, dh, etc.), but which experience different loading. Typically for RVE simulations. 
+function replace_states!(dbs::Dict{String, <:AbstractDomainBuffer}, states::Dict{String, <:StateVariables})
+    keys(dbs) == keys(states) || throw(ArgumentError("keys of dictionaries don't match"))
+    for (key, db) in dbs
+        replace_states!(db, states[key])
+    end
+end
+
 replace_states!(db::StdDomainBuffer, states::StateVariables) = replace_states!(db.states, states)
