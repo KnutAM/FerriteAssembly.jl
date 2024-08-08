@@ -109,7 +109,7 @@ projector = L2Projector(ip, grid)
 σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
 
 # Output results to VTK
-VTKFile("plate_with_hole.vtu", grid) do vtk
+VTKGridFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
     write_node_data(vtk, σ_nodes, "sigma", grid)
 end

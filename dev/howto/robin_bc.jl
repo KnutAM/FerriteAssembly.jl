@@ -42,7 +42,7 @@ domainbuffer = setup_domainbuffer(DomainSpec(dh, rbc, fv; set=getfacetset(grid, 
 assembler = start_assemble(K, r)
 work!(assembler, domainbuffer; a=a);
 
-VTKFile("RobinBC", grid) do vtk
+VTKGridFile("RobinBC", grid) do vtk
     write_solution(vtk, dh, r)
 end;
 

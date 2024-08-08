@@ -48,7 +48,7 @@ close!(ch);
 apply_zero!(K, r, ch)
 
 a = -K\r
-VTKFile("heat_equation", grid) do vtk
+VTKGridFile("heat_equation", grid) do vtk
     write_solution(vtk, dh, a)
 end;
 

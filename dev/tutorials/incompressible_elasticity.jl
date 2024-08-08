@@ -95,7 +95,7 @@ function solve(;ν, ipu, ipp)
     # Export the results
     filename = "cook_" * (isa(ipu, Lagrange{2,RefTetrahedron,1}) ? "linear" : "quadratic") *
                          "_linear"
-    VTKFile(filename, dh) do vtk
+    VTKGridFile(filename, dh) do vtk
         write_solution(vtk, dh, u)
     end
     return u

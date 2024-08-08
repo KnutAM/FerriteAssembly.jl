@@ -3,7 +3,7 @@ using FerriteAssembly
 import CairoMakie as CM
 
 Base.@kwdef struct ZenerMaterial{T}
-    K::T =5.0   # Bulk modulus
+    K::T =5.0/3 # Bulk modulus
     G1::T=1.0   # Shear modulus, parallel
     G2::T=50.   # Shear modulus, series
     η::T =5.0   # Damping modulus
@@ -22,11 +22,11 @@ function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
         ϵdev = dev(ϵ)
-        ϵv = (Δt*2*m.G2*ϵdev + m.η*old_ϵv)/(m.η + Δt*2*m.G2)
-        σ = (m.G1+m.G2)*2*ϵdev - 2*m.G2*ϵv + m.K*vol(ϵ)
+        ϵv = (Δt * 2 * m.G2 * ϵdev + m.η * old_ϵv)/(m.η + Δt * 2 * m.G2)
+        σ = (m.G1 + m.G2) * 2 * ϵdev - 2 * m.G2 * ϵv + 3 * m.K * vol(ϵ)
         for i in 1:getnbasefunctions(cv)
             δ∇N = shape_symmetric_gradient(cv, q_point, i)
-            re[i] += (δ∇N⊡σ)*dΩ
+            re[i] += (δ∇N ⊡ σ) * dΩ
         end
         # Note that to save the state by mutation, we need to extract the value from the dual
         # number. Consequently, we do this before assigning to the state vector. Note that
