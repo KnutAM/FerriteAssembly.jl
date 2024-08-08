@@ -75,7 +75,7 @@ work!(assembler, domainbuffer; a=a);
 # ## Visualizing the BC
 # To visualize the output, we can export the vtk the residual, showing how 
 # contributions have been added to the boundary. 
-VTKFile("RobinBC", grid) do vtk
+VTKGridFile("RobinBC", grid) do vtk
     write_solution(vtk, dh, r)
 end;
 
