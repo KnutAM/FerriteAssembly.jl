@@ -17,4 +17,5 @@ by its cell number. (The output from the mentioned functions are `Dict{Int}`)
 ```@docs
 FerriteAssembly.create_cell_state
 update_states!
+FerriteAssembly.remove_dual
 ```
