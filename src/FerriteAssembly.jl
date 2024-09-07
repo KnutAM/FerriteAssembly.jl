@@ -21,6 +21,7 @@ include("Autodiff/autodiff.jl")
 include("work.jl")
 include("Workers/Assemblers.jl")
 include("Workers/Integrators.jl")
+include("Workers/QuadratureEvaluator.jl")
 
 include("LoadHandler/LoadHandler.jl")
 
