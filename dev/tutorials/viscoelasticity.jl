@@ -28,10 +28,11 @@ function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::
             δ∇N = shape_symmetric_gradient(cv, q_point, i)
             re[i] += (δ∇N ⊡ σ) * dΩ
         end
-        # Note that to save the state by mutation, we need to extract the value from the dual
-        # number. Consequently, we do this before assigning to the state vector. Note that
-        # if the state was a scalar, we should use `ForwardDiff.value` instead.
-        state[q_point] = Tensors._extract_value(ϵv)
+        # We only want to save the value-part of the states, and FerriteAssembly comes with
+        # the utility `FerriteAssembly.remove_dual` to do so for scalars and Tensors.
+        # Note that using `state[q_point]` instead of ϵv for any calculations
+        # affecting re, will result in wrong derivatives.
+        state[q_point] = FerriteAssembly.remove_dual(ϵv)
     end
 end;
 

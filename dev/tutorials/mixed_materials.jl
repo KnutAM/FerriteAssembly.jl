@@ -1,4 +1,4 @@
-using Ferrite, FerriteAssembly, MaterialModelsBase
+using Ferrite, FerriteAssembly, MaterialModelsBase, WriteVTK
 import FerriteAssembly.ExampleElements: J2Plasticity, ElasticPlaneStrain
 
 function create_grid_with_inclusion()
@@ -44,12 +44,13 @@ function solve_nonlinear_timehistory(buffer, dh, ch; time_history)
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     # Prepare postprocessing
-    pvd = VTKFileCollection("multiple_materials.pvd", dh);
-    addstep!(pvd, 0.0) do io
-        write_solution(io, dh, a)
-        Ferrite.write_cellset(io, dh.grid, "inclusion")
+    pvd = paraview_collection("multiple_materials")
+    VTKGridFile("multiple_materials_0", dh) do vtk
+        write_solution(vtk, dh, a)
+        Ferrite.write_cellset(vtk, dh.grid, "inclusion")
+        pvd[0.0] = vtk
     end
-    for t in time_history
+    for (n, t) in enumerate(time_history)
         # Update and apply the Dirichlet boundary conditions
         update!(ch, t)
         apply!(a, ch)
@@ -67,9 +68,10 @@ function solve_nonlinear_timehistory(buffer, dh, ch; time_history)
             apply!(a, ch)
         end
         # Postprocess
-        addstep!(pvd, 0.0) do io
-            write_solution(io, dh, a)
-            Ferrite.write_cellset(io, dh.grid, "inclusion")
+        VTKGridFile("multiple_materials_$n", dh) do vtk
+            write_solution(vtk, dh, a)
+            Ferrite.write_cellset(vtk, dh.grid, "inclusion")
+            pvd[t] = vtk
         end
         # If converged, update the old state variables to the current.
         update_states!(buffer)
