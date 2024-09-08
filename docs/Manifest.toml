@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "504dbad7ca66224f171278d83eb1ba1a19f056fc"
+project_hash = "b8e7c998f47a727201bcd150f2fb7d7da84eef64"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -352,7 +352,7 @@ version = "3.3.10+0"
 
 [[deps.Ferrite]]
 deps = ["EnumX", "ForwardDiff", "LinearAlgebra", "NearestNeighbors", "OrderedCollections", "Preferences", "Reexport", "SparseArrays", "StaticArrays", "Tensors", "WriteVTK"]
-git-tree-sha1 = "7183f19e80d746f3d10dba41dd0811a0e2a893f7"
+git-tree-sha1 = "886da974305982fd13637abc00c1e85c2bcc09cd"
 repo-rev = "master"
 repo-url = "https://github.com/Ferrite-FEM/Ferrite.jl.git"
 uuid = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
@@ -1408,9 +1408,9 @@ version = "1.0.0"
 
 [[deps.WriteVTK]]
 deps = ["Base64", "CodecZlib", "FillArrays", "LightXML", "TranscodingStreams", "VTKBase"]
-git-tree-sha1 = "48b9e8e9c83865e99e57f027d4edfa94e0acddae"
+git-tree-sha1 = "46664bb833f24e4fe561192e3753c9168c3b71b2"
 uuid = "64499a7a-5c06-52f2-abe2-ccb03c286192"
-version = "1.19.1"
+version = "1.19.2"
 
 [[deps.XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]

@@ -1,3 +1,21 @@
+# Public functions for convenience 
+"""
+    remove_dual(x::T) where {T <: Number}
+    remove_dual(x::AbstractTensor{<:Any, <:Any, T}) where {T}
+
+Removes the dual part if `T <: ForwardDiff.Dual`, extract the value part.
+Typically used when assigning state variables during differentiation calls.
+"""
+function remove_dual end
+
+# Scalars
+remove_dual(x::ForwardDiff.Dual) = ForwardDiff.value(x)
+remove_dual(x::Number) = x
+
+# Tensors
+remove_dual(x::AbstractTensor{<:Any, <:Any, <:ForwardDiff.Dual}) = Tensors._extract_value(x)
+remove_dual(x::AbstractTensor) = x
+
 # Internal functions used for convenience
 
 """

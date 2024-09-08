@@ -1,4 +1,5 @@
 using Ferrite, FerriteAssembly
+using ForwardDiff
 using SparseArrays
 using Test
 import FerriteAssembly as FA
@@ -45,6 +46,18 @@ include("errors.jl")
         @test FerriteAssembly.get_state(buffer, 1) === nothing
         @test FerriteAssembly.get_old_state(buffer, 1) === nothing
         
+    end
+
+    @testset "utility functions" begin
+        x = rand()
+        xd = ForwardDiff.Dual(x, rand(3)...)
+        @test x === FerriteAssembly.remove_dual(x)
+        @test x === FerriteAssembly.remove_dual(xd)
+
+        t = rand(Tensor{2,3})
+        td = Tensor{2,3}((i, j) -> ForwardDiff.Dual(t[i, j], rand(), rand()))
+        @test t === FerriteAssembly.remove_dual(t)
+        @test t === FerriteAssembly.remove_dual(td)
     end
 end
 
