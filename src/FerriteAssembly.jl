@@ -25,7 +25,6 @@ include("Workers/QuadratureEvaluator.jl")
 
 include("LoadHandler/LoadHandler.jl")
 
-
 # Setup 
 export DomainSpec, setup_domainbuffer, setup_domainbuffers
 # Main functions to use during simulations
@@ -33,6 +32,7 @@ export work!, update_states!, set_time_increment!
 # Workers
 export ReAssembler, KeReAssembler   # Assemblers
 export Integrator, SimpleIntegrator # Integrators
+export QuadratureEvaluator          # QP evaluation
 # Builtin convenience 
 export LoadHandler, Neumann, BodyLoad, DofLoad
 export ElementResidualScaling, reset_scaling!

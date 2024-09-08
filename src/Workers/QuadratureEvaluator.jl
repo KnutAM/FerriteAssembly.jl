@@ -1,11 +1,20 @@
 using Ferrite.CollectionsOfViews: ArrayOfVectorViews
 
 """
-    QuadratureEvaluator{VT, [type]}(db::Union{DomainBuffer, DomainBuffers})
+    QuadratureEvaluator{VT}(db::Union{DomainBuffer, DomainBuffers}, f::Function)
 
-Overload the function [`eval_quadpoints_cell!`](@ref) to evaluate an expression returning 
-the type `VT` for each quadrature point in the domain(s). This is particularly useful in
-combination with `Ferrite.L2Projector`. Note that currently only cell domains are supported.
+Create a `QuadratureEvaluator` for the domain(s) `db`, for which the function
+`f(material, u, ∇u, qp_state)` will be used to calculate a value of type `VT` in 
+each quadrature point. A `QuadratureEvaluator` is often used in combination with 
+`Ferrite`'s `L2Projector`. Note that currently only cell domains are supported.
+
+Currently, the stored data should be accessed directly via the `data` field. 
+A more proper API may be introduced in the future. 
+
+    QuadratureEvaluator{VT}(db::Union{DomainBuffer, DomainBuffers}, qe_type::Symbol)
+
+A more flexible version of a `QuadratureEvaluator` where it is required to overload
+[`eval_quadpoints_cell!`](@ref) to calculate the values to be stored for each quadrature point. 
 """
 struct QuadratureEvaluator{VT, QEType}
     data::ArrayOfVectorViews{VT}
@@ -16,7 +25,7 @@ struct QuadratureEvaluator{VT, QEType}
 end
 QuadratureEvaluator(data::ArrayOfVectorViews, qe_type::Symbol) = QuadratureEvaluator(data, Val(qe_type))
 
-function QuadratureEvaluator{VT}(domainbuffer::AbstractDomainBuffer, qe_type::Symbol) where {VT}
+function QuadratureEvaluator{VT}(domainbuffer::AbstractDomainBuffer, qe_type::Union{Symbol, Function}) where {VT}
     cv = get_values(get_itembuffer(domainbuffer))
     @assert cv isa CellValues # For now, only CellValues supported
     nqp = getnquadpoints(cv)
@@ -26,7 +35,7 @@ function QuadratureEvaluator{VT}(domainbuffer::AbstractDomainBuffer, qe_type::Sy
     return QuadratureEvaluator(ArrayOfVectorViews(indices, data, LinearIndices((ncells,))), qe_type)
 end
 
-function QuadratureEvaluator{VT}(domainbuffers::DomainBuffers, qe_type::Symbol) where {VT}
+function QuadratureEvaluator{VT}(domainbuffers::DomainBuffers, qe_type::Union{Symbol, Function}) where {VT}
     ncells = getncells(get_dofhandler(first(values(domainbuffers))).grid)
     nqps = Vector{Int}(undef, ncells)
     nqp_total = 0
@@ -60,18 +69,18 @@ Will be called when using `QuadratureEvaluator` to add evaluated values for each
 """
 function eval_quadpoints_cell! end
 
-function work_single_cell!(qe::QuadratureEvaluator{<:Any, type}, cellbuffer) where {type}
+function work_single_cell!(qe::QuadratureEvaluator, cellbuffer)
     cv = get_values(cellbuffer)
     m = get_material(cellbuffer)
     cell_state = get_state(cellbuffer)
     ae = get_ae(cellbuffer)
-    eval_quadpoints_cell!(qe.data[getcellid(cellbuffer)], Val(type), cell_state, ae, m, cv, cellbuffer)
+    eval_quadpoints_cell!(qe.data[cellid(cellbuffer)], qe.qe_type, cell_state, ae, m, cv, cellbuffer)
 end
 
 function eval_quadpoints_cell!(vals::AbstractVector, f::Function, cell_state::AbstractVector, ae, material, cv::CellValues, cellbuffer)
     for q_point in 1:getnquadpoints(cv)
-        u  = function_value(v, q_point, ae)
-        ∇u = function_gradient(v, q_point, ae)
+        u  = function_value(cv, q_point, ae)
+        ∇u = function_gradient(cv, q_point, ae)
         vals[q_point] = f(material, u, ∇u, cell_state[q_point])
     end
 end
