@@ -4,7 +4,7 @@
 # an elastic inclusion, embedded in a plastically deforming matrix. 
 # For this example, we'll use material models defined in the 
 # ![results](mixed_materials.png)
-# **Figure 1:** Results showing the norm of the stress
+# **Figure 1:** Results showing horizontal stresses ($\sigma_{11}$) on a 5x deformed mesh.
 # 
 # [`MechanicalMaterialModels.jl`](https://github.com/KnutAM/MechanicalMaterialModels.jl)
 # package, which defines models according to the `MaterialModelsBase` interface.
