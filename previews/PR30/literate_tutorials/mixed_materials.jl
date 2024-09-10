@@ -21,7 +21,7 @@ function create_grid_with_inclusion()
     p1 = Vec((-1.0, -1.0))
     p2 = Vec(( 1.0,  1.0))
     grid = generate_grid(Quadrilateral, (100, 100), p1, p2)
-    #grid = generate_grid(Quadrilateral, (10, 10), p1, p2)   #src
+    grid = generate_grid(Quadrilateral, (10, 10), p1, p2)   #src
     addcellset!(grid, "inclusion", x -> norm(x) < 0.5)
     addcellset!(grid, "matrix", setdiff(1:getncells(grid), getcellset(grid, "inclusion")))
     return grid 
@@ -88,15 +88,15 @@ function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
     return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
 end
 calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
-calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state)
+calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);
 
 # And then we create the QuadratureEvaluator including this function
-qe = QuadratureEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress)
+qe = QuadratureEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
 
 # Finally, we'll setup the L2Projector that we will use
 proj = L2Projector(grid)
 add!(proj, 1:getncells(grid), ip; qr_rhs = qr)
-close!(proj)
+close!(proj);
 
 # ## Solving the nonlinear problem via time-stepping
 function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time_history)
@@ -118,7 +118,6 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
             ## Apply boundary conditions
             apply_zero!(K, r, ch)
             ## Check convergence
-            @show (i, norm(r))
             norm(r) < tolerance && break
             i == maxiter && error("Did not converge")
             ## Solve the linear system and update the dof vector

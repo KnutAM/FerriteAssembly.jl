@@ -47,13 +47,13 @@ function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
     return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
 end
 calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
-calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state)
+calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);
 
-qe = QuadratureEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress)
+qe = QuadratureEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
 
 proj = L2Projector(grid)
 add!(proj, 1:getncells(grid), ip; qr_rhs = qr)
-close!(proj)
+close!(proj);
 
 function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time_history)
     maxiter = 100
@@ -74,7 +74,6 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
             # Apply boundary conditions
             apply_zero!(K, r, ch)
             # Check convergence
-            @show (i, norm(r))
             norm(r) < tolerance && break
             i == maxiter && error("Did not converge")
             # Solve the linear system and update the dof vector
