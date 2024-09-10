@@ -17,7 +17,7 @@ using MaterialModelsBase, MechanicalMaterialModels, WriteVTK
 
 # ## Setup Ferrite quantities
 # We start by the loading a grid containing a central inclusion,
-grid = get_ferrite_grid(joinpath(@__DIR__, "square_with_inclusion.inp"))
+grid = get_ferrite_grid(joinpath(@__DIR__, "square_with_inclusion.inp"));
 
 # Define interpolation
 ip = Lagrange{RefTriangle, 2}()^2;
