@@ -77,6 +77,8 @@ jobs:
             packages = [
                 PackageSpec(;url="https://github.com/Ferrite-FEM/Ferrite.jl.git"),
                 PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
+                PackageSpec(;url="https://github.com/KnutAM/Newton.jl.git"),
+                PackageSpec(;url="https://github.com/KnutAM/MechanicalMaterialModels.jl.git"),
                 #PackageSpec(;url="https://github.com/lijas/IGA.jl.git"),
                 PackageSpec(path=pwd())
                 ]
