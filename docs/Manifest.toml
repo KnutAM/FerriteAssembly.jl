@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "a17276a9c2e121f99897231be84e9dee2b976d3c"
+project_hash = "1cc08f4c6506ca353b7656297763418ecbb18cd4"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -430,6 +430,12 @@ deps = ["Ferrite", "ForwardDiff", "MaterialModelsBase"]
 path = ".."
 uuid = "fd21fc07-c509-4fe1-9468-19963fd5935d"
 version = "0.3.3"
+
+[[deps.FerriteMeshParser]]
+deps = ["Ferrite"]
+git-tree-sha1 = "54a647bf423475c6a54d1960bf694880953d27e9"
+uuid = "0f8c756f-80dd-4a75-85c6-b0a5ab9d4620"
+version = "0.2.0"
 
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]

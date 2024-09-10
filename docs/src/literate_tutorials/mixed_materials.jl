@@ -12,24 +12,15 @@
 # The full script without intermediate comments is available at the 
 # [bottom of this page](@ref mixed_materials_plain_program).
 #
-using Ferrite, FerriteAssembly, MaterialModelsBase, MechanicalMaterialModels, WriteVTK
+using Ferrite, FerriteAssembly, FerriteMeshParser
+using MaterialModelsBase, MechanicalMaterialModels, WriteVTK
 
 # ## Setup Ferrite quantities
-# We start by the grid with sets for the inclusion with 
-# radius 0.5 and the surrounding matrix. 
-function create_grid_with_inclusion()
-    p1 = Vec((-1.0, -1.0))
-    p2 = Vec(( 1.0,  1.0))
-    grid = generate_grid(Quadrilateral, (100, 100), p1, p2)
-    grid = generate_grid(Quadrilateral, (10, 10), p1, p2)   #src
-    addcellset!(grid, "inclusion", x -> norm(x) < 0.5)
-    addcellset!(grid, "matrix", setdiff(1:getncells(grid), getcellset(grid, "inclusion")))
-    return grid 
-end
-grid = create_grid_with_inclusion();
+# We start by the loading a grid containing a central inclusion,
+grid = get_ferrite_grid(joinpath(@__DIR__, "square_with_inclusion.inp"))
 
 # Define interpolation
-ip = Lagrange{RefQuadrilateral,1}()^2;
+ip = Lagrange{RefTriangle, 2}()^2;
 
 # Followed by the dof handler 
 dh = DofHandler(grid)
@@ -40,13 +31,14 @@ close!(dh);
 ch = ConstraintHandler(dh)
 add!(ch, Dirichlet(:u, getfacetset(grid,"left"), Returns(0.0), 1))
 add!(ch, Dirichlet(:u, getfacetset(grid,"bottom"), Returns(0.0), 2))
-f_dbc(x,t) = 0.01 * t # 1 % strain at t = 1
+f_dbc(x,t) = 0.02 * t # 1 % strain at t = 1
 add!(ch, Dirichlet(:u, getfacetset(grid, "right"), f_dbc, 1))
 close!(ch);
 
 # Define cellvalues 
-qr = QuadratureRule{RefQuadrilateral}(2)
-cv = CellValues(qr, ip);
+qr = QuadratureRule{RefTriangle}(2)
+ip_geo = Lagrange{RefTriangle, 2}()
+cv = CellValues(qr, ip, ip_geo);
 
 # ## FerriteAssembly setup 
 # We first define the material models, and use the `ReducedStressState` to get a 
@@ -56,7 +48,7 @@ elastic_material = ReducedStressState(PlaneStrain(), LinearElastic(;E=210e3, ν=
 plastic_material = ReducedStressState(PlaneStrain(), Plastic(;
     elastic   = LinearElastic(E = 210e3, ν = 0.3),
     yield     = 100.0, 
-    isotropic = Voce(;Hiso = 100e3, κ∞ = 1000.0),
+    isotropic = Voce(;Hiso = 50e3, κ∞ = 1000.0),
     kinematic = ArmstrongFrederick(;Hkin = 0.0, β∞ = 1.0) # No kinematic hardening
     ));
 
@@ -118,7 +110,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
             ## Apply boundary conditions
             apply_zero!(K, r, ch)
             ## Check convergence
-            norm(r) < tolerance && break
+            norm(r) < tolerance && (println("Converted after $i iterations"); break;)
             i == maxiter && error("Did not converge")
             ## Solve the linear system and update the dof vector
             a .-= K \ r
