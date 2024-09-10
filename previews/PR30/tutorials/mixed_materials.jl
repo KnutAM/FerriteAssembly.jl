@@ -68,7 +68,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
             # Apply boundary conditions
             apply_zero!(K, r, ch)
             # Check convergence
-            norm(r) < tolerance && (println("Converted after $i iterations"); break;)
+            norm(r) < tolerance && break
             i == maxiter && error("Did not converge")
             # Solve the linear system and update the dof vector
             a .-= K \ r
