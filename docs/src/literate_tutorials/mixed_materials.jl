@@ -2,10 +2,12 @@
 # In this tutorial, we will see how we can assemble a domain and solve a problem 
 # where we have multiple material behaviors. In this simple case, we will consider 
 # an elastic inclusion, embedded in a plastically deforming matrix. 
-# For this example, we'll use material models defined in the 
-# ![results](mixed_materials.png)
-# **Figure 1:** Results showing horizontal stresses ($\sigma_{11}$) on a 5x deformed mesh.
 # 
+# ![results](mixed_materials.png)
+# 
+# **Figure 1:** Results showing horizontal stresses ($\sigma_{11}$ [MPa]) on a 5x deformed mesh.
+# 
+# For this example, we'll use material models defined in the 
 # [`MechanicalMaterialModels.jl`](https://github.com/KnutAM/MechanicalMaterialModels.jl)
 # package, which defines models according to the `MaterialModelsBase` interface.
 # 
@@ -110,7 +112,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
             ## Apply boundary conditions
             apply_zero!(K, r, ch)
             ## Check convergence
-            norm(r) < tolerance && (println("Converted after $i iterations"); break;)
+            norm(r) < tolerance && break
             i == maxiter && error("Did not converge")
             ## Solve the linear system and update the dof vector
             a .-= K \ r
