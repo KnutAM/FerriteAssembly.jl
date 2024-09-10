@@ -3,7 +3,7 @@ using Ferrite, FerriteAssembly, MaterialModelsBase, MechanicalMaterialModels, Wr
 function create_grid_with_inclusion()
     p1 = Vec((-1.0, -1.0))
     p2 = Vec(( 1.0,  1.0))
-    grid = generate_grid(Quadrilateral, (20, 20), p1, p2)
+    grid = generate_grid(Quadrilateral, (100, 100), p1, p2)
     addcellset!(grid, "inclusion", x -> norm(x) < 0.5)
     addcellset!(grid, "matrix", setdiff(1:getncells(grid), getcellset(grid, "inclusion")))
     return grid
@@ -19,7 +19,7 @@ close!(dh);
 ch = ConstraintHandler(dh)
 add!(ch, Dirichlet(:u, getfacetset(grid,"left"), Returns(0.0), 1))
 add!(ch, Dirichlet(:u, getfacetset(grid,"bottom"), Returns(0.0), 2))
-f_dbc(x,t) = 0.02 * t # 1 % strain at t = 1
+f_dbc(x,t) = 0.01 * t # 1 % strain at t = 1
 add!(ch, Dirichlet(:u, getfacetset(grid, "right"), f_dbc, 1))
 close!(ch);
 
@@ -31,7 +31,7 @@ elastic_material = ReducedStressState(PlaneStrain(), LinearElastic(;E=210e3, ν=
 plastic_material = ReducedStressState(PlaneStrain(), Plastic(;
     elastic   = LinearElastic(E = 210e3, ν = 0.3),
     yield     = 100.0,
-    isotropic = Voce(;Hiso = 10e3, κ∞ = Inf),
+    isotropic = Voce(;Hiso = 100e3, κ∞ = 1000.0),
     kinematic = ArmstrongFrederick(;Hkin = 0.0, β∞ = 1.0) # No kinematic hardening
     ));
 
@@ -56,7 +56,7 @@ add!(proj, 1:getncells(grid), ip; qr_rhs = qr)
 close!(proj)
 
 function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time_history)
-    maxiter = 10
+    maxiter = 100
     tolerance = 1e-6
     K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
@@ -74,6 +74,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
             # Apply boundary conditions
             apply_zero!(K, r, ch)
             # Check convergence
+            @show (i, norm(r))
             norm(r) < tolerance && break
             i == maxiter && error("Did not converge")
             # Solve the linear system and update the dof vector
@@ -97,6 +98,6 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
     close(pvd)
     return nothing
 end;
-solve_nonlinear_timehistory(buffer, dh, ch, proj, qe; time_history=collect(range(0, 1, 40)));
+solve_nonlinear_timehistory(buffer, dh, ch, proj, qe; time_history=collect(range(0, 1, 20)));
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl

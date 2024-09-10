@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Multiple materials · FerriteAssembly.jl</title><meta name="title" content="Multiple materials · FerriteAssembly.jl"/><meta property="og:title" content="Multiple materials · FerriteAssembly.jl"/><meta property="twitter:title" content="Multiple materials · FerriteAssembly.jl"/><meta name="description" content="Documentation for FerriteAssembly.jl."/><meta property="og:description" content="Documentation for FerriteAssembly.jl."/><meta property="twitter:description" content="Documentation for FerriteAssembly.jl."/><meta property="og:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><meta property="twitter:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><link rel="canonical" href="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteAssembly.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Learning by doing</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-2-1" type="checkbox" checked/><label class="tocitem" for="menuitem-2-1"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../heat_equation/">Heat Equation</a></li><li><a class="tocitem" href="../viscoelasticity/">Viscoelasticity with state variables</a></li><li><a class="tocitem" href="../incompressible_elasticity/">Multiple fields</a></li><li class="is-active"><a class="tocitem" href>Multiple materials</a><ul class="internal"><li><a class="tocitem" href="#Setup-Ferrite-quantities"><span>Setup Ferrite quantities</span></a></li><li><a class="tocitem" href="#FerriteAssembly-setup"><span>FerriteAssembly setup</span></a></li><li><a class="tocitem" href="#Solving-the-nonlinear-problem-via-time-stepping"><span>Solving the nonlinear problem via time-stepping</span></a></li><li><a class="tocitem" href="#mixed_materials_plain_program"><span>Plain program</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-2-2" type="checkbox"/><label class="tocitem" for="menuitem-2-2"><span class="docs-label">How-to</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../howto/threaded_assembly/">Threaded assembly</a></li><li><a class="tocitem" href="../../howto/automatic_differentiation/">Automatic differentiation</a></li><li><a class="tocitem" href="../../howto/local_constraints/">Local constraint application</a></li><li><a class="tocitem" href="../../howto/robin_bc/">Robin boundary conditions</a></li><li><a class="tocitem" href="../../howto/volume_integral/">Volume integration</a></li><li><a class="tocitem" href="../../howto/surface_integral/">Surface integration</a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../design/">Design</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">DomainBuffers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../DomainBuffers/Setup/">DomainBuffers</a></li><li><a class="tocitem" href="../../DomainBuffers/StateVariables/">State variables</a></li><li><a class="tocitem" href="../../DomainBuffers/ItemBuffer/">ItemBuffer</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Workers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Workers/Workers/">Workers</a></li><li><a class="tocitem" href="../../Workers/Assemblers/">Assemblers</a></li><li><a class="tocitem" href="../../Workers/Integrators/">Integrators</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Convenience</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Convenience/LoadHandler/">External loads</a></li><li><a class="tocitem" href="../../Convenience/MaterialModelsBase/">Mechanical materials</a></li><li><a class="tocitem" href="../../Convenience/ExampleElements/">Example elements</a></li></ul></li><li><a class="tocitem" href="../../Customization/">Customizations</a></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Learning by doing</a></li><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Multiple materials</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multiple materials</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl/blob/main/docs/src/literate_tutorials/mixed_materials.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Multiple-materials"><a class="docs-heading-anchor" href="#Multiple-materials">Multiple materials</a><a id="Multiple-materials-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-materials" title="Permalink"></a></h1><p>In this tutorial, we will see how we can assemble a domain and solve a problem where we have multiple material behaviors. In this simple case, we will consider an elastic inclusion, embedded in a plastically deforming matrix. For this example, we&#39;ll use material models defined in the <a href="https://github.com/KnutAM/MechanicalMaterialModels.jl"><code>MechanicalMaterialModels.jl</code></a> package, which defines models according to the <code>MaterialModelsBase</code> interface.</p><p>The full script without intermediate comments is available at the <a href="#mixed_materials_plain_program">bottom of this page</a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, MaterialModelsBase, MechanicalMaterialModels, WriteVTK</code></pre><h2 id="Setup-Ferrite-quantities"><a class="docs-heading-anchor" href="#Setup-Ferrite-quantities">Setup Ferrite quantities</a><a id="Setup-Ferrite-quantities-1"></a><a class="docs-heading-anchor-permalink" href="#Setup-Ferrite-quantities" title="Permalink"></a></h2><p>We start by the grid with sets for the inclusion with radius 0.5 and the surrounding matrix.</p><pre><code class="language-julia hljs">function create_grid_with_inclusion()
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Multiple materials · FerriteAssembly.jl</title><meta name="title" content="Multiple materials · FerriteAssembly.jl"/><meta property="og:title" content="Multiple materials · FerriteAssembly.jl"/><meta property="twitter:title" content="Multiple materials · FerriteAssembly.jl"/><meta name="description" content="Documentation for FerriteAssembly.jl."/><meta property="og:description" content="Documentation for FerriteAssembly.jl."/><meta property="twitter:description" content="Documentation for FerriteAssembly.jl."/><meta property="og:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><meta property="twitter:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><link rel="canonical" href="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteAssembly.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Learning by doing</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-2-1" type="checkbox" checked/><label class="tocitem" for="menuitem-2-1"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../heat_equation/">Heat Equation</a></li><li><a class="tocitem" href="../viscoelasticity/">Viscoelasticity with state variables</a></li><li><a class="tocitem" href="../incompressible_elasticity/">Multiple fields</a></li><li class="is-active"><a class="tocitem" href>Multiple materials</a><ul class="internal"><li><a class="tocitem" href="#Setup-Ferrite-quantities"><span>Setup Ferrite quantities</span></a></li><li><a class="tocitem" href="#FerriteAssembly-setup"><span>FerriteAssembly setup</span></a></li><li><a class="tocitem" href="#Solving-the-nonlinear-problem-via-time-stepping"><span>Solving the nonlinear problem via time-stepping</span></a></li><li><a class="tocitem" href="#mixed_materials_plain_program"><span>Plain program</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-2-2" type="checkbox"/><label class="tocitem" for="menuitem-2-2"><span class="docs-label">How-to</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../howto/threaded_assembly/">Threaded assembly</a></li><li><a class="tocitem" href="../../howto/automatic_differentiation/">Automatic differentiation</a></li><li><a class="tocitem" href="../../howto/local_constraints/">Local constraint application</a></li><li><a class="tocitem" href="../../howto/robin_bc/">Robin boundary conditions</a></li><li><a class="tocitem" href="../../howto/volume_integral/">Volume integration</a></li><li><a class="tocitem" href="../../howto/surface_integral/">Surface integration</a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../design/">Design</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">DomainBuffers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../DomainBuffers/Setup/">DomainBuffers</a></li><li><a class="tocitem" href="../../DomainBuffers/StateVariables/">State variables</a></li><li><a class="tocitem" href="../../DomainBuffers/ItemBuffer/">ItemBuffer</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Workers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Workers/Workers/">Workers</a></li><li><a class="tocitem" href="../../Workers/Assemblers/">Assemblers</a></li><li><a class="tocitem" href="../../Workers/Integrators/">Integrators</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Convenience</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Convenience/LoadHandler/">External loads</a></li><li><a class="tocitem" href="../../Convenience/MaterialModelsBase/">Mechanical materials</a></li><li><a class="tocitem" href="../../Convenience/ExampleElements/">Example elements</a></li></ul></li><li><a class="tocitem" href="../../Customization/">Customizations</a></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Learning by doing</a></li><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Multiple materials</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multiple materials</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl/blob/main/docs/src/literate_tutorials/mixed_materials.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Multiple-materials"><a class="docs-heading-anchor" href="#Multiple-materials">Multiple materials</a><a id="Multiple-materials-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-materials" title="Permalink"></a></h1><p>In this tutorial, we will see how we can assemble a domain and solve a problem where we have multiple material behaviors. In this simple case, we will consider an elastic inclusion, embedded in a plastically deforming matrix. For this example, we&#39;ll use material models defined in the <img src="../mixed_materials.png" alt="results"/> <strong>Figure 1:</strong> Results showing the norm of the stress</p><p><a href="https://github.com/KnutAM/MechanicalMaterialModels.jl"><code>MechanicalMaterialModels.jl</code></a> package, which defines models according to the <code>MaterialModelsBase</code> interface.</p><p>The full script without intermediate comments is available at the <a href="#mixed_materials_plain_program">bottom of this page</a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, MaterialModelsBase, MechanicalMaterialModels, WriteVTK</code></pre><h2 id="Setup-Ferrite-quantities"><a class="docs-heading-anchor" href="#Setup-Ferrite-quantities">Setup Ferrite quantities</a><a id="Setup-Ferrite-quantities-1"></a><a class="docs-heading-anchor-permalink" href="#Setup-Ferrite-quantities" title="Permalink"></a></h2><p>We start by the grid with sets for the inclusion with radius 0.5 and the surrounding matrix.</p><pre><code class="language-julia hljs">function create_grid_with_inclusion()
     p1 = Vec((-1.0, -1.0))
     p2 = Vec(( 1.0,  1.0))
-    grid = generate_grid(Quadrilateral, (20, 20), p1, p2)
+    grid = generate_grid(Quadrilateral, (100, 100), p1, p2)
     addcellset!(grid, &quot;inclusion&quot;, x -&gt; norm(x) &lt; 0.5)
     addcellset!(grid, &quot;matrix&quot;, setdiff(1:getncells(grid), getcellset(grid, &quot;inclusion&quot;)))
     return grid
@@ -12,7 +12,7 @@ add!(dh, :u, ip)
 close!(dh);</code></pre><p>And then Dirichlet conditions</p><pre><code class="language-julia hljs">ch = ConstraintHandler(dh)
 add!(ch, Dirichlet(:u, getfacetset(grid,&quot;left&quot;), Returns(0.0), 1))
 add!(ch, Dirichlet(:u, getfacetset(grid,&quot;bottom&quot;), Returns(0.0), 2))
-f_dbc(x,t) = 0.02 * t # 1 % strain at t = 1
+f_dbc(x,t) = 0.01 * t # 1 % strain at t = 1
 add!(ch, Dirichlet(:u, getfacetset(grid, &quot;right&quot;), f_dbc, 1))
 close!(ch);</code></pre><p>Define cellvalues</p><pre><code class="language-julia hljs">qr = QuadratureRule{RefQuadrilateral}(2)
 cv = CellValues(qr, ip);</code></pre><h2 id="FerriteAssembly-setup"><a class="docs-heading-anchor" href="#FerriteAssembly-setup">FerriteAssembly setup</a><a id="FerriteAssembly-setup-1"></a><a class="docs-heading-anchor-permalink" href="#FerriteAssembly-setup" title="Permalink"></a></h2><p>We first define the material models, and use the <code>ReducedStressState</code> to get a plane strain response.</p><pre><code class="language-julia hljs">elastic_material = ReducedStressState(PlaneStrain(), LinearElastic(;E=210e3, ν=0.3))
@@ -20,7 +20,7 @@ cv = CellValues(qr, ip);</code></pre><h2 id="FerriteAssembly-setup"><a class="do
 plastic_material = ReducedStressState(PlaneStrain(), Plastic(;
     elastic   = LinearElastic(E = 210e3, ν = 0.3),
     yield     = 100.0,
-    isotropic = Voce(;Hiso = 10e3, κ∞ = Inf),
+    isotropic = Voce(;Hiso = 100e3, κ∞ = 1000.0),
     kinematic = ArmstrongFrederick(;Hkin = 0.0, β∞ = 1.0) # No kinematic hardening
     ));</code></pre><p>We need to create the domain buffers, where the difference from earlier tutorials is that we have multiple domains. The domain specification should then be a <code>Dict</code> with one entry for each domain:</p><pre><code class="language-julia hljs">domains = Dict(
     &quot;elastic&quot;=&gt;DomainSpec(dh, elastic_material, cv; set=getcellset(grid, &quot;inclusion&quot;)),
@@ -30,14 +30,14 @@ plastic_material = ReducedStressState(PlaneStrain(), Plastic(;
     return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
 end
 calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
-calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">calculate_stress (generic function with 3 methods)</code></pre><p>And then we create the QuadratureEvaluator including this function</p><pre><code class="language-julia hljs">qe = QuadratureEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuadratureEvaluator{SymmetricTensor{2, 2, Float64, 3}, typeof(Main.calculate_stress)}(SubArray{SymmetricTensor{2, 2, Float64, 3}, 1, Vector{SymmetricTensor{2, 2, Float64, 3}}, Tuple{UnitRange{Int64}}, true}[[[1.30607392e-315 1.11482261e-315; 1.11482261e-315 0.0], [0.0 0.0; 0.0 0.0], [0.0 6.9061877655564e-310; 6.9061877655564e-310 1.306433203e-315], [6.8e-322 5.383043e-318; 5.383043e-318 6.8e-322]], [[6.8e-322 0.0; 0.0 0.0], [0.0 6.90608896788637e-310; 6.90608896788637e-310 0.0], [6.90608896788716e-310 0.0; 0.0 6.90619789974794e-310], [0.0 6.906165537596e-310; 6.906165537596e-310 0.0]], [[6.90616553757384e-310 0.0; 0.0 6.90619465033827e-310], [5.0e-324 6.9061879375466e-310; 6.9061879375466e-310 0.0], [6.90608869030764e-310 0.0; 0.0 6.9061912996728e-310], [0.0 6.9060889423744e-310; 6.9060889423744e-310 0.0]], [[6.90619129924514e-310 0.0; 0.0 6.906173743058e-310], [0.0 6.90619129961826e-310; 6.90619129961826e-310 5.0e-324], [6.90608867484694e-310 5.0e-324; 5.0e-324 6.90608867483904e-310], [5.0e-324 6.90619129961826e-310; 6.90619129961826e-310 5.0e-324]], [[6.90608867465406e-310 5.0e-324; 5.0e-324 6.90608867686115e-310], [5.0e-324 6.90608867464457e-310; 6.90608867464457e-310 5.0e-324], [6.9060886746438e-310 5.0e-324; 5.0e-324 6.9060886746359e-310], [0.0 6.9060886746359e-310; 6.9060886746359e-310 0.0]], [[6.9061912996728e-310 5.0e-324; 5.0e-324 6.90619465033827e-310], [5.0e-324 6.9061912996728e-310; 6.9061912996728e-310 0.0], [6.9061912996728e-310 0.0; 0.0 6.9061912996728e-310], [0.0 6.90619465033827e-310; 6.90619465033827e-310 5.0e-324]], [[0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0]], [[0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0]], [[0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0]], [[0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0], [0.0 0.0; 0.0 0.0]]  …  [[4.2e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 NaN; NaN NaN], [6.63e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [2.3e-321 NaN; NaN NaN]], [[0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [6.09e-321 2.1219957905e-314; 2.1219957905e-314 NaN]], [[5.11e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [6.52e-321 NaN; NaN NaN], [6.76e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [5.084e-321 2.1219957905e-314; 2.1219957905e-314 NaN]], [[0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [6.556e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [4.694e-321 2.1219957905e-314; 2.1219957905e-314 NaN]], [[0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [2.76e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [2.94e-321 2.1219957905e-314; 2.1219957905e-314 NaN]], [[1.80851583e-316 2.1219957905e-314; 2.1219957905e-314 NaN], [2.693e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 2.1219957905e-314; 2.1219957905e-314 NaN]], [[2.683e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [4.28e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 2.1219957905e-314; 2.1219957905e-314 NaN]], [[0.0 2.1219957905e-314; 2.1219957905e-314 NaN], [4.713e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [3.7e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [5.914e-321 2.1219957905e-314; 2.1219957905e-314 NaN]], [[5.583e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [5.786e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [5.63e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [2.703e-321 2.1219957905e-314; 2.1219957905e-314 NaN]], [[6.057e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [2.27e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [3.646e-321 2.1219957905e-314; 2.1219957905e-314 NaN], [0.0 NaN; NaN NaN]]], Main.calculate_stress)</code></pre><p>Finally, we&#39;ll setup the L2Projector that we will use</p><pre><code class="language-julia hljs">proj = L2Projector(grid)
+calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">calculate_stress (generic function with 3 methods)</code></pre><p>And then we create the QuadratureEvaluator including this function</p><pre><code class="language-julia hljs">qe = QuadratureEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">QuadratureEvaluator{SymmetricTensor{2, 2, Float64, 3}, typeof(Main.calculate_stress)}(SubArray{SymmetricTensor{2, 2, Float64, 3}, 1, Vector{SymmetricTensor{2, 2, Float64, 3}}, Tuple{UnitRange{Int64}}, true}[[[1.047081703e-315 1.03009122e-315; 1.03009122e-315 1.047081703e-315], [1.03009122e-315 2.0e-323; 2.0e-323 2.5e-323], [6.0e-323 6.4e-323; 6.4e-323 7.0e-323], [7.4e-323 8.0e-323; 8.0e-323 1.11787e-319]], [[1.1179e-319 1.11797e-319; 1.11797e-319 1.1185e-319], [1.11856e-319 1.1186e-319; 1.1186e-319 1.11866e-319], [1.1187e-319 1.11876e-319; 1.11876e-319 1.1188e-319], [1.11886e-319 1.1189e-319; 1.1189e-319 1.11896e-319]], [[1.0e-323 1.5e-323; 1.5e-323 2.0e-323], [2.5e-323 6.0e-323; 6.0e-323 6.4e-323], [8.0e-323 8.4e-323; 8.4e-323 9.0e-323], [1.9e-322 1.93e-322; 1.93e-322 2.0e-322]], [[2.03e-322 2.17e-322; 2.17e-322 1.11876e-319], [1.1188e-319 1.11896e-319; 1.11896e-319 1.119e-319], [1.11906e-319 1.1191e-319; 1.1191e-319 1.11916e-319], [1.1192e-319 2.0e-323; 2.0e-323 2.5e-323]], [[3.0e-323 3.5e-323; 3.5e-323 4.0e-323], [4.4e-323 5.0e-323; 5.0e-323 5.4e-323], [6.0e-323 6.4e-323; 6.4e-323 7.0e-323], [7.4e-323 8.0e-323; 8.0e-323 8.4e-323]], [[9.0e-323 1.9e-322; 1.9e-322 1.93e-322], [2.0e-322 2.03e-322; 2.03e-322 2.08e-322], [2.1e-322 2.17e-322; 2.17e-322 4.45e-322], [4.5e-322 4.55e-322; 4.55e-322 4.6e-322]], [[4.64e-322 4.7e-322; 4.7e-322 4.74e-322], [4.8e-322 4.84e-322; 4.84e-322 4.9e-322], [1.11787e-319 1.1179e-319; 1.1179e-319 1.11797e-319], [1.1185e-319 1.11856e-319; 1.11856e-319 1.1186e-319]], [[1.11866e-319 1.1187e-319; 1.1187e-319 1.11876e-319], [1.1188e-319 1.11886e-319; 1.11886e-319 1.1189e-319], [1.11896e-319 1.119e-319; 1.119e-319 1.11906e-319], [1.1191e-319 1.11916e-319; 1.11916e-319 1.1192e-319]], [[1.11975e-319 1.1198e-319; 1.1198e-319 1.11985e-319], [1.1199e-319 1.11995e-319; 1.11995e-319 9.4e-323], [1.0e-322 1.04e-322; 1.04e-322 1.1e-322], [1.14e-322 1.2e-322; 1.2e-322 1.53e-322]], [[1.6e-322 1.63e-322; 1.63e-322 1.7e-322], [1.73e-322 1.8e-322; 1.8e-322 1.83e-322], [1.9e-322 1.93e-322; 1.93e-322 2.0e-322], [2.03e-322 2.17e-322; 2.17e-322 1.057e-321]]  …  [[1.13067e-319 1.13116e-319; 1.13116e-319 1.1312e-319], [1.13126e-319 1.1313e-319; 1.1313e-319 1.13136e-319], [1.1319e-319 1.13195e-319; 1.13195e-319 1.132e-319], [1.13205e-319 1.1321e-319; 1.1321e-319 1.13265e-319]], [[1.1327e-319 1.13274e-319; 1.13274e-319 1.1328e-319], [1.13284e-319 1.13363e-319; 1.13363e-319 1.1337e-319], [1.13373e-319 1.1338e-319; 1.1338e-319 1.13383e-319], [1.13437e-319 1.1344e-319; 1.1344e-319 1.13447e-319]], [[1.1345e-319 1.13457e-319; 1.13457e-319 1.13487e-319], [1.1349e-319 1.13507e-319; 1.13507e-319 1.1351e-319], [1.13517e-319 1.1352e-319; 1.1352e-319 1.13526e-319], [1.1353e-319 1.13536e-319; 1.13536e-319 1.1354e-319]], [[1.13546e-319 1.1355e-319; 1.1355e-319 1.13556e-319], [1.1356e-319 1.13566e-319; 1.13566e-319 1.1357e-319], [1.13576e-319 1.1358e-319; 1.1358e-319 1.13586e-319], [1.1359e-319 1.13596e-319; 1.13596e-319 1.136e-319]], [[1.13605e-319 1.1361e-319; 1.1361e-319 1.13615e-319], [1.1362e-319 1.13625e-319; 1.13625e-319 1.1363e-319], [1.13635e-319 1.1364e-319; 1.1364e-319 1.09836e-319], [1.0984e-319 1.09846e-319; 1.09846e-319 1.0985e-319]], [[1.09855e-319 1.0986e-319; 1.0986e-319 1.09865e-319], [1.0987e-319 1.09875e-319; 1.09875e-319 1.0988e-319], [1.09885e-319 1.0989e-319; 1.0989e-319 1.09895e-319], [1.099e-319 1.09905e-319; 1.09905e-319 1.0991e-319]], [[1.09915e-319 1.0992e-319; 1.0992e-319 1.09925e-319], [1.0993e-319 1.09935e-319; 1.09935e-319 1.0994e-319], [1.09944e-319 1.0995e-319; 1.0995e-319 1.09954e-319], [1.0996e-319 1.09964e-319; 1.09964e-319 1.0997e-319]], [[1.09974e-319 1.0998e-319; 1.0998e-319 1.09984e-319], [1.0999e-319 1.09994e-319; 1.09994e-319 1.1e-319], [1.10004e-319 1.1001e-319; 1.1001e-319 1.10014e-319], [1.1002e-319 1.10023e-319; 1.10023e-319 1.1003e-319]], [[1.10033e-319 1.1004e-319; 1.1004e-319 1.10043e-319], [1.1005e-319 1.10053e-319; 1.10053e-319 1.1006e-319], [1.10063e-319 1.1007e-319; 1.1007e-319 1.10073e-319], [1.1008e-319 1.10083e-319; 1.10083e-319 1.1009e-319]], [[1.10093e-319 1.101e-319; 1.101e-319 1.10103e-319], [1.10107e-319 1.1011e-319; 1.1011e-319 1.10117e-319], [1.1012e-319 1.10127e-319; 1.10127e-319 1.1013e-319], [1.10137e-319 1.1014e-319; 1.1014e-319 1.10147e-319]]], Main.calculate_stress)</code></pre><p>Finally, we&#39;ll setup the L2Projector that we will use</p><pre><code class="language-julia hljs">proj = L2Projector(grid)
 add!(proj, 1:getncells(grid), ip; qr_rhs = qr)
 close!(proj)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">L2Projector
-  projection on:           400/400 cells in grid
+  projection on:           10000/10000 cells in grid
   function interpolation:  Lagrange{RefQuadrilateral, 1}()
   geometric interpolation: Lagrange{RefQuadrilateral, 1}()
 </code></pre><h2 id="Solving-the-nonlinear-problem-via-time-stepping"><a class="docs-heading-anchor" href="#Solving-the-nonlinear-problem-via-time-stepping">Solving the nonlinear problem via time-stepping</a><a id="Solving-the-nonlinear-problem-via-time-stepping-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-nonlinear-problem-via-time-stepping" title="Permalink"></a></h2><pre><code class="language-julia hljs">function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time_history)
-    maxiter = 10
+    maxiter = 100
     tolerance = 1e-6
     K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
@@ -55,6 +55,7 @@ close!(proj)</code></pre><pre class="documenter-example-output"><code class="noh
             # Apply boundary conditions
             apply_zero!(K, r, ch)
             # Check convergence
+            @show (i, norm(r))
             norm(r) &lt; tolerance &amp;&amp; break
             i == maxiter &amp;&amp; error(&quot;Did not converge&quot;)
             # Solve the linear system and update the dof vector
@@ -78,12 +79,208 @@ close!(proj)</code></pre><pre class="documenter-example-output"><code class="noh
     close(pvd)
     return nothing
 end;
-solve_nonlinear_timehistory(buffer, dh, ch, proj, qe; time_history=collect(range(0, 1, 40)));</code></pre><h2 id="mixed_materials_plain_program"><a class="docs-heading-anchor" href="#mixed_materials_plain_program">Plain program</a><a id="mixed_materials_plain_program-1"></a><a class="docs-heading-anchor-permalink" href="#mixed_materials_plain_program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../mixed_materials.jl"><code>mixed_materials.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, MaterialModelsBase, MechanicalMaterialModels, WriteVTK
+solve_nonlinear_timehistory(buffer, dh, ch, proj, qe; time_history=collect(range(0, 1, 20)));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(i, norm(r)) = (1, 0.0)
+(i, norm(r)) = (1, 1013.0396665382168)
+(i, norm(r)) = (2, 71.69775942584674)
+(i, norm(r)) = (3, 19.507028366079012)
+(i, norm(r)) = (4, 7.646246156771923)
+(i, norm(r)) = (5, 4.766598002699576)
+(i, norm(r)) = (6, 4.6607170871576615)
+(i, norm(r)) = (7, 4.723898982199312)
+(i, norm(r)) = (8, 4.691484315663304)
+(i, norm(r)) = (9, 4.600155921469466)
+(i, norm(r)) = (10, 4.4633616689125795)
+(i, norm(r)) = (11, 4.097478178732702)
+(i, norm(r)) = (12, 3.997884698224978)
+(i, norm(r)) = (13, 3.778271465051812)
+(i, norm(r)) = (14, 3.667071854731892)
+(i, norm(r)) = (15, 3.296006100114944)
+(i, norm(r)) = (16, 3.3103088956152917)
+(i, norm(r)) = (17, 3.0154178393253988)
+(i, norm(r)) = (18, 2.8812085915271264)
+(i, norm(r)) = (19, 2.4042233104075486)
+(i, norm(r)) = (20, 2.3885920495856814)
+(i, norm(r)) = (21, 1.804315981224312)
+(i, norm(r)) = (22, 1.5498265361815133)
+(i, norm(r)) = (23, 1.309173441633245e-12)
+(i, norm(r)) = (1, 1006.6391802500334)
+(i, norm(r)) = (2, 69.21989100174976)
+(i, norm(r)) = (3, 15.247388615023727)
+(i, norm(r)) = (4, 3.41127896630657)
+(i, norm(r)) = (5, 2.6476384574886556)
+(i, norm(r)) = (6, 1.7623247933817654)
+(i, norm(r)) = (7, 0.49793925222499286)
+(i, norm(r)) = (8, 0.03792778491630363)
+(i, norm(r)) = (9, 0.00022647504617379676)
+(i, norm(r)) = (10, 5.579260886960748e-9)
+(i, norm(r)) = (1, 1001.0154353341237)
+(i, norm(r)) = (2, 63.609168116749785)
+(i, norm(r)) = (3, 8.48327125456369)
+(i, norm(r)) = (4, 2.9869626363538244)
+(i, norm(r)) = (5, 1.6406868057424366)
+(i, norm(r)) = (6, 0.27962993670021635)
+(i, norm(r)) = (7, 0.017129272149711487)
+(i, norm(r)) = (8, 6.708071268971708e-5)
+(i, norm(r)) = (9, 1.0069630193319311e-9)
+(i, norm(r)) = (1, 999.8765129881765)
+(i, norm(r)) = (2, 63.037630780382116)
+(i, norm(r)) = (3, 8.505427615526388)
+(i, norm(r)) = (4, 3.534919793029558)
+(i, norm(r)) = (5, 2.104616361424009)
+(i, norm(r)) = (6, 0.5150031473339716)
+(i, norm(r)) = (7, 0.041734553109541606)
+(i, norm(r)) = (8, 0.00037196773399075865)
+(i, norm(r)) = (9, 2.686802117754478e-8)
+(i, norm(r)) = (1, 998.717998351202)
+(i, norm(r)) = (2, 62.934544650484014)
+(i, norm(r)) = (3, 8.708110182026218)
+(i, norm(r)) = (4, 4.06897801308848)
+(i, norm(r)) = (5, 2.6000977189434584)
+(i, norm(r)) = (6, 0.8444863975852521)
+(i, norm(r)) = (7, 0.08151476847899432)
+(i, norm(r)) = (8, 0.001046438813094071)
+(i, norm(r)) = (9, 1.8832479574851728e-7)
+(i, norm(r)) = (1, 997.5481155439368)
+(i, norm(r)) = (2, 62.39234497877402)
+(i, norm(r)) = (3, 8.804263127126607)
+(i, norm(r)) = (4, 4.613925822929027)
+(i, norm(r)) = (5, 3.091479964127221)
+(i, norm(r)) = (6, 1.2382120284203277)
+(i, norm(r)) = (7, 0.14368955864640762)
+(i, norm(r)) = (8, 0.0012061809943403443)
+(i, norm(r)) = (9, 2.226723637342524e-7)
+(i, norm(r)) = (1, 996.3744650622164)
+(i, norm(r)) = (2, 61.527165587696096)
+(i, norm(r)) = (3, 8.894745768860597)
+(i, norm(r)) = (4, 5.058951198242056)
+(i, norm(r)) = (5, 3.4849120251000105)
+(i, norm(r)) = (6, 1.563964809246237)
+(i, norm(r)) = (7, 0.21781412142356232)
+(i, norm(r)) = (8, 0.0024249577284123367)
+(i, norm(r)) = (9, 3.9156030587700096e-7)
+(i, norm(r)) = (1, 995.2026311964539)
+(i, norm(r)) = (2, 61.17148865519613)
+(i, norm(r)) = (3, 8.914902777535195)
+(i, norm(r)) = (4, 5.53925582245801)
+(i, norm(r)) = (5, 3.9394173761495153)
+(i, norm(r)) = (6, 1.9677763463110598)
+(i, norm(r)) = (7, 0.35766292779804637)
+(i, norm(r)) = (8, 0.010279368021841094)
+(i, norm(r)) = (9, 7.342440109271671e-6)
+(i, norm(r)) = (10, 1.0583758201335668e-11)
+(i, norm(r)) = (1, 994.0365772859614)
+(i, norm(r)) = (2, 60.468479565950744)
+(i, norm(r)) = (3, 8.976618038853536)
+(i, norm(r)) = (4, 6.00188907088205)
+(i, norm(r)) = (5, 4.411158919685252)
+(i, norm(r)) = (6, 2.417340029796407)
+(i, norm(r)) = (7, 0.5598324404830818)
+(i, norm(r)) = (8, 0.025673855284058602)
+(i, norm(r)) = (9, 4.7699737638598625e-5)
+(i, norm(r)) = (10, 2.216667115149497e-10)
+(i, norm(r)) = (1, 992.8791407181792)
+(i, norm(r)) = (2, 59.96817796454579)
+(i, norm(r)) = (3, 9.141498018161629)
+(i, norm(r)) = (4, 6.3694980521687095)
+(i, norm(r)) = (5, 4.7582437676239655)
+(i, norm(r)) = (6, 2.746661624730865)
+(i, norm(r)) = (7, 0.6770870896710698)
+(i, norm(r)) = (8, 0.03555061185892614)
+(i, norm(r)) = (9, 9.662374007960756e-5)
+(i, norm(r)) = (10, 8.289597367010558e-10)
+(i, norm(r)) = (1, 991.7323970928712)
+(i, norm(r)) = (2, 59.480185546542984)
+(i, norm(r)) = (3, 9.19976071133194)
+(i, norm(r)) = (4, 6.693044926474488)
+(i, norm(r)) = (5, 5.107930994230423)
+(i, norm(r)) = (6, 3.0736351130198765)
+(i, norm(r)) = (7, 0.8449093275989467)
+(i, norm(r)) = (8, 0.050525172402953504)
+(i, norm(r)) = (9, 0.00020862171828838592)
+(i, norm(r)) = (10, 3.3836662285818097e-9)
+(i, norm(r)) = (1, 990.5979038233154)
+(i, norm(r)) = (2, 58.67932845246229)
+(i, norm(r)) = (3, 9.403885538585998)
+(i, norm(r)) = (4, 6.933241320079727)
+(i, norm(r)) = (5, 5.292229999421292)
+(i, norm(r)) = (6, 3.2516421117427132)
+(i, norm(r)) = (7, 0.9379005076093986)
+(i, norm(r)) = (8, 0.05893155379932215)
+(i, norm(r)) = (9, 0.0002814681050662802)
+(i, norm(r)) = (10, 5.717397046818916e-9)
+(i, norm(r)) = (1, 989.4768600010674)
+(i, norm(r)) = (2, 58.13953784017133)
+(i, norm(r)) = (3, 9.32353528221089)
+(i, norm(r)) = (4, 7.053033491063777)
+(i, norm(r)) = (5, 5.472040728159041)
+(i, norm(r)) = (6, 3.3865877684313954)
+(i, norm(r)) = (7, 0.9803479234997194)
+(i, norm(r)) = (8, 0.06378721188400026)
+(i, norm(r)) = (9, 0.0003137183845047145)
+(i, norm(r)) = (10, 6.967235638492705e-9)
+(i, norm(r)) = (1, 988.3702118451652)
+(i, norm(r)) = (2, 57.623764242351555)
+(i, norm(r)) = (3, 9.353011976274786)
+(i, norm(r)) = (4, 6.999286253538275)
+(i, norm(r)) = (5, 5.417338041391973)
+(i, norm(r)) = (6, 3.1546137033051345)
+(i, norm(r)) = (7, 0.6097133168915301)
+(i, norm(r)) = (8, 0.025997997578263765)
+(i, norm(r)) = (9, 4.1580422256535115e-5)
+(i, norm(r)) = (10, 1.3894852914429514e-10)
+(i, norm(r)) = (1, 987.2787231568078)
+(i, norm(r)) = (2, 57.02072505257459)
+(i, norm(r)) = (3, 9.710973500980707)
+(i, norm(r)) = (4, 7.508002556607664)
+(i, norm(r)) = (5, 5.980919628282684)
+(i, norm(r)) = (6, 3.7965147562152612)
+(i, norm(r)) = (7, 1.16869609828842)
+(i, norm(r)) = (8, 0.19241822894412272)
+(i, norm(r)) = (9, 0.0012921310965863225)
+(i, norm(r)) = (10, 6.646432423235436e-8)
+(i, norm(r)) = (1, 986.2030231219568)
+(i, norm(r)) = (2, 56.405046761217235)
+(i, norm(r)) = (3, 9.531844123932794)
+(i, norm(r)) = (4, 7.23880341274189)
+(i, norm(r)) = (5, 5.473376828209583)
+(i, norm(r)) = (6, 3.1025475697228146)
+(i, norm(r)) = (7, 0.42447123437470347)
+(i, norm(r)) = (8, 0.00845960786929305)
+(i, norm(r)) = (9, 3.5316907588599093e-6)
+(i, norm(r)) = (10, 1.8519400738392335e-11)
+(i, norm(r)) = (1, 985.1436392276354)
+(i, norm(r)) = (2, 55.48239495126993)
+(i, norm(r)) = (3, 9.513274716247068)
+(i, norm(r)) = (4, 6.844896097696122)
+(i, norm(r)) = (5, 4.694688075994071)
+(i, norm(r)) = (6, 2.0205105656949103)
+(i, norm(r)) = (7, 0.2401068920792138)
+(i, norm(r)) = (8, 0.0026219160096225)
+(i, norm(r)) = (9, 8.597502917822103e-7)
+(i, norm(r)) = (1, 984.1010203119762)
+(i, norm(r)) = (2, 54.727866097461614)
+(i, norm(r)) = (3, 9.078560185151336)
+(i, norm(r)) = (4, 6.320053428448883)
+(i, norm(r)) = (5, 4.190260473353298)
+(i, norm(r)) = (6, 1.3167748329972704)
+(i, norm(r)) = (7, 0.20534900987016175)
+(i, norm(r)) = (8, 0.0030165841681629286)
+(i, norm(r)) = (9, 1.0747494693354236e-6)
+(i, norm(r)) = (10, 2.0645986880137408e-11)
+(i, norm(r)) = (1, 983.0755528229166)
+(i, norm(r)) = (2, 54.257449038048854)
+(i, norm(r)) = (3, 9.31890086737414)
+(i, norm(r)) = (4, 6.615409650649085)
+(i, norm(r)) = (5, 4.49481644048645)
+(i, norm(r)) = (6, 1.5275360278258143)
+(i, norm(r)) = (7, 0.22290530169731054)
+(i, norm(r)) = (8, 0.002779526238989292)
+(i, norm(r)) = (9, 9.289326020757742e-7)</code></pre><h2 id="mixed_materials_plain_program"><a class="docs-heading-anchor" href="#mixed_materials_plain_program">Plain program</a><a id="mixed_materials_plain_program-1"></a><a class="docs-heading-anchor-permalink" href="#mixed_materials_plain_program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../mixed_materials.jl"><code>mixed_materials.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, MaterialModelsBase, MechanicalMaterialModels, WriteVTK
 
 function create_grid_with_inclusion()
     p1 = Vec((-1.0, -1.0))
     p2 = Vec(( 1.0,  1.0))
-    grid = generate_grid(Quadrilateral, (20, 20), p1, p2)
+    grid = generate_grid(Quadrilateral, (100, 100), p1, p2)
     addcellset!(grid, &quot;inclusion&quot;, x -&gt; norm(x) &lt; 0.5)
     addcellset!(grid, &quot;matrix&quot;, setdiff(1:getncells(grid), getcellset(grid, &quot;inclusion&quot;)))
     return grid
@@ -99,7 +296,7 @@ close!(dh);
 ch = ConstraintHandler(dh)
 add!(ch, Dirichlet(:u, getfacetset(grid,&quot;left&quot;), Returns(0.0), 1))
 add!(ch, Dirichlet(:u, getfacetset(grid,&quot;bottom&quot;), Returns(0.0), 2))
-f_dbc(x,t) = 0.02 * t # 1 % strain at t = 1
+f_dbc(x,t) = 0.01 * t # 1 % strain at t = 1
 add!(ch, Dirichlet(:u, getfacetset(grid, &quot;right&quot;), f_dbc, 1))
 close!(ch);
 
@@ -111,7 +308,7 @@ elastic_material = ReducedStressState(PlaneStrain(), LinearElastic(;E=210e3, ν=
 plastic_material = ReducedStressState(PlaneStrain(), Plastic(;
     elastic   = LinearElastic(E = 210e3, ν = 0.3),
     yield     = 100.0,
-    isotropic = Voce(;Hiso = 10e3, κ∞ = Inf),
+    isotropic = Voce(;Hiso = 100e3, κ∞ = 1000.0),
     kinematic = ArmstrongFrederick(;Hkin = 0.0, β∞ = 1.0) # No kinematic hardening
     ));
 
@@ -136,7 +333,7 @@ add!(proj, 1:getncells(grid), ip; qr_rhs = qr)
 close!(proj)
 
 function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time_history)
-    maxiter = 10
+    maxiter = 100
     tolerance = 1e-6
     K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
@@ -154,6 +351,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
             # Apply boundary conditions
             apply_zero!(K, r, ch)
             # Check convergence
+            @show (i, norm(r))
             norm(r) &lt; tolerance &amp;&amp; break
             i == maxiter &amp;&amp; error(&quot;Did not converge&quot;)
             # Solve the linear system and update the dof vector
@@ -177,6 +375,6 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
     close(pvd)
     return nothing
 end;
-solve_nonlinear_timehistory(buffer, dh, ch, proj, qe; time_history=collect(range(0, 1, 40)));
+solve_nonlinear_timehistory(buffer, dh, ch, proj, qe; time_history=collect(range(0, 1, 20)));
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Multiple fields</a><a class="docs-footer-nextpage" href="../../howto/threaded_assembly/">Threaded assembly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Tuesday 10 September 2024 03:38">Tuesday 10 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Multiple fields</a><a class="docs-footer-nextpage" href="../../howto/threaded_assembly/">Threaded assembly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Tuesday 10 September 2024 10:11">Tuesday 10 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
