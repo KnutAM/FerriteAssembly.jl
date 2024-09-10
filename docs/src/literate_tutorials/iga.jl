@@ -5,7 +5,7 @@
 # example. Hence, please see there for further documentation details and important remarks 
 # regarding IGA. 
 # 
-# The example considers solving a plate with a hole. A quater of a plate is considered via symmetry 
+# The example considers solving a plate with a hole. A quarter of a plate is considered via symmetry 
 # boundary conditions, and a tensile load is applied on one edge.
 # The full script without intermediate comments is available at the 
 # [bottom of this page](@ref iga_plain_program).
