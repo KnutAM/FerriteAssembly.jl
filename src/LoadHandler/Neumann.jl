@@ -40,7 +40,7 @@ struct NeumannMaterial{FUN}
     f::FUN
     dr::UnitRange{Int}
 end
-function facet_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::FacetValues, facetbuffer)
+function facet_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::AbstractFacetValues, facetbuffer)
     checkbounds(fe, m.dr)
     t = get_time_increment(facetbuffer) # Abuse...
     for q_point in 1:getnquadpoints(fv)

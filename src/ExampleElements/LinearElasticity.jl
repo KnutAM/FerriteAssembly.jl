@@ -43,32 +43,32 @@ LinearElastic(::Val{:planestrain}; kwargs...) = LinearElastic(Val(2); kwargs...)
 # Type-unstable switch could be made for convenience
 # LinearElastic(type::Symbol; kwargs...) = LinearElastic(Val(type); kwargs...)
 
-function FerriteAssembly.element_routine!(Ke, re, state, ae, material::LinearElastic, cv::CellValues, buffer)
+function FerriteAssembly.element_routine!(Ke, re, state, ae, material::LinearElastic, cv::AbstractCellValues, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
         σ = material.C ⊡ ϵ
         ## Assemble residual contributions
         for i in 1:getnbasefunctions(cv)
-            ∇δNu = shape_symmetric_gradient(cv, q_point, i)
+            ∇δNu = symmetric(shape_gradient(cv, q_point, i))
             re[i] += (∇δNu ⊡ σ )*dΩ
             ∇δNu_C = ∇δNu ⊡  material.C
             for j in 1:getnbasefunctions(cv)
-                ∇Nu = shape_symmetric_gradient(cv, q_point, j)
+                ∇Nu = symmetric(shape_gradient(cv, q_point, j))
                 Ke[j,i] += (∇δNu_C ⊡ ∇Nu)*dΩ # Since Ke is symmetric, we calculate Ke' to index faster
             end
         end
     end
 end
 
-function FerriteAssembly.element_residual!(re, state, ae, material::LinearElastic, cv::CellValues, buffer)
+function FerriteAssembly.element_residual!(re, state, ae, material::LinearElastic, cv::AbstractCellValues, buffer)
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
         σ = material.C ⊡ ϵ
         ## Assemble residual contributions
         for i in 1:getnbasefunctions(cv)
-            ∇δNu = shape_symmetric_gradient(cv, q_point, i)
+            ∇δNu = symmetric(shape_gradient(cv, q_point, i))
             re[i] += (∇δNu ⊡ σ )*dΩ
         end
     end

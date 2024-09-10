@@ -5,7 +5,7 @@
 # example. Hence, please see there for further documentation details and important remarks 
 # regarding IGA. 
 # 
-# The example considers solving a plate with a hole. A quarter of a plate is considered via symmetry 
+# The example considers solving a plate with a hole. A quater of a plate is considered via symmetry 
 # boundary conditions, and a tensile load is applied on one edge.
 # The full script without intermediate comments is available at the 
 # [bottom of this page](@ref iga_plain_program).
@@ -18,8 +18,8 @@ import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 # We begin by generating the mesh by using `IGA.jl`'s built-in mesh generators 
 # In this example, we will generate the patch called "plate with hole". 
 # Note, currently this function can only generate the patch with second order basefunctions. 
-function create_mesh(;nels=(20,10))
-    nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels) 
+function create_mesh(; nels = (20,10), order)
+    nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels, order)
     grid = BezierGrid(nurbsmesh)
 
     addfacetset!(grid, "left", (x) -> x[1] ≈ -4.0)
@@ -28,16 +28,16 @@ function create_mesh(;nels=(20,10))
 
     return grid 
 end
-grid = create_mesh();
+order = 2
+grid = create_mesh(; order);
 
 # Create the cellvalues storing the shape function values. 
-orders=(2,2)
-ip = BernsteinBasis{2,orders}()
-qr_cell = QuadratureRule{2,RefCube}(4)
-qr_facet = QuadratureRule{1,RefCube}(3)
+ip = IGAInterpolation{RefQuadrilateral, order}()
+qr_cell = QuadratureRule{RefQuadrilateral}(4)
+qr_face = FacetQuadratureRule{RefQuadrilateral}(3)
 
-cv = BezierCellValues( CellValues(qr_cell, ip^2) );
-fv = BezierFacetValues( FacetValues(qr_facet, ip^2) );
+cv = BezierCellValues(qr_cell, ip^2);
+fv = BezierFacetValues(qr_face, ip^2);
 
 # Distribute dofs as normal
 dh = DofHandler(grid)
@@ -50,7 +50,7 @@ r = zeros(ndofs(dh))
 K = allocate_matrix(dh);
 
 # Starting with Dirichlet conditions: 
-# 1) Bottom facet should only be able to move in x-direction
+# 1) Bottom face should only be able to move in x-direction
 # 2) Right boundary should only be able to move in y-direction
 ch = ConstraintHandler(dh);
 add!(ch, Dirichlet(:u, getfacetset(grid, "bot"), Returns(0.0), 2))
@@ -67,7 +67,7 @@ add!(lh, Neumann(:u, fv, getfacetset(grid, "left"), Returns(-traction)));
 
 # FerriteAssembly setup 
 material = ElasticPlaneStrain(;E=100.0, ν=0.3)
-domain = DomainSpec(FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1]), material, cv)
+domain = DomainSpec(dh, material, cv)
 buffer = setup_domainbuffer(domain);
 
 # ## Assemble 
@@ -87,8 +87,7 @@ struct CellStress{TT}
     s::Vector{Vector{TT}}
 end
 function CellStress(grid::Ferrite.AbstractGrid)
-    Tb = SymmetricTensor{2,Ferrite.getspatialdim(grid)}
-    TT = Tb{Float64,Tensors.n_components(Tb)}
+    TT = typeof(zero(SymmetricTensor{2, Ferrite.getspatialdim(grid)}))
     return CellStress([TT[] for _ in 1:getncells(grid)])
 end
 
@@ -105,17 +104,18 @@ work!(integrator, buffer; a=a);
 
 # Now we want to export the results to VTK. So we project the stresses at 
 # the quadrature points to the nodes using the L2Projector from Ferrite. 
-projector = L2Projector(ip, grid)
-σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
+# Currently, however, IGA doesn't support L2 projection. 
+#projector = L2Projector(ip, grid)
+#σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
 
 # Output results to VTK
-VTKGridFile("plate_with_hole.vtu", grid) do vtk
+IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
-    write_node_data(vtk, σ_nodes, "sigma", grid)
 end
 
 using Test                                    #src
-@test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src
+# @test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src
+@test norm(norm.(cellstresses.s)) ≈ 679.3207411544098 #src
 
 #md # ## [Plain program](@id iga_plain_program)
 #md #
