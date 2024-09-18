@@ -15,7 +15,7 @@ add!(ch, Dirichlet(:u, getfacetset(grid,"bottom"), Returns(0.0), 2))
 close!(ch);
 
 lh = LoadHandler(dh)
-add!(lh, Neumann(:u, 3, getfacetset(grid, "right"), (x, t, n) -> 1e3 * t * n))
+add!(lh, Neumann(:u, 3, getfacetset(grid, "right"), (x, t, n) -> 1e3 * t * n));
 
 qr = QuadratureRule{RefTriangle}(4)
 ip_geo = Lagrange{RefTriangle, 2}()
