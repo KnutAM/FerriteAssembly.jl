@@ -12,20 +12,21 @@ close!(dh);
 ch = ConstraintHandler(dh)
 add!(ch, Dirichlet(:u, getfacetset(grid,"left"), Returns(0.0), 1))
 add!(ch, Dirichlet(:u, getfacetset(grid,"bottom"), Returns(0.0), 2))
-f_dbc(x,t) = 0.02 * t # 1 % strain at t = 1
-add!(ch, Dirichlet(:u, getfacetset(grid, "right"), f_dbc, 1))
 close!(ch);
 
-qr = QuadratureRule{RefTriangle}(2)
+lh = LoadHandler(dh)
+add!(lh, Neumann(:u, 3, getfacetset(grid, "right"), (x, t, n) -> 1e3 * t * n))
+
+qr = QuadratureRule{RefTriangle}(4)
 ip_geo = Lagrange{RefTriangle, 2}()
 cv = CellValues(qr, ip, ip_geo);
 
-elastic_material = ReducedStressState(PlaneStrain(), LinearElastic(;E=210e3, ν=0.3))
+elastic_material = ReducedStressState(PlaneStress(), LinearElastic(;E=210e3, ν=0.3))
 
-plastic_material = ReducedStressState(PlaneStrain(), Plastic(;
+plastic_material = ReducedStressState(PlaneStress(), Plastic(;
     elastic   = LinearElastic(E = 210e3, ν = 0.3),
     yield     = 100.0,
-    isotropic = Voce(;Hiso = 50e3, κ∞ = 1000.0),
+    isotropic = Voce(;Hiso = 50e3, κ∞ = 1e9),         # Linear isotropic hardening
     kinematic = ArmstrongFrederick(;Hkin = 0.0, β∞ = 1.0) # No kinematic hardening
     ));
 
@@ -43,17 +44,18 @@ end
 calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
 calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);
 
-qe = QuadratureEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
+qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
 
 proj = L2Projector(grid)
-add!(proj, 1:getncells(grid), ip; qr_rhs = qr)
+add!(proj, 1:getncells(grid), Lagrange{RefTriangle, 1}(); qr_rhs = qr)
 close!(proj);
 
-function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time_history)
+function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; time_history)
     maxiter = 100
     tolerance = 1e-6
     K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
+    fext = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
     # Prepare postprocessing
     pvd = paraview_collection("multiple_materials")
@@ -61,11 +63,13 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
         # Update and apply the Dirichlet boundary conditions
         update!(ch, t)
         apply!(a, ch)
+        apply!(fext, lh, t)
         for i in 1:maxiter
             # Assemble the system
             assembler = start_assemble(K, r)
             work!(assembler, buffer; a=a)
             # Apply boundary conditions
+            r .-= fext
             apply_zero!(K, r, ch)
             # Check convergence
             norm(r) < tolerance && break
@@ -88,9 +92,9 @@ function solve_nonlinear_timehistory(buffer, dh, ch, l2_proj, qp_evaluator; time
             pvd[t] = vtk
         end
     end
-    close(pvd)
+    vtk_save(pvd)
     return nothing
 end;
-solve_nonlinear_timehistory(buffer, dh, ch, proj, qe; time_history=collect(range(0, 1, 20)));
+solve_nonlinear_timehistory(buffer, dh, ch, lh, proj, qe; time_history=collect(range(0, 1, 20)));
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
