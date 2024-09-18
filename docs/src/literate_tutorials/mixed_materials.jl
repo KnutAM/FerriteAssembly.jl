@@ -37,7 +37,7 @@ close!(ch);
 
 # and a Neumann boundary condition.
 lh = LoadHandler(dh)
-add!(lh, Neumann(:u, 3, getfacetset(grid, "right"), (x, t, n) -> 1e3 * t * n))
+add!(lh, Neumann(:u, 3, getfacetset(grid, "right"), (x, t, n) -> 1e3 * t * n));
 
 # Finally, we define the cellvalues 
 qr = QuadratureRule{RefTriangle}(4)
