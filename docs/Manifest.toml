@@ -1,8 +1,12 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.4"
+julia_version = "1.10.5"
 manifest_format = "2.0"
+<<<<<<< HEAD
 project_hash = "4c848f9298055eeb41f2e37c645ce0493264535f"
+=======
+project_hash = "1cc08f4c6506ca353b7656297763418ecbb18cd4"
+>>>>>>> main
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -430,6 +434,12 @@ deps = ["Ferrite", "ForwardDiff", "MaterialModelsBase"]
 path = ".."
 uuid = "fd21fc07-c509-4fe1-9468-19963fd5935d"
 version = "0.3.3"
+
+[[deps.FerriteMeshParser]]
+deps = ["Ferrite"]
+git-tree-sha1 = "54a647bf423475c6a54d1960bf694880953d27e9"
+uuid = "0f8c756f-80dd-4a75-85c6-b0a5ab9d4620"
+version = "0.2.0"
 
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
@@ -1689,7 +1699,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.8.0+1"
+version = "5.11.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]

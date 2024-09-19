@@ -32,8 +32,6 @@ makedocs(;
         assets=String[],
         collapselevel = 1,
     ),
-    warnonly = true,
-    doctest = false,
     pages=[
         "Home" => "index.md",
         "Learning by doing" => [
@@ -51,6 +49,7 @@ makedocs(;
                 "Workers" => "Workers/Workers.md",
                 "Assemblers" => "Workers/Assemblers.md",
                 "Integrators" => "Workers/Integrators.md",
+                "Quadrature point eval" => "Workers/QuadPointEvaluator.md",
             ],
             "Convenience" => [
                 "External loads" => "Convenience/LoadHandler.md",
@@ -61,7 +60,6 @@ makedocs(;
             "Internals" => "internals.md",
         ]
     ],
-    #strict=true,
 )
 
 # Remove output files from build directory

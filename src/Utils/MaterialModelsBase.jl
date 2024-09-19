@@ -73,7 +73,7 @@ end
 Create a `Vector{<:MMM.AbstractMaterialState}` where each element is the output from 
 `MMB.initial_material_state(m)` and the length is the number of quadrature points in `cv`.
 """
-function FerriteAssembly.create_cell_state(m::MMB.AbstractMaterial, cv::AbstractCellValues, args...)
+function create_cell_state(m::MMB.AbstractMaterial, cv::CellValues, args...)
     return [MMB.initial_material_state(m) for _ in 1:getnquadpoints(cv)]
 end
 

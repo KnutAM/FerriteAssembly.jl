@@ -21,7 +21,7 @@ include("Autodiff/autodiff.jl")
 include("work.jl")
 include("Workers/Assemblers.jl")
 include("Workers/Integrators.jl")
-include("Workers/QuadratureEvaluator.jl")
+include("Workers/QuadPointEvaluator.jl")
 
 include("LoadHandler/LoadHandler.jl")
 
@@ -32,7 +32,7 @@ export work!, update_states!, set_time_increment!
 # Workers
 export ReAssembler, KeReAssembler   # Assemblers
 export Integrator, SimpleIntegrator # Integrators
-export QuadratureEvaluator          # QP evaluation
+export QuadPointEvaluator          # QP evaluation
 # Builtin convenience 
 export LoadHandler, Neumann, BodyLoad, DofLoad
 export ElementResidualScaling, reset_scaling!

@@ -1,7 +1,8 @@
 # Workers
-There are currently two categories of workers implemented:
+There are currently three categories of workers implemented:
 - [Assemblers](@ref): Calculate system matrices and vectors 
 - [Integrators](@ref): Integrate a function over the domain
+- [QuadPointEvaluator](@ref): Evaluate a function in each quadrature point
 
 ## Perform the work
 Having setup a [`DomainBuffer`](@ref Setup-API) and a worker, work is performed by calling the function `work!`
