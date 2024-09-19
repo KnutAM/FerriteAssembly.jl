@@ -1,6 +1,6 @@
 
 function create_local(a::Ferrite.AbstractAssembler)
-    start_assemble(Ferrite.get_matrix(a), Ferrite.get_vector(a); fillzero=false)
+    start_assemble(a.K, a.f; fillzero=false)
 end
 
 scatter!(::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
