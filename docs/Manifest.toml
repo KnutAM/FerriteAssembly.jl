@@ -2,11 +2,7 @@
 
 julia_version = "1.10.5"
 manifest_format = "2.0"
-<<<<<<< HEAD
-project_hash = "4c848f9298055eeb41f2e37c645ce0493264535f"
-=======
-project_hash = "1cc08f4c6506ca353b7656297763418ecbb18cd4"
->>>>>>> main
+project_hash = "3cccd2fa35dbbf97d5cd332812d31f9109f498c6"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -415,11 +411,11 @@ version = "3.3.10+0"
 
 [[deps.Ferrite]]
 deps = ["EnumX", "ForwardDiff", "LinearAlgebra", "NearestNeighbors", "OrderedCollections", "Preferences", "Reexport", "SparseArrays", "StaticArrays", "Tensors", "WriteVTK"]
-git-tree-sha1 = "886da974305982fd13637abc00c1e85c2bcc09cd"
+git-tree-sha1 = "a0442408f40f96d6477d1de0035fbb92507bcf63"
 repo-rev = "master"
 repo-url = "https://github.com/Ferrite-FEM/Ferrite.jl.git"
 uuid = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
-version = "0.3.14"
+version = "1.0.0"
 
     [deps.Ferrite.extensions]
     FerriteBlockArrays = "BlockArrays"

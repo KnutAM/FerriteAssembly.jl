@@ -1,13 +1,14 @@
 
-# Ferrite.AbstractSparseAssembler
-const FerriteSparseAssemblers = Union{Ferrite.AssemblerSparsityPattern, Ferrite.AssemblerSymmetricSparsityPattern}
-create_local(a::FerriteSparseAssemblers) = start_assemble(a.K, a.f; fillzero=false)
-scatter!(::FerriteSparseAssemblers, ::FerriteSparseAssemblers) = nothing
-gather!( ::FerriteSparseAssemblers, ::FerriteSparseAssemblers) = nothing
+function create_local(a::Ferrite.AbstractAssembler)
+    start_assemble(Ferrite.get_matrix(a), Ferrite.get_vector(a); fillzero=false)
+end
 
-can_thread(::FerriteSparseAssemblers) = true
+scatter!(::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
+gather!( ::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
 
-function work_single_cell!(assembler::Ferrite.AbstractSparseAssembler, cellbuffer)
+can_thread(::Ferrite.AbstractAssembler) = true
+
+function work_single_cell!(assembler::Ferrite.AbstractAssembler, cellbuffer)
     Ke = get_Ke(cellbuffer)
     re = get_re(cellbuffer)
     ae = get_ae(cellbuffer)
@@ -18,7 +19,7 @@ function work_single_cell!(assembler::Ferrite.AbstractSparseAssembler, cellbuffe
     assemble!(assembler, celldofs(cellbuffer), Ke, re)
 end
 
-function work_single_facet!(assembler::Ferrite.AbstractSparseAssembler, facetbuffer)
+function work_single_facet!(assembler::Ferrite.AbstractAssembler, facetbuffer)
     Ke = get_Ke(facetbuffer)
     re = get_re(facetbuffer)
     ae = get_ae(facetbuffer)
@@ -84,9 +85,9 @@ end
 
 """
     KeReAssembler(K, r; fillzero=true, kwargs...)
-    KeReAssembler(a::Ferrite.AbstractSparseAssembler; kwargs...)
+    KeReAssembler(a::Ferrite.AbstractAssembler; kwargs...)
 
-The default `KeReAssembler` works just like a `Ferrite.AbstractSparseAssembler`:
+The default `KeReAssembler` works just like a `Ferrite.AbstractAssembler`:
 It will call `element_routine!` and assemble `Ke` and `re` into the global system 
 matrix `K` and vector `r`. However, it comes with the additional possible features,
 that are controllable via the keyword arguments:
@@ -101,7 +102,7 @@ if a matrix, `K`, and vector, `r`, are given as input.
 
 [`reset_scaling!`](@ref) is called when creating `KeReAssembler`
 """
-struct KeReAssembler{A<:FerriteSparseAssemblers, CH, SC}
+struct KeReAssembler{A<:Ferrite.AbstractAssembler, CH, SC}
     a::A
     ch::CH # Union{Nothing, Ferrite.ConstraintHandler}
     apply_zero::Bool
@@ -111,7 +112,7 @@ function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, kwar
     a = start_assemble(K, r; fillzero=fillzero)
     return KeReAssembler(a; kwargs...)
 end
-function KeReAssembler(a::FerriteSparseAssemblers; apply_zero=nothing, ch=nothing, scaling=NoScaling())
+function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=nothing, scaling=NoScaling())
     reset_scaling!(scaling)
     if !isnothing(ch) && isnothing(apply_zero)
          throw(ArgumentError("apply_zero must be specified when `ch` is given"))
