@@ -1,8 +1,7 @@
 # Integrators
 In addition to assembling system matrices and vectors, much of the internal code can be reused 
 to create quite efficient integration of values, given a solution vector (and potentially state variables).
-This feature can also be used to calculate per-cell (or per-integration point) quantities, simply by 
-defining an integrator containing a vector that is indexed by the global cell id. 
+While this feature can be used to calculate per-integration point quantities, using the [`QuadPointEvaluator`](@ref) is recommended. 
 
 ## Available integrators
 

@@ -10,7 +10,7 @@ MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
 
 [compat]
 julia = "1.8"
-Ferrite = "0.3.11"
+Ferrite = "1"
 ForwardDiff = "0.10"
 MaterialModelsBase = "0.2"
 
