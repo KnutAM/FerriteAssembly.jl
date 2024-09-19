@@ -2,14 +2,11 @@
 # In this tutorial, we will see how we can assemble a domain and solve a problem 
 # where we have multiple material behaviors. In this simple case, we will consider 
 # an elastic inclusion, embedded in a plastically deforming matrix. 
-<<<<<<< HEAD
-=======
 # 
 # ![results](mixed_materials.png)
 # 
 # **Figure 1:** Results showing horizontal stresses ($\sigma_{11}$ [MPa]) on the deformed mesh.
 # 
->>>>>>> main
 # For this example, we'll use material models defined in the 
 # [`MechanicalMaterialModels.jl`](https://github.com/KnutAM/MechanicalMaterialModels.jl)
 # package, which defines models according to the `MaterialModelsBase` interface.
