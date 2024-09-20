@@ -105,8 +105,10 @@ work!(integrator, buffer; a=a);
 # Now we want to export the results to VTK. So we project the stresses at 
 # the quadrature points to the nodes using the L2Projector from Ferrite. 
 # Currently, however, IGA doesn't support L2 projection. 
-#projector = L2Projector(ip, grid)
-#σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
+# ```julia
+# # projector = L2Projector(ip, grid)
+# # σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
+# ```
 
 # Output results to VTK
 IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
