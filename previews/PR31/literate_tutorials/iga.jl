@@ -15,9 +15,11 @@ using Ferrite, IGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
 # ## Setup
-# We begin by generating the mesh by using `IGA.jl`'s built-in mesh generators 
-# In this example, we will generate the patch called "plate with hole". 
-# Note, currently this function can only generate the patch with second order basefunctions. 
+# To clarify the differences, we split the setup into `IGA.jl`, `Ferrite.jl`,
+# and `FerriteAssembly.jl` specific parts.
+# ### `IGA.jl` setup 
+# We begin by generating the mesh by using `IGA.jl`'s built-in mesh generators, 
+# specifically a "plate with hole". 
 function create_mesh(; nels = (20,10), order)
     nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels, order)
     grid = BezierGrid(nurbsmesh)
@@ -31,7 +33,8 @@ end
 order = 2
 grid = create_mesh(; order);
 
-# Create the cellvalues storing the shape function values. 
+# Create the `IGA.jl` cell and facet values for storing the 
+# the `IGA.jl` shape function values and gradients. 
 ip = IGAInterpolation{RefQuadrilateral, order}()
 qr_cell = QuadratureRule{RefQuadrilateral}(4)
 qr_face = FacetQuadratureRule{RefQuadrilateral}(3)
@@ -39,6 +42,7 @@ qr_face = FacetQuadratureRule{RefQuadrilateral}(3)
 cv = BezierCellValues(qr_cell, ip^2);
 fv = BezierFacetValues(qr_face, ip^2);
 
+# ### `Ferrite.jl` setup
 # Distribute dofs as normal
 dh = DofHandler(grid)
 add!(dh, :u, ip^2)
@@ -49,7 +53,7 @@ a = zeros(ndofs(dh))
 r = zeros(ndofs(dh))
 K = allocate_matrix(dh);
 
-# Starting with Dirichlet conditions: 
+# Before adding boundary conditions, starting with Dirichlet: 
 # 1) Bottom face should only be able to move in x-direction
 # 2) Right boundary should only be able to move in y-direction
 ch = ConstraintHandler(dh);
@@ -58,25 +62,26 @@ add!(ch, Dirichlet(:u, getfacetset(grid, "right"), Returns(0.0), 1))
 close!(ch)
 update!(ch, 0.0);
 
-# Then Neumann conditions:
-# Apply outwards traction on the left surface,
-# taking the negative value since r = fint - fext.
+# ### `FerriteAssembly.jl` setup 
+# Neumann boundary conditions are added using `FerriteAssembly`'s 
+# `LoadHandler`. We apply outwards traction on the left surface,
+# and take the negative value since r = fint - fext.
 traction = Vec((-10.0, 0.0))
 lh = LoadHandler(dh)
 add!(lh, Neumann(:u, fv, getfacetset(grid, "left"), Returns(-traction)));
 
-# FerriteAssembly setup 
 material = ElasticPlaneStrain(;E=100.0, ν=0.3)
 domain = DomainSpec(dh, material, cv)
 buffer = setup_domainbuffer(domain);
 
-# ## Assemble 
+# ## Assembly and solution
+# We first assemble the equation system,
 assembler = start_assemble(K, r)
 apply!(a, ch)
 work!(assembler, buffer; a=a)
 apply!(r, lh, 0.0);
 
-# ## Solve
+# before solving it,
 apply_zero!(K, r, ch)
 a .-= K\r
 apply!(a, ch);
