@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Viscoelasticity with state variables · FerriteAssembly.jl</title><meta name="title" content="Viscoelasticity with state variables · FerriteAssembly.jl"/><meta property="og:title" content="Viscoelasticity with state variables · FerriteAssembly.jl"/><meta property="twitter:title" content="Viscoelasticity with state variables · FerriteAssembly.jl"/><meta name="description" content="Documentation for FerriteAssembly.jl."/><meta property="og:description" content="Documentation for FerriteAssembly.jl."/><meta property="twitter:description" content="Documentation for FerriteAssembly.jl."/><meta property="og:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/viscoelasticity/"/><meta property="twitter:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/viscoelasticity/"/><link rel="canonical" href="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/viscoelasticity/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteAssembly.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Learning by doing</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-2-1" type="checkbox" checked/><label class="tocitem" for="menuitem-2-1"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../heat_equation/">Heat Equation</a></li><li class="is-active"><a class="tocitem" href>Viscoelasticity with state variables</a><ul class="internal"><li><a class="tocitem" href="#Material-modeling"><span>Material modeling</span></a></li><li><a class="tocitem" href="#Finite-element-setup"><span>Finite element setup</span></a></li><li><a class="tocitem" href="#Finite-element-solution"><span>Finite element solution</span></a></li><li><a class="tocitem" href="#Plot-the-results"><span>Plot the results</span></a></li><li><a class="tocitem" href="#viscoelasticity_plain_program"><span>Plain program</span></a></li></ul></li><li><a class="tocitem" href="../incompressible_elasticity/">Multiple fields</a></li><li><a class="tocitem" href="../mixed_materials/">Multiple materials</a></li><li><a class="tocitem" href="../iga/">Isogeometric analysis with <code>IGA.jl</code></a></li></ul></li><li><input class="collapse-toggle" id="menuitem-2-2" type="checkbox"/><label class="tocitem" for="menuitem-2-2"><span class="docs-label">How-to</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../howto/threaded_assembly/">Threaded assembly</a></li><li><a class="tocitem" href="../../howto/automatic_differentiation/">Automatic differentiation</a></li><li><a class="tocitem" href="../../howto/local_constraints/">Local constraint application</a></li><li><a class="tocitem" href="../../howto/robin_bc/">Robin boundary conditions</a></li><li><a class="tocitem" href="../../howto/volume_integral/">Volume integration</a></li><li><a class="tocitem" href="../../howto/surface_integral/">Surface integration</a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../design/">Design</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">DomainBuffers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../DomainBuffers/Setup/">DomainBuffers</a></li><li><a class="tocitem" href="../../DomainBuffers/StateVariables/">State variables</a></li><li><a class="tocitem" href="../../DomainBuffers/ItemBuffer/">ItemBuffer</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Workers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Workers/Workers/">Workers</a></li><li><a class="tocitem" href="../../Workers/Assemblers/">Assemblers</a></li><li><a class="tocitem" href="../../Workers/Integrators/">Integrators</a></li><li><a class="tocitem" href="../../Workers/QuadPointEvaluator/">Quadrature point eval</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Convenience</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Convenience/LoadHandler/">External loads</a></li><li><a class="tocitem" href="../../Convenience/MaterialModelsBase/">Mechanical materials</a></li><li><a class="tocitem" href="../../Convenience/ExampleElements/">Example elements</a></li></ul></li><li><a class="tocitem" href="../../Customization/">Customizations</a></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Learning by doing</a></li><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Viscoelasticity with state variables</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Viscoelasticity with state variables</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl/blob/main/docs/src/literate_tutorials/viscoelasticity.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Viscoelasticity-with-state-variables"><a class="docs-heading-anchor" href="#Viscoelasticity-with-state-variables">Viscoelasticity with state variables</a><a id="Viscoelasticity-with-state-variables-1"></a><a class="docs-heading-anchor-permalink" href="#Viscoelasticity-with-state-variables" title="Permalink"></a></h1><p>In this example, we will use a generalization of the so-called Zener viscoelastic material model, which can be illustrated by the following rheological model</p><p><img src="../zener.svg" alt="Zener"/></p><p>We assume a volumetric-deviatoric split of the strain, and consider isotropic behavior, such that the model can be described as</p><p class="math-container">\[\begin{aligned}
+\boldsymbol{\sigma} &amp;= \boldsymbol{\sigma}^\mathrm{vol} + \boldsymbol{\sigma}^\mathrm{dev} \\
+\boldsymbol{\sigma}^\mathrm{vol} &amp;= 3K\boldsymbol{\epsilon}^\mathrm{vol}\\
+\boldsymbol{\sigma}^\mathrm{dev} &amp;= 2G_1 \boldsymbol{\epsilon}^\mathrm{dev} + 2G_2 \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{e} \\
+2G_2 \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{e} &amp;= \eta \dot{\boldsymbol{\epsilon}}_\mathrm{v}^\mathrm{dev} \\
+\boldsymbol{\epsilon}^\mathrm{dev} &amp;= \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{e} + \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v}
+\end{aligned}\]</p><p>where we have the bulk modulus, <span>$K$</span>, shear modulii <span>$G_1$</span> and <span>$G_2$</span> (such that <span>$\mathsf{E}_i=2G_i\mathsf{I}^\mathrm{dev}$</span>), and viscosity <span>$\eta$</span> (such that <span>$\mathsf{V}=\eta\mathsf{I}$</span>) Solving this equation system using the old viscous strain, <span>$\boldsymbol{\epsilon}^\mathrm{dev}$</span>, as a state variable, we obtain</p><p class="math-container">\[\begin{aligned}
+\boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v} &amp;=
+\frac{2\Delta t*G_2*\boldsymbol{\epsilon}^\mathrm{dev} + \eta {}^\mathrm{n}\boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v}}{\eta + 2\Delta t G_2} \\
+\boldsymbol{\sigma} &amp;= 3 K \boldsymbol{\epsilon}^\mathrm{vol} + 2G_1 \boldsymbol{\epsilon}^\mathrm{dev} + 2G_2 [\boldsymbol{\epsilon}^\mathrm{dev}-\boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v}]
+\end{aligned}\]</p><p>The full script without intermediate comments is available at the <a href="#viscoelasticity_plain_program">bottom of this page</a>.</p><p>We start by loading required packages</p><pre><code class="language-julia hljs">using Ferrite, Tensors
+using FerriteAssembly
+import CairoMakie as CM</code></pre><h2 id="Material-modeling"><a class="docs-heading-anchor" href="#Material-modeling">Material modeling</a><a id="Material-modeling-1"></a><a class="docs-heading-anchor-permalink" href="#Material-modeling" title="Permalink"></a></h2><p>The easiest way to implement this behavior, would be to use the existing interface from <a href="https://github.com/KnutAM/MaterialModelsBase.jl">MaterialModelsBase.jl</a>. But for the purpose of this tutorial, we will do it from scratch to show how to handle state variables in the finite element code. To start the material modeling, we define a material struct with all parameters.</p><pre><code class="language-julia hljs">Base.@kwdef struct ZenerMaterial{T}
+    K::T =5.0/3 # Bulk modulus
+    G1::T=1.0   # Shear modulus, parallel
+    G2::T=50.   # Shear modulus, series
+    η::T =5.0   # Damping modulus
+end;</code></pre><p>We then define how to the initial state variables should look like, which also defines the structure of the state variables. In this case, we will just have states being a single tensor (viscous strain) for each integration point</p><pre><code class="language-julia hljs">function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::CellValues, args...)
+    ϵ_template = shape_symmetric_gradient(cv, 1, 1) # ::SymmetricTensor
+    return [zero(ϵ_template) for _ in 1:getnquadpoints(cv)]
+end;</code></pre><p>Following this, we define the <code>element_residual!</code> function (we will use automatic differentiation to calculate the element stiffness).</p><pre><code class="language-julia hljs">function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::CellValues, buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
+    old_ϵvs = FerriteAssembly.get_old_state(buffer)
+    for q_point in 1:getnquadpoints(cv)
+        old_ϵv = old_ϵvs[q_point]
+        dΩ = getdetJdV(cv, q_point)
+        ϵ = function_symmetric_gradient(cv, q_point, ae)
+        ϵdev = dev(ϵ)
+        ϵv = (Δt * 2 * m.G2 * ϵdev + m.η * old_ϵv)/(m.η + Δt * 2 * m.G2)
+        σ = (m.G1 + m.G2) * 2 * ϵdev - 2 * m.G2 * ϵv + 3 * m.K * vol(ϵ)
+        for i in 1:getnbasefunctions(cv)
+            δ∇N = shape_symmetric_gradient(cv, q_point, i)
+            re[i] += (δ∇N ⊡ σ) * dΩ
+        end
+        # We only want to save the value-part of the states, and FerriteAssembly comes with
+        # the utility `FerriteAssembly.remove_dual` to do so for scalars and Tensors.
+        # Note that using `state[q_point]` instead of ϵv for any calculations
+        # affecting re, will result in wrong derivatives.
+        state[q_point] = FerriteAssembly.remove_dual(ϵv)
+    end
+end;</code></pre><h2 id="Finite-element-setup"><a class="docs-heading-anchor" href="#Finite-element-setup">Finite element setup</a><a id="Finite-element-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Finite-element-setup" title="Permalink"></a></h2><p>To setup our problem, we use a simple grid and define all interpolations, quadrature rules, etc. as normally for <code>Ferrite</code> simulations. We also define the <code>Zener</code> material and create the domain buffer.</p><pre><code class="language-julia hljs">grid = generate_grid(Quadrilateral, (20, 20))
+ip = geometric_interpolation(Quadrilateral)
+dh = DofHandler(grid)
+add!(dh, :u, ip^2)
+close!(dh)
+qr = QuadratureRule{RefQuadrilateral}(2)
+cv = CellValues(qr, ip^2, ip)
+m = ZenerMaterial()
+domain = DomainSpec(dh, m, cv)
+buffer = setup_domainbuffer(domain; autodiffbuffer=true);</code></pre><p>Fix left side of beam, vertical load on right side.</p><pre><code class="language-julia hljs">ch = ConstraintHandler(dh)
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;left&quot;), Returns(zero(Vec{2}))))
+close!(ch)
+update!(ch, 0.0);</code></pre><p>We use <code>FerriteAssembly</code>&#39;s <code>LoadHandler</code> to apply the Neumann boundary conditions, which consist of a ramp followed by a hold.</p><pre><code class="language-julia hljs">lh = LoadHandler(dh)
+traction(t) = clamp(t, 0, 1)*Vec((0.0, 1.0))
+add!(lh, Neumann(:u, 2, getfacetset(grid, &quot;right&quot;), (x, t, n) -&gt; traction(t)));</code></pre><h2 id="Finite-element-solution"><a class="docs-heading-anchor" href="#Finite-element-solution">Finite element solution</a><a id="Finite-element-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Finite-element-solution" title="Permalink"></a></h2><p>Given this setup, we define a function that steps through the time history, and for each time step, iterates to find the correct solution. After convergence, we update the state variables.</p><pre><code class="language-julia hljs">function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
+    maxiter = 10
+    tolerance = 1e-6
+    K = allocate_matrix(dh)
+    r = zeros(ndofs(dh))
+    f = zeros(ndofs(dh))
+    a = zeros(ndofs(dh))
+    t_force = [0.0]
+    u1_max = [0.0]
+    told = 0.0
+    for t in time_history
+        # Update and apply the Dirichlet boundary conditions
+        update!(ch, t)
+        apply!(a, ch)
+        # Update and apply the Neumann boundary conditions
+        fill!(f, 0)
+        apply!(f, lh, t)
+        # Update the time increment (passed to `element_residual!`)
+        set_time_increment!(buffer, t-told)
+        for i in 1:maxiter
+            # Assemble the system
+            assembler = start_assemble(K, r)
+            work!(assembler, buffer; a=a)
+            r .-= f
+            # Apply boundary conditions
+            apply_zero!(K, r, ch)
+            # Check convergence
+            norm(r) &lt; tolerance &amp;&amp; break
+            i == maxiter &amp;&amp; error(&quot;Did not converge&quot;)
+            # Solve the linear system and update the dof vector
+            a .-= K\r
+            apply!(a, ch) # Make sure Dirichlet BC are exactly fulfilled
+        end
+        # If converged, update the old state variables to the current.
+        update_states!(buffer)
+
+        # Save values for postprocessing
+        push!(t_force, norm(traction(t)))
+        push!(u1_max, maximum(a))
+        told = t
+    end
+    return u1_max, t_force
+end;</code></pre><p>Define a time history with uneven time steps (shorter in the beginning)</p><pre><code class="language-julia hljs">time_history = collect(range(0,1,10)).^2
+append!(time_history, 1 .+ collect(range(0,1,10)[2:end]).^2)
+
+u1_max, t_force = solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history=time_history[2:end]);</code></pre><h2 id="Plot-the-results"><a class="docs-heading-anchor" href="#Plot-the-results">Plot the results</a><a id="Plot-the-results-1"></a><a class="docs-heading-anchor-permalink" href="#Plot-the-results" title="Permalink"></a></h2><pre><code class="language-julia hljs">fig = CM.Figure()
+ax_t = CM.Axis(fig[1,1]; xlabel=&quot;time&quot;, ylabel=&quot;traction&quot;)
+ax_d = CM.Axis(fig[2,1]; xlabel=&quot;time&quot;, ylabel=&quot;displacement&quot;)
+CM.lines!(ax_t, time_history, t_force)
+CM.scatter!(ax_t, time_history, t_force)
+CM.lines!(ax_d, time_history, u1_max)
+CM.scatter!(ax_d, time_history, u1_max)
+fig</code></pre><img src="023e398f.png" alt="Example block output"/><h2 id="viscoelasticity_plain_program"><a class="docs-heading-anchor" href="#viscoelasticity_plain_program">Plain program</a><a id="viscoelasticity_plain_program-1"></a><a class="docs-heading-anchor-permalink" href="#viscoelasticity_plain_program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../viscoelasticity.jl"><code>viscoelasticity.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, Tensors
+using FerriteAssembly
+import CairoMakie as CM
+
+Base.@kwdef struct ZenerMaterial{T}
+    K::T =5.0/3 # Bulk modulus
+    G1::T=1.0   # Shear modulus, parallel
+    G2::T=50.   # Shear modulus, series
+    η::T =5.0   # Damping modulus
+end;
+
+function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::CellValues, args...)
+    ϵ_template = shape_symmetric_gradient(cv, 1, 1) # ::SymmetricTensor
+    return [zero(ϵ_template) for _ in 1:getnquadpoints(cv)]
+end;
+
+function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::CellValues, buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
+    old_ϵvs = FerriteAssembly.get_old_state(buffer)
+    for q_point in 1:getnquadpoints(cv)
+        old_ϵv = old_ϵvs[q_point]
+        dΩ = getdetJdV(cv, q_point)
+        ϵ = function_symmetric_gradient(cv, q_point, ae)
+        ϵdev = dev(ϵ)
+        ϵv = (Δt * 2 * m.G2 * ϵdev + m.η * old_ϵv)/(m.η + Δt * 2 * m.G2)
+        σ = (m.G1 + m.G2) * 2 * ϵdev - 2 * m.G2 * ϵv + 3 * m.K * vol(ϵ)
+        for i in 1:getnbasefunctions(cv)
+            δ∇N = shape_symmetric_gradient(cv, q_point, i)
+            re[i] += (δ∇N ⊡ σ) * dΩ
+        end
+        # We only want to save the value-part of the states, and FerriteAssembly comes with
+        # the utility `FerriteAssembly.remove_dual` to do so for scalars and Tensors.
+        # Note that using `state[q_point]` instead of ϵv for any calculations
+        # affecting re, will result in wrong derivatives.
+        state[q_point] = FerriteAssembly.remove_dual(ϵv)
+    end
+end;
+
+grid = generate_grid(Quadrilateral, (20, 20))
+ip = geometric_interpolation(Quadrilateral)
+dh = DofHandler(grid)
+add!(dh, :u, ip^2)
+close!(dh)
+qr = QuadratureRule{RefQuadrilateral}(2)
+cv = CellValues(qr, ip^2, ip)
+m = ZenerMaterial()
+domain = DomainSpec(dh, m, cv)
+buffer = setup_domainbuffer(domain; autodiffbuffer=true);
+
+ch = ConstraintHandler(dh)
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;left&quot;), Returns(zero(Vec{2}))))
+close!(ch)
+update!(ch, 0.0);
+
+lh = LoadHandler(dh)
+traction(t) = clamp(t, 0, 1)*Vec((0.0, 1.0))
+add!(lh, Neumann(:u, 2, getfacetset(grid, &quot;right&quot;), (x, t, n) -&gt; traction(t)));
+
+function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
+    maxiter = 10
+    tolerance = 1e-6
+    K = allocate_matrix(dh)
+    r = zeros(ndofs(dh))
+    f = zeros(ndofs(dh))
+    a = zeros(ndofs(dh))
+    t_force = [0.0]
+    u1_max = [0.0]
+    told = 0.0
+    for t in time_history
+        # Update and apply the Dirichlet boundary conditions
+        update!(ch, t)
+        apply!(a, ch)
+        # Update and apply the Neumann boundary conditions
+        fill!(f, 0)
+        apply!(f, lh, t)
+        # Update the time increment (passed to `element_residual!`)
+        set_time_increment!(buffer, t-told)
+        for i in 1:maxiter
+            # Assemble the system
+            assembler = start_assemble(K, r)
+            work!(assembler, buffer; a=a)
+            r .-= f
+            # Apply boundary conditions
+            apply_zero!(K, r, ch)
+            # Check convergence
+            norm(r) &lt; tolerance &amp;&amp; break
+            i == maxiter &amp;&amp; error(&quot;Did not converge&quot;)
+            # Solve the linear system and update the dof vector
+            a .-= K\r
+            apply!(a, ch) # Make sure Dirichlet BC are exactly fulfilled
+        end
+        # If converged, update the old state variables to the current.
+        update_states!(buffer)
+
+        # Save values for postprocessing
+        push!(t_force, norm(traction(t)))
+        push!(u1_max, maximum(a))
+        told = t
+    end
+    return u1_max, t_force
+end;
+
+time_history = collect(range(0,1,10)).^2
+append!(time_history, 1 .+ collect(range(0,1,10)[2:end]).^2)
+
+u1_max, t_force = solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history=time_history[2:end]);
+
+fig = CM.Figure()
+ax_t = CM.Axis(fig[1,1]; xlabel=&quot;time&quot;, ylabel=&quot;traction&quot;)
+ax_d = CM.Axis(fig[2,1]; xlabel=&quot;time&quot;, ylabel=&quot;displacement&quot;)
+CM.lines!(ax_t, time_history, t_force)
+CM.scatter!(ax_t, time_history, t_force)
+CM.lines!(ax_d, time_history, u1_max)
+CM.scatter!(ax_d, time_history, u1_max)
+fig
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../heat_equation/">« Heat Equation</a><a class="docs-footer-nextpage" href="../incompressible_elasticity/">Multiple fields »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Friday 20 September 2024 06:55">Friday 20 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
