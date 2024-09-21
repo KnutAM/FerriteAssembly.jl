@@ -52,24 +52,13 @@ apply_zero!(K, r, ch)
 a .-= K\r
 apply!(a, ch);
 
-struct CellStress{TT}
-    s::Vector{Vector{TT}}
-end
-function CellStress(grid::Ferrite.AbstractGrid)
-    TT = typeof(zero(SymmetricTensor{2, Ferrite.getspatialdim(grid)}))
-    return CellStress([TT[] for _ in 1:getncells(grid)])
+function calculate_stress(m, u, ∇u, qp_state)
+    ϵ = symmetric(∇u)
+    return m.C ⊡ ϵ
 end
 
-function FerriteAssembly.integrate_cell!(stress::CellStress, state, ae, material, cv, cb)
-    σ = stress.s[cellid(cb)]
-    for q_point in 1:getnquadpoints(cv)
-        ϵ = function_symmetric_gradient(cv, q_point, ae)
-        push!(σ, material.C⊡ϵ)
-    end
-end
-cellstresses = CellStress(grid)
-integrator = Integrator(cellstresses)
-work!(integrator, buffer; a=a);
+qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
+work!(qe, buffer; a=a)
 
 IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
