@@ -40,7 +40,7 @@
         return cellvalues, K, dh
     end
 
-    function assemble_element!(Ke::Matrix, fe::Vector, cellvalues::CellValues)
+    function assemble_element!(Ke::Matrix, fe::Vector, cellvalues::AbstractCellValues)
         n_basefuncs = getnbasefunctions(cellvalues)
         # Reset to 0
         fill!(Ke, 0)
@@ -66,7 +66,7 @@
         return Ke, fe
     end
 
-    function assemble_global(cellvalues::CellValues, K::SparseMatrixCSC, dh::DofHandler)
+    function assemble_global(cellvalues::AbstractCellValues, K::SparseMatrixCSC, dh::DofHandler)
         # Allocate the element stiffness matrix and element force vector
         n_basefuncs = getnbasefunctions(cellvalues)
         Ke = zeros(n_basefuncs, n_basefuncs)

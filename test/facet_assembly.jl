@@ -29,7 +29,7 @@
     @test sum(r) ≈ 2*sum(a)/(length(set)+1)
 
     # Full assembler 
-    function FerriteAssembly.facet_routine!(Ke, re, ae, ::FacetMaterial, fv::FacetValues, facetbuffer)
+    function FerriteAssembly.facet_routine!(Ke, re, ae, ::FacetMaterial, fv::AbstractFacetValues, facetbuffer)
         dofrange = dof_range(facetbuffer, :u)
         for q_point in 1:getnquadpoints(fv)
             dΓ = getdetJdV(fv, q_point)

@@ -1,7 +1,7 @@
 # Create FacetValues or CellValues automatically with minimal input 
 
 """
-    autogenerate_facetvalues(fv::FacetValues, args...)
+    autogenerate_facetvalues(fv::AbstractFacetValues, args...)
 
 Just return the provided FacetValues 
 
@@ -16,7 +16,7 @@ function autogenerate_facetvalues(order::Int, ip::Interpolation{RefShape}, ip_ge
 end
 
 """
-    autogenerate_cellvalues(cv::CellValues, args...)
+    autogenerate_cellvalues(cv::AbstractCellValues, args...)
 
 Just return the provided CellValues 
 
