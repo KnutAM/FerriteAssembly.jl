@@ -9,12 +9,12 @@ Base.@kwdef struct ZenerMaterial{T}
     η::T =5.0   # Damping modulus
 end;
 
-function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::CellValues, args...)
+function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::AbstractCellValues, args...)
     ϵ_template = shape_symmetric_gradient(cv, 1, 1) # ::SymmetricTensor
     return [zero(ϵ_template) for _ in 1:getnquadpoints(cv)]
 end;
 
-function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::CellValues, buffer)
+function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::AbstractCellValues, buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     old_ϵvs = FerriteAssembly.get_old_state(buffer)
     for q_point in 1:getnquadpoints(cv)

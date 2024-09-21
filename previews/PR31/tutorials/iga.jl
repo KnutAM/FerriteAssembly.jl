@@ -55,10 +55,10 @@ apply!(a, ch);
 function calculate_stress(m, u, ∇u, qp_state)
     ϵ = symmetric(∇u)
     return m.C ⊡ ϵ
-end
+end;
 
 qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
-work!(qe, buffer; a=a)
+work!(qe, buffer; a=a);
 
 IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)

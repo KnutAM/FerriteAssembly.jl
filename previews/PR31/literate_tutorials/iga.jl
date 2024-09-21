@@ -1,4 +1,4 @@
-# # Isogeometric analysis with `IGA.jl`
+# # Using `IGA.jl`
 # This tutorial shows how to integrate FerriteAssembly with the 
 # isogeometric analysis toolbox IGA.jl, directly based on `IGA.jl`'s 
 # [Infinite plate with hole](https://lijas.github.io/IGA.jl/dev/examples/plate_with_hole/)
@@ -92,11 +92,11 @@ apply!(a, ch);
 function calculate_stress(m, u, ∇u, qp_state)
     ϵ = symmetric(∇u)
     return m.C ⊡ ϵ
-end
+end;
 
 # We can then use this to calculate the stress tensor in each integration point
 qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
-work!(qe, buffer; a=a)
+work!(qe, buffer; a=a);
 
 # Now we want to export the results to VTK. So we project the stresses at 
 # the quadrature points to the nodes using the L2Projector from Ferrite. 
@@ -111,9 +111,9 @@ IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
 end
 
-using Test                                    #src
+using Test                                      #src
 # @test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src
-@test norm(norm.(qe.data)) ≈ 679.3207411544098 #src
+@test norm(norm.(qe.data)) ≈ 679.3207411544098  #src
 
 #md # ## [Plain program](@id iga_plain_program)
 #md #
