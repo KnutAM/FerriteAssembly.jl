@@ -53,14 +53,14 @@ end;
 # We then define how to the initial state variables should look like, which also defines the structure 
 # of the state variables. In this case, we will just have states being a single tensor (viscous strain)
 # for each integration point
-function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::CellValues, args...)
+function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::AbstractCellValues, args...)
     ϵ_template = shape_symmetric_gradient(cv, 1, 1) # ::SymmetricTensor
     return [zero(ϵ_template) for _ in 1:getnquadpoints(cv)]
 end;
 
 # Following this, we define the `element_residual!` function (we will use automatic differentiation 
 # to calculate the element stiffness).
-function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::CellValues, buffer)
+function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::AbstractCellValues, buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     old_ϵvs = FerriteAssembly.get_old_state(buffer)
     for q_point in 1:getnquadpoints(cv)

@@ -1,4 +1,4 @@
-# # Isogeometric analysis with `IGA.jl`
+# # Using `IGA.jl`
 # This tutorial shows how to integrate FerriteAssembly with the 
 # isogeometric analysis toolbox IGA.jl, directly based on `IGA.jl`'s 
 # [Infinite plate with hole](https://lijas.github.io/IGA.jl/dev/examples/plate_with_hole/)
@@ -15,11 +15,13 @@ using Ferrite, IGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
 # ## Setup
-# We begin by generating the mesh by using `IGA.jl`'s built-in mesh generators 
-# In this example, we will generate the patch called "plate with hole". 
-# Note, currently this function can only generate the patch with second order basefunctions. 
-function create_mesh(;nels=(20,10))
-    nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels) 
+# To clarify the differences, we split the setup into `IGA.jl`, `Ferrite.jl`,
+# and `FerriteAssembly.jl` specific parts.
+# ### `IGA.jl` setup 
+# We begin by generating the mesh by using `IGA.jl`'s built-in mesh generators, 
+# specifically a "plate with hole". 
+function create_mesh(; nels = (20,10), order)
+    nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels, order)
     grid = BezierGrid(nurbsmesh)
 
     addfacetset!(grid, "left", (x) -> x[1] ≈ -4.0)
@@ -28,17 +30,19 @@ function create_mesh(;nels=(20,10))
 
     return grid 
 end
-grid = create_mesh();
+order = 2
+grid = create_mesh(; order);
 
-# Create the cellvalues storing the shape function values. 
-orders=(2,2)
-ip = BernsteinBasis{2,orders}()
-qr_cell = QuadratureRule{2,RefCube}(4)
-qr_facet = QuadratureRule{1,RefCube}(3)
+# Create the `IGA.jl` cell and facet values for storing the 
+# the `IGA.jl` shape function values and gradients. 
+ip = IGAInterpolation{RefQuadrilateral, order}()
+qr_cell = QuadratureRule{RefQuadrilateral}(4)
+qr_face = FacetQuadratureRule{RefQuadrilateral}(3)
 
-cv = BezierCellValues( CellValues(qr_cell, ip^2) );
-fv = BezierFacetValues( FacetValues(qr_facet, ip^2) );
+cv = BezierCellValues(qr_cell, ip^2);
+fv = BezierFacetValues(qr_face, ip^2);
 
+# ### `Ferrite.jl` setup
 # Distribute dofs as normal
 dh = DofHandler(grid)
 add!(dh, :u, ip^2)
@@ -49,8 +53,8 @@ a = zeros(ndofs(dh))
 r = zeros(ndofs(dh))
 K = allocate_matrix(dh);
 
-# Starting with Dirichlet conditions: 
-# 1) Bottom facet should only be able to move in x-direction
+# Before adding boundary conditions, starting with Dirichlet: 
+# 1) Bottom face should only be able to move in x-direction
 # 2) Right boundary should only be able to move in y-direction
 ch = ConstraintHandler(dh);
 add!(ch, Dirichlet(:u, getfacetset(grid, "bot"), Returns(0.0), 2))
@@ -58,64 +62,58 @@ add!(ch, Dirichlet(:u, getfacetset(grid, "right"), Returns(0.0), 1))
 close!(ch)
 update!(ch, 0.0);
 
-# Then Neumann conditions:
-# Apply outwards traction on the left surface,
-# taking the negative value since r = fint - fext.
+# ### `FerriteAssembly.jl` setup 
+# Neumann boundary conditions are added using `FerriteAssembly`'s 
+# `LoadHandler`. We apply outwards traction on the left surface,
+# and take the negative value since r = fint - fext.
 traction = Vec((-10.0, 0.0))
 lh = LoadHandler(dh)
 add!(lh, Neumann(:u, fv, getfacetset(grid, "left"), Returns(-traction)));
 
-# FerriteAssembly setup 
 material = ElasticPlaneStrain(;E=100.0, ν=0.3)
-domain = DomainSpec(FerriteAssembly.SubDofHandler(dh, dh.fieldhandlers[1]), material, cv)
+domain = DomainSpec(dh, material, cv)
 buffer = setup_domainbuffer(domain);
 
-# ## Assemble 
+# ## Assembly and solution
+# We first assemble the equation system,
 assembler = start_assemble(K, r)
 apply!(a, ch)
 work!(assembler, buffer; a=a)
 apply!(r, lh, 0.0);
 
-# ## Solve
+# before solving it,
 apply_zero!(K, r, ch)
 a .-= K\r
 apply!(a, ch);
 
 # ## Postprocessing
-# First, the stresses in each integration point are calculated by using the Integrator.  
-struct CellStress{TT}
-    s::Vector{Vector{TT}}
-end
-function CellStress(grid::Ferrite.AbstractGrid)
-    Tb = SymmetricTensor{2,Ferrite.getspatialdim(grid)}
-    TT = Tb{Float64,Tensors.n_components(Tb)}
-    return CellStress([TT[] for _ in 1:getncells(grid)])
-end
+# We use the `QuadPointEvaluator` to calculate stresses in each integration point,
+# The `QuadPointEvaluator` requires a function with the following input arguments
+function calculate_stress(m, u, ∇u, qp_state)
+    ϵ = symmetric(∇u)
+    return m.C ⊡ ϵ
+end;
 
-function FerriteAssembly.integrate_cell!(stress::CellStress, state, ae, material, cv, cb)
-    σ = stress.s[cellid(cb)]
-    for q_point in 1:getnquadpoints(cv)
-        ϵ = function_symmetric_gradient(cv, q_point, ae)
-        push!(σ, material.C⊡ϵ)
-    end
-end
-cellstresses = CellStress(grid)
-integrator = Integrator(cellstresses)
-work!(integrator, buffer; a=a);
+# We can then use this to calculate the stress tensor in each integration point
+qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
+work!(qe, buffer; a=a);
 
 # Now we want to export the results to VTK. So we project the stresses at 
 # the quadrature points to the nodes using the L2Projector from Ferrite. 
-projector = L2Projector(ip, grid)
-σ_nodes = IGA.igaproject(projector, cellstresses.s, qr_cell; project_to_nodes=true);
+# Currently, however, IGA doesn't support L2 projection. 
+# ```julia
+# # projector = L2Projector(ip, grid)
+# # σ_nodes = IGA.igaproject(projector, qe.data, qr_cell; project_to_nodes=true);
+# ```
 
 # Output results to VTK
-VTKGridFile("plate_with_hole.vtu", grid) do vtk
+IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
-    write_node_data(vtk, σ_nodes, "sigma", grid)
 end
 
-using Test                                    #src
-@test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src
+using Test                                      #src
+# @test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src
+@test norm(norm.(qe.data)) ≈ 679.3207411544098  #src
 
 #md # ## [Plain program](@id iga_plain_program)
 #md #
