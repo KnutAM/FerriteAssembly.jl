@@ -44,9 +44,11 @@ include("errors.jl")
         @test FerriteAssembly.get_dofhandler(buffer_threaded) === dh
         @test FerriteAssembly.get_dofhandler(buffers) === dh
 
-        @test FerriteAssembly.get_state(buffer, 1) === nothing
-        @test FerriteAssembly.get_old_state(buffer, 1) === nothing
-        
+        @test isa(FerriteAssembly.get_state(buffer, 1), Vector{Nothing})
+        @test isa(FerriteAssembly.get_old_state(buffer, 1), Vector{Nothing})
+        @test length(FerriteAssembly.get_state(buffer, 1)) == getnquadpoints(cv)
+        @test length(FerriteAssembly.get_old_state(buffer, 1)) == getnquadpoints(cv)
+
     end
 
     @testset "utility functions" begin

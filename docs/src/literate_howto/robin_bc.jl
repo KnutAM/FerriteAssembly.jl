@@ -24,7 +24,7 @@ struct RobinBC{T}
 end
 
 function FerriteAssembly.facet_routine!(
-        Ke, re, ae, rbc::RobinBC, fv::FacetValues, facetbuffer
+        Ke, re, ae, rbc::RobinBC, fv::AbstractFacetValues, facetbuffer
         )
     for q_point in 1:getnquadpoints(fv)
         dΓ = getdetJdV(fv, q_point)

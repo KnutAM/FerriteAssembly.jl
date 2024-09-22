@@ -12,7 +12,7 @@
     addcellset!(grid, "left", x -> x[1] < 1e-4)
     addcellset!(grid, "right", setdiff(1:getncells(grid), getcellset(grid, "left")))
     struct QEMat{K} end # Dummy type to dispatch for evaluation
-    FerriteAssembly.create_cell_state(m::QEMat, cv::CellValues, args...) = [qe_state(m) for _ in 1:getnquadpoints(cv)]
+    FerriteAssembly.create_cell_state(m::QEMat, cv::AbstractCellValues, args...) = [qe_state(m) for _ in 1:getnquadpoints(cv)]
     FerriteAssembly.create_cell_state(m::QEMat, cv::NamedTuple, args...) = FerriteAssembly.create_cell_state(m, first(cv))
     qe_state(::QEMat) = nothing
 

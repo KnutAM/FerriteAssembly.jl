@@ -28,7 +28,7 @@ QuadPointEvaluator(data::ArrayOfVectorViews, qe_type::Symbol) = QuadPointEvaluat
 
 function QuadPointEvaluator{VT}(domainbuffer::AbstractDomainBuffer, qe_type::Union{Symbol, Function}) where {VT}
     cv = get_values(get_itembuffer(domainbuffer))
-    nqp = if cv isa CellValues
+    nqp = if cv isa Ferrite.AbstractCellValues
         getnquadpoints(cv)
     elseif cv isa NamedTuple
         tmp = getnquadpoints.(values(cv))
@@ -85,7 +85,7 @@ function work_single_cell!(qe::QuadPointEvaluator, cellbuffer)
     eval_quadpoints_cell!(qe.data[cellid(cellbuffer)], qe.qe_type, cell_state, ae, m, cv, cellbuffer)
 end
 
-function eval_quadpoints_cell!(vals::AbstractVector, f::Function, cell_state::AbstractVector, ae, material, cv::CellValues, cellbuffer)
+function eval_quadpoints_cell!(vals::AbstractVector, f::Function, cell_state::AbstractVector, ae, material, cv::AbstractCellValues, cellbuffer)
     for q_point in 1:getnquadpoints(cv)
         u  = function_value(cv, q_point, ae)
         ∇u = function_gradient(cv, q_point, ae)

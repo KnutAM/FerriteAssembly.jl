@@ -143,7 +143,7 @@ end
     # Smoke-test of update_states! for nothing states (and check no allocations)
     cv = CellValues(QuadratureRule{RefTriangle}(2), ip)
     buffer = setup_domainbuffer(DomainSpec(dh, nothing, cv))
-    @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{Nothing})
+    @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{Vector{Nothing}})
     update_states!(buffer) # Compile
     allocs = @allocated update_states!(buffer)
     @test allocs == 0

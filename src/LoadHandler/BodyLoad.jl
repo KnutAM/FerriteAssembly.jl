@@ -43,7 +43,7 @@ struct BodyLoadMaterial{FUN}
     dr::UnitRange{Int}
 end
 
-function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv::CellValues, cellbuffer)
+function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv::AbstractCellValues, cellbuffer)
     checkbounds(fe, m.dr)
     t = get_time_increment(cellbuffer) # Abuse...
     for q_point in 1:getnquadpoints(cv)

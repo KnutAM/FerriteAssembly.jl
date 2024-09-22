@@ -37,7 +37,10 @@ Overload this function to create the state which should be passed into the
 As for the element routines, `ae`, is filled with `NaN` unless the global degree 
 of freedom vector is given to the [`setup_domainbuffer`](@ref) function.
 """
-create_cell_state(args...) = nothing
+create_cell_state(material, cv, args...) = [nothing for _ in 1:_getnquadpoints(cv)]
+
+_getnquadpoints(fe_v::Ferrite.AbstractValues) = getnquadpoints(fe_v)
+_getnquadpoints(nt::NamedTuple) = getnquadpoints(first(nt))
 
 """
     _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr)

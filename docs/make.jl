@@ -13,7 +13,7 @@ tutorials = [
     "viscoelasticity.jl", 
     "incompressible_elasticity.jl", 
     "mixed_materials.jl", 
-    #"iga.jl", # Doesn't currently support Ferrite master/v1.0
+    "iga.jl",
     ]
 generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [
