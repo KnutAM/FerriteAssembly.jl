@@ -4,10 +4,11 @@
 [![Build Status](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/KnutAM/FerriteAssembly.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/KnutAM/FerriteAssembly.jl)
 
-**NOTE:** The main branch only supports Ferrite#master (soon v1.0).
-To install, run
+**NOTE:** Ferrite  (soon v1.0).
+FerriteAssembly requires the non-registered package 
+[`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl),
+so to install, run
 ```julia
-pkg> add Ferrite#master
 pkg> add https://github.com/KnutAM/MaterialModelsBase.jl.git
 pkg> add https://github.com/KnutAM/FerriteAssembly.jl.git
 ```
@@ -51,6 +52,5 @@ See the [documentation](https://KnutAM.github.io/FerriteAssembly.jl/dev) for mor
 
 ## Using with `Ferrite.jl`'s master branch
 This badge shows if `FerriteAssembly#main` is compatible with `Ferrite#master`.
-Currently, it will likely remain incompatible until some open issues regarding interfaces for the new Ferrite v1.0 release are solved. 
 
 [![Ferrite#master](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/FerriteMasterCI.yml/badge.svg?branch=main)](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/FerriteMasterCI.yml?query=branch%3Amain)
