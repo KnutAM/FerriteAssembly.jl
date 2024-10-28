@@ -4,8 +4,7 @@
 [![Build Status](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/KnutAM/FerriteAssembly.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/KnutAM/FerriteAssembly.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/KnutAM/FerriteAssembly.jl)
 
-**NOTE:** Ferrite  (soon v1.0).
-FerriteAssembly requires the non-registered package 
+**Installation:** FerriteAssembly requires the non-registered package 
 [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl),
 so to install, run
 ```julia
