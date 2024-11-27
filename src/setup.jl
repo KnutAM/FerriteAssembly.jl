@@ -46,13 +46,47 @@ function DomainSpec(dh::DofHandler, args...; kwargs...)
 end
 
 """
-    setup_domainbuffers(domains::Dict{String,DomainSpec}; kwargs...)
+    setup_domainbuffers(domains::Dict{String,DomainSpec}, supress_warnings = false; kwargs...)
 
 Setup multiple domain buffers, one for each `DomainSpec` in `domains`.
+Set `supress_warnings = true` to supress warnings checking for typical input errors when setting up multiple domains. 
 See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
 """
-function setup_domainbuffers(domains::Dict{String,<:DomainSpec}; kwargs...)
-    return Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
+function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, supress_warnings = false; kwargs...)
+    dbs = Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
+    supress_warnings || check_input(dbs)
+    return dbs 
+end
+
+check_input(dbs::DomainBuffers) = check_input(dbs, eltype(getset(first(values(dbs)))))
+
+function check_input(dbs::DomainBuffers, ::Type{I}) where {I <: Integer} # Domain of cells
+    if !all(db -> eltype(getset(db)) === I, values(dbs))
+        @warn "Not all sets have the same eltype, this is likely to cause errors - proceed with caution"
+    end
+
+    grid = get_grid(dbs)
+    
+    # Check that all cells are included, and
+    num_cells_in_sets = sum(length ∘ getset, values(dbs); init = 0)
+    num_cells_in_grid = getncells(grid)
+    more_fewer = num_cells_in_sets > num_cells_in_grid ? "more" : "fewer"
+    if num_cells_in_grid != num_cells_in_sets
+        @warn "There are $more_fewer cells ($num_cells_in_sets) assigned to domains than cells in the grid ($num_cells_in_grid)"
+    end
+    included = zeros(Bool, getncells(grid))
+    for db in values(dbs)
+        for i in getset(db)
+            included[i] = true
+        end
+    end
+    num_missing = getncells(grid) - sum(included)
+    all(included) || @warn "$num_missing cells are not included in the domainbuffers"
+end
+
+function check_input(dbs::DomainBuffers, ::Type) # Unspecified (typically facet set) without tests
+    # TODO: Add check for non-disjoint sets (always applicable)
+    return nothing 
 end
 
 """

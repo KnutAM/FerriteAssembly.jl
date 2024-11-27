@@ -14,6 +14,14 @@ and not the `SubDofHandler` that is local to a specific domain.
 get_dofhandler(db::DomainBuffers) = get_dofhandler(first(values(db)))
 
 """
+    get_grid(dbs::Dict{String,AbstractDomainBuffer})
+    get_grid(db::AbstractDomainBuffer)
+
+Get the underlying `grid::AbstractGrid` from the domain buffers
+"""
+get_grid(db) = Ferrite.get_grid(get_dofhandler(db))
+
+"""
     get_itembuffer(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
     get_itembuffer(db::AbstractDomainBuffer)
 
