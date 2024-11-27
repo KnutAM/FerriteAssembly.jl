@@ -49,7 +49,7 @@ end
     setup_domainbuffers(domains::Dict{String,DomainSpec}, suppress_warnings = false; kwargs...)
 
 Setup multiple domain buffers, one for each `DomainSpec` in `domains`.
-Set `suppress_warnings = true` to supress warnings checking for typical input errors when setting up multiple domains. 
+Set `suppress_warnings = true` to suppress warnings checking for typical input errors when setting up multiple domains. 
 See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
 """
 function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, suppress_warnings = false; kwargs...)
