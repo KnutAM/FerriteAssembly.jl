@@ -52,7 +52,9 @@ jobs:
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v4
         with:
-          files: lcov.info    
+          files: lcov.info
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   docs:
     name: Documentation
     runs-on: ubuntu-latest
@@ -62,13 +64,7 @@ jobs:
         - uses: julia-actions/setup-julia@v2
           with:
             version: '1'
-        - uses: actions/cache@v4
-          with:
-            path: |
-              ~/.julia/artifacts
-              ~/.julia/packages
-              ~/.julia/registries
-            key: .julia-docs-${{ hashFiles('docs/Project.toml', 'docs/Manifest.toml') }}
+        - uses: julia-actions/cache@v2
         - name: Install dependencies
           run: |
             julia --color=yes --project=docs -e '
