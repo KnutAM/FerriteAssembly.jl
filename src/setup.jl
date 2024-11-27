@@ -46,15 +46,15 @@ function DomainSpec(dh::DofHandler, args...; kwargs...)
 end
 
 """
-    setup_domainbuffers(domains::Dict{String,DomainSpec}, supress_warnings = false; kwargs...)
+    setup_domainbuffers(domains::Dict{String,DomainSpec}, suppress_warnings = false; kwargs...)
 
 Setup multiple domain buffers, one for each `DomainSpec` in `domains`.
-Set `supress_warnings = true` to supress warnings checking for typical input errors when setting up multiple domains. 
+Set `suppress_warnings = true` to supress warnings checking for typical input errors when setting up multiple domains. 
 See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
 """
-function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, supress_warnings = false; kwargs...)
+function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, suppress_warnings = false; kwargs...)
     dbs = Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
-    supress_warnings || check_input(dbs)
+    suppress_warnings || check_input(dbs)
     return dbs 
 end
 
