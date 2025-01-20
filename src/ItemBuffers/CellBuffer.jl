@@ -127,7 +127,7 @@ function reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; 
     cb.state = get_state(db, cellnum)
     celldofs!(cb.dofs, dh, cellnum)
     getcoordinates!(cb.coords, grid, cellnum)
-    reinit!(cb.cellvalues, cb.coords)
+    reinit!(cb.cellvalues, getcells(grid, cellnum), cb.coords)
     _copydofs!(cb.ae,     a, cb.dofs) # ae_new .= a_new[dofs]
     _copydofs!(cb.ae_old, aold, cb.dofs) # ae_old .= a_old[dofs]
     fill!(cb.Ke, 0)

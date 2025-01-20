@@ -51,7 +51,7 @@ pass these into the `create_cell_state` function that the user should specify.
 """
 function _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr)
     getcoordinates!(coords, _getgrid(sdh), cellnr)
-    reinit!(cellvalues, coords)
+    reinit!(cellvalues, getcells(_getgrid(sdh), cellnr), coords)
     celldofs!(dofs, sdh.dh, cellnr)
     _copydofs!(ae, a, dofs)
     return create_cell_state(material, cellvalues, coords, ae, dofrange)

@@ -106,7 +106,7 @@ function reinit_buffer!(fb::FacetBuffer, db::AbstractDomainBuffer, fi::FacetInde
     fb.cellid = cellnum
     celldofs!(fb.dofs, dh, cellnum)
     getcoordinates!(fb.coords, dh.grid, cellnum)
-    reinit!(fb.facetvalues, fb.coords, facetnr)
+    reinit!(fb.facetvalues, getcells(dh.grid, cellnum), fb.coords, facetnr)
     _copydofs!(fb.ae,     a,    celldofs(fb)) # ae_new .= a_new[dofs]
     _copydofs!(fb.ae_old, aold, celldofs(fb)) # ae_old .= a_old[dofs]
     fill!(fb.Ke, 0)
