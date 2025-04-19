@@ -115,5 +115,5 @@ function reinit_buffer!(fb::FacetBuffer, db::AbstractDomainBuffer, fi::FacetInde
 end
 
 function _replace_material_with(fb::FacetBuffer, new_material)
-    return _replace_field(fb, Val(:material), new_material)
+    return setproperties(fb; material = new_material)
 end
