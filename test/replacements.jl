@@ -1,4 +1,3 @@
-#=
 @testset "replace_material" begin
     m_el = EE.LinearElastic(;E=1.0, ν=0.4)
     m_elx2 = EE.LinearElastic(;E=2.0, ν=0.4)
@@ -39,8 +38,8 @@
     @test FerriteAssembly.get_material(bs2, "a") === m_elx2
     @test FerriteAssembly.get_material(bs2, "b") === m_pl
 end
-=#
-#@testset "couple_buffers" begin
+
+@testset "couple_buffers" begin
     grid = generate_grid(Quadrilateral, (1,2))
     ip = Lagrange{RefQuadrilateral,1}()
     dh1 = close!(add!(DofHandler(grid), :u, ip))
@@ -86,9 +85,11 @@ end
 
     d1 = setup_domainbuffer(DomainSpec(dh1, MA(), cvu); a = a1)
     d2 = setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2)
-    d1 = FerriteAssembly.couple_buffers(d1; b = d2)
+    d1 = couple_buffers(d1; b = d2)
+    sim1 = Simulation(d1, a1, aold1)
+    sim2 = Simulation(d2, a2, aold2)
     K = allocate_matrix(dh1)
     r = zeros(ndofs(dh1))
     assembler = start_assemble(K, r)
-    work!(assembler, d1; a = a1, aold = aold1) # Test
-#end
+    work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
+end

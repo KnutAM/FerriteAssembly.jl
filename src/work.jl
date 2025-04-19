@@ -1,57 +1,64 @@
+function work!(worker, buffer; a = nothing, aold = nothing)
+    return work!(worker, Simulation(buffer, a, aold))
+end
+
 """
-    work!(worker, buffer; a=nothing, aold=nothing)
+    work!(worker, simulation, [coupled_simulations])
 
 Perform the work according to `worker` over the domain(s) specified by 
 `buffer`. Current, `a`, and old, `aold`, global degree of freedom vectors 
 are passed to get these values passed into the innermost user-defined functions.
 If not passed (or as `nothing`), `NaN` values are passed into the innermost functions. 
 """
-function work!(worker, buffers::Dict{String,<:DomainBuffer}; kwargs...)
-    for (name, buffer) in buffers
+function work!(worker, multisim::MultiDomainSim, coupled_simulations = CoupledSimulations())
+    for (name, sim) in multisim
         skip_this_domain(worker, name) && continue
-        work_domain_sequential!(worker, buffer; kwargs...)
+        coupled = get_domain(coupled_simulations, name)
+        work_domain_sequential!(worker, sim, coupled)
     end
 end
-function work!(worker, buffer::DomainBuffer; kwargs...)
-    work_domain_sequential!(worker, buffer; kwargs...)
+function work!(worker, sim::SingleDomainSim, coupled_simulations = CoupledSimulations())
+    work_domain_sequential!(worker, sim, coupled_simulations)
 end
-function work!(worker, buffers::Dict{String,<:ThreadedDomainBuffer}; kwargs...)
+function work!(worker, multisim::MultiDomainThreadedSim, coupled_simulations = CoupledSimulations())
     if can_thread(worker)
         workers = TaskLocals(worker)
-        for (name, buffer) in buffers
+        for (name, sim) in multisim
             skip_this_domain(worker, name) && continue
-            work_domain_threaded!(workers, buffer; kwargs...)
+            coupled = get_domain(coupled_simulations, name)
+            work_domain_threaded!(workers, sim, coupled)
         end
     else
-        for (name, buffer) in buffers
+        for (name, sim) in multisim
             skip_this_domain(worker, name) && continue
-            work_domain_sequential!(worker, buffer; kwargs...)
+            coupled = get_domain(coupled_simulations, name)
+            work_domain_sequential!(worker, sim, coupled)
         end
     end
 end
-function work!(worker, buffer::ThreadedDomainBuffer; kwargs...)
+function work!(worker, sim::SingleDomainThreadedSim, coupled_simulations = CoupledSimulations())
     if can_thread(worker)
         workers = TaskLocals(worker)
-        work_domain_threaded!(workers, buffer; kwargs...)
+        work_domain_threaded!(workers, sim, coupled_simulations)
     else
-        work_domain_sequential!(worker, buffer; kwargs...)
+        work_domain_sequential!(worker, sim, coupled_simulations)
     end
 end
 
-function work_domain_sequential!(worker, domainbuffer; kwargs...)
-    itembuffer = get_base(get_itembuffer(domainbuffer)) # get_base if threaded buffer
-    for itemnr in getset(domainbuffer)
-        reinit_buffer!(itembuffer, domainbuffer, itemnr; kwargs...)
+function work_domain_sequential!(worker, sim::Simulation{<:AbstractDomainBuffer}, coupled)
+    itembuffer = get_base(get_itembuffer(sim)) # get_base if threaded buffer
+    for itemnr in getset(sim)
+        reinit_buffer!(itembuffer, sim, coupled, itemnr)
         work_single!(worker, itembuffer)
     end
 end
 
-function work_domain_threaded!(workers, domainbuffer; kwargs...)
-    itembuffers = get_itembuffer(domainbuffer) #::TaskLocals
+function work_domain_threaded!(workers, sim::SingleDomainThreadedSim, coupled)
+    itembuffers = get_itembuffer(sim) #::TaskLocals
     scatter!(itembuffers)
     scatter!(workers)
-    num_tasks = get_num_tasks(domainbuffer) # Default to Threads.nthreads()
-    for chunk_vector in get_chunks(domainbuffer)
+    num_tasks = get_num_tasks(sim) # Default to Threads.nthreads()
+    for chunk_vector in get_chunks(sim)
         taskchunks = TaskChunks(chunk_vector)
         Base.Experimental.@sync begin 
             for taskid in 1:num_tasks
@@ -62,7 +69,7 @@ function work_domain_threaded!(workers, domainbuffer; kwargs...)
                         taskchunk = get_chunk(taskchunks) # Vector{Int}
                         isempty(taskchunk) && break
                         for itemnr in taskchunk
-                            reinit_buffer!(itembuffer, domainbuffer, itemnr; kwargs...)
+                            reinit_buffer!(itembuffer, sim, coupled, itemnr)
                             work_single!(worker, itembuffer)
                         end # itemnr
                     end #chunk

@@ -65,7 +65,6 @@ function couple_buffers(cb::CellBuffer; kwargs...)
     return setproperties(cb; coupled_buffers = NamedTuple{keys(kwargs)}(values(kwargs)))
 end
 
-struct_to_namedtuple(x::T) where T = NamedTuple{fieldnames(T)}(tuple((getproperty(x,k) for k in fieldnames(T))...));
 function setup_cellbuffer(::Val{true}, args...)
     return AutoDiffCellBuffer(setup_cellbuffer(Val(false), args...))
 end
@@ -117,47 +116,40 @@ used to reduce allocations. Returns `nothing` by default.
 allocate_cell_cache(::Any, ::Any) = nothing
 
 """
-    reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; a=nothing, aold=nothing)
+    reinit_buffer!(cb::CellBuffer, sim::Simulation, coupled, cellnum::Int)
 
 Reinitialize the `cb::CellBuffer` for cell number `cellnum`.
 The global degree of freedom vectors `a` (current) and `aold` are used
 to update the cell degree of freedom vectors in `c`.
-If the global vectors are instead `::Nothing`, the corresponding cell values are set to `NaN`
+If the global vectors are not included in `sim`, the corresponding local vectors are set to `NaN`
 The element stiffness, `cb.Ke`, and residual, `cb.re`, are also zeroed. 
 """
-function reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; a=nothing, aold=nothing, coupled = nothing)
-    dh = get_dofhandler(db)
+function reinit_buffer!(cb::CellBuffer, sim::Simulation, coupled, cellnum::Int)
+    dh = get_dofhandler(sim)
     grid = dh.grid
     cb.cellid = cellnum
-    cb.old_state = get_old_state(db, cellnum)
-    cb.state = get_state(db, cellnum)
+    cb.old_state = get_old_state(sim, cellnum)
+    cb.state = get_state(sim, cellnum)
     celldofs!(cb.dofs, dh, cellnum)
     getcoordinates!(cb.coords, grid, cellnum)
     reinit!(cb.cellvalues, getcells(grid, cellnum), cb.coords)
-    _copydofs!(cb.ae,     a, cb.dofs) # ae_new .= a_new[dofs]
-    _copydofs!(cb.ae_old, aold, cb.dofs) # ae_old .= a_old[dofs]
+    _copydofs!(cb.ae,     sim.a, cb.dofs) # ae_new .= a_new[dofs]
+    _copydofs!(cb.ae_old, sim.aold, cb.dofs) # ae_old .= a_old[dofs]
     fill!(cb.Ke, 0)
     fill!(cb.re, 0)
     reinit_coupled!(cb.coupled_buffers, coupled, cellnum)
     return nothing  # Ferrite's reinit! doesn't return 
 end
 
-reinit_coupled!(::Nothing, ::Nothing, ::Int) = nothing # No coupling 
+# No coupled buffer, no coupled simulation
+reinit_coupled!(::Nothing, coupled::CoupledSimulations{@NamedTuple{}}, cellnum::Int) = nothing
 
-function reinit_coupled!(coupled_buffers::NamedTuple, coupled::NamedTuple, cellnum::Int)
-    
-end
-
-# Error handling if user didn't couple
-function reinit_coupled!(::Nothing, ::NamedTuple, ::Int)
-    throw(ArgumentError(
-        """Coupled buffers provided to work!, but the buffers haven't been coupled. 
-        Couple first by using `couple_buffers`"""
-        ))
-end
-# Error handling if user didn't pass coupled buffers. 
-function reinit_coupled!(::NamedTuple, ::Nothing, ::Int)
-    throw(ArgumentError("Passing `coupled` to `work!` is required when the buffers have been coupled."))
+function reinit_coupled!(coupled_buffers::NamedTuple, coupled::CoupledSimulations, cellnum::Int)
+    if length(coupled_buffers) != length(coupled.sims)
+        throw(ArgumentError("When using coupled simulations, the coupled buffers must match the coupled simulations"))
+    end
+    tuple((reinit_buffer!(cb, coupled.sims[k], CoupledSimulations(), cellnum) for (k, cb) in pairs(coupled_buffers))...)
+    return nothing
 end
 
 function _replace_material_with(cb::CellBuffer, new_material)

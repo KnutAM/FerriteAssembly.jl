@@ -3,6 +3,7 @@ abstract type AbstractDomainBuffer end
 get_num_tasks(::AbstractDomainBuffer) = Threads.nthreads() # Default for now
 
 const DomainBuffers = Dict{String,<:AbstractDomainBuffer}
+
 # Accessor functions
 """
     get_dofhandler(dbs::Dict{String,AbstractDomainBuffer})

@@ -22,7 +22,7 @@
             @test FerriteAssembly.getset(domainbuffers, "left") === cellset
             cell_id = first(cellset)            
             cb1 = FerriteAssembly.get_itembuffer(db1)
-            FerriteAssembly.reinit_buffer!(cb1, db1, cell_id; a=zeros(ndofs(dh)), aold=aold)
+            FerriteAssembly.reinit_buffer!(cb1, Simulation(db1, zeros(ndofs(dh)), aold), CoupledSimulations(), cell_id)
             @test FerriteAssembly.get_user_data(cb1) === userdata 
             @test FerriteAssembly.get_user_cache(cb1) == [1.0]
             ae_old = FerriteAssembly.get_aeold(cb1)
@@ -54,7 +54,7 @@
         aold = ones(ndofs(dh))*aold_value
         facetbuffer = FerriteAssembly.get_itembuffer(buffer)
         facet_id = first(FerriteAssembly.getset(buffer))
-        FerriteAssembly.reinit_buffer!(facetbuffer, buffer, facet_id; a=zeros(ndofs(dh)), aold=aold)
+        FerriteAssembly.reinit_buffer!(facetbuffer, Simulation(buffer, zeros(ndofs(dh)), aold), CoupledSimulations(), facet_id)
         @test FerriteAssembly.get_user_data(facetbuffer) === userdata 
         @test FerriteAssembly.get_user_cache(facetbuffer) == [1.0]
         @test FerriteAssembly.get_user_cache(facetbuffer) !== FerriteAssembly.get_user_cache(FerriteAssembly.get_itembuffer(buffers["right"]))

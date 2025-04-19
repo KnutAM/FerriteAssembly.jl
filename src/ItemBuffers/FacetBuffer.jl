@@ -100,15 +100,15 @@ allocations. Returns `nothing` by default.
 """
 allocate_facet_cache(::Any, ::Any) = nothing
 
-function reinit_buffer!(fb::FacetBuffer, db::AbstractDomainBuffer, fi::FacetIndex; a=nothing, aold=nothing)
+function reinit_buffer!(fb::FacetBuffer, sim::Simulation, #=coupled=#_, fi::FacetIndex)
     cellnum, facetnr = fi
-    dh = get_dofhandler(db)
+    dh = get_dofhandler(sim)
     fb.cellid = cellnum
     celldofs!(fb.dofs, dh, cellnum)
     getcoordinates!(fb.coords, dh.grid, cellnum)
     reinit!(fb.facetvalues, getcells(dh.grid, cellnum), fb.coords, facetnr)
-    _copydofs!(fb.ae,     a,    celldofs(fb)) # ae_new .= a_new[dofs]
-    _copydofs!(fb.ae_old, aold, celldofs(fb)) # ae_old .= a_old[dofs]
+    _copydofs!(fb.ae,     sim.a,    celldofs(fb)) # ae_new .= a_new[dofs]
+    _copydofs!(fb.ae_old, sim.aold, celldofs(fb)) # ae_old .= a_old[dofs]
     fill!(fb.Ke, 0)
     fill!(fb.re, 0)
     return nothing  # Ferrite's reinit! doesn't return 
