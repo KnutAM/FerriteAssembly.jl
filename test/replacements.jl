@@ -40,11 +40,13 @@
 end
 
 @testset "couple_buffers" begin
-    grid = generate_grid(Quadrilateral, (1,2))
+    grid = generate_grid(Quadrilateral, (2,2))
+    addcellset!(grid, "left", x -> x[1] < eps())
+    addcellset!(grid, "right", setdiff(1:getncells(grid), getcellset(grid, "left")))
     ip = Lagrange{RefQuadrilateral,1}()
     dh1 = close!(add!(DofHandler(grid), :u, ip))
     dh2 = close!(add!(DofHandler(grid), :v, ip^2))
-    qr = QuadratureRule{RefQuadrilateral}(1)
+    qr = QuadratureRule{RefQuadrilateral}(2)
     cvu = CellValues(qr, ip, ip)
     cvv = CellValues(qr, ip^2, ip)
 
@@ -72,7 +74,6 @@ end
         @test 6 * state ≈ FerriteAssembly.get_state(cb_b)
     end
     
-    # Simple domains, not threaded
     a1 = rand(ndofs(dh1))
     a2 = zeros(ndofs(dh2))
     @assert length(a1) * 2 == length(a2)
@@ -83,13 +84,23 @@ end
     aold2[1:2:end] = aold1;
     aold2[2:2:end] = aold1;
 
-    d1 = setup_domainbuffer(DomainSpec(dh1, MA(), cvu); a = a1)
-    d2 = setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2)
-    d1 = couple_buffers(d1; b = d2)
-    sim1 = Simulation(d1, a1, aold1)
-    sim2 = Simulation(d2, a2, aold2)
-    K = allocate_matrix(dh1)
-    r = zeros(ndofs(dh1))
-    assembler = start_assemble(K, r)
-    work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
+    for threading in (false, true)
+        for singledomain in (true, false)
+            if singledomain    
+                d1 = setup_domainbuffer(DomainSpec(dh1, MA(), cvu); a = a1, threading)
+                d2 = setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2, threading)
+            else
+                sets = Dict(k => getcellset(grid, k) for k in ("left", "right"))
+                d1 = setup_domainbuffers(Dict(k => DomainSpec(dh1, MA(), cvu; set) for (k, set) in sets); a = a1, threading)
+                d2 = setup_domainbuffers(Dict(k => DomainSpec(dh2, MB(), cvv; set) for (k, set) in sets); a = a2, threading)
+            end
+            d1 = couple_buffers(d1; b = d2)
+            sim1 = Simulation(d1, a1, aold1)
+            sim2 = Simulation(d2, a2, aold2)
+            K = allocate_matrix(dh1)
+            r = zeros(ndofs(dh1))
+            assembler = start_assemble(K, r)
+            work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
+        end
+    end
 end

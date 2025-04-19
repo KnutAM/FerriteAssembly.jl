@@ -109,7 +109,7 @@ to get the itembuffer inside the element routines from the current itembuffer, a
     match.
 """
 function couple_buffers(dbs::DomainBuffers; kwargs...)
-    return Dict(key => couple_buffers(db; (k => v[key] for (k, v) in kwargs)...))
+    return Dict(key => couple_buffers(db; (k => v[key] for (k, v) in kwargs)...) for (key, db) in dbs)
 end
 
 """
