@@ -10,7 +10,7 @@ ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
 
 [compat]
-ConstructionBase = "1.5.8"
+ConstructionBase = "1.5"
 Ferrite = "1"
 ForwardDiff = "0.10, 1"
 MaterialModelsBase = "0.2"
