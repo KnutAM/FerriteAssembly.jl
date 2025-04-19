@@ -148,5 +148,5 @@ function reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; 
 end
 
 function _replace_material_with(cb::CellBuffer, new_material)
-    return _replace_field(cb, Val(:material), new_material)
+    return setproperties(cb; material = new_material)
 end

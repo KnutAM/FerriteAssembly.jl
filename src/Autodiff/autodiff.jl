@@ -55,9 +55,9 @@ reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.c
 set_time_increment!(c::AutoDiffCellBuffer, Δt) = set_time_increment!(c.cb, Δt)
 
 function _replace_material_with(ad_cb::AutoDiffCellBuffer{CB}, new_material) where CB
-    cb = _replace_field(ad_cb.cb, Val(:material), new_material)
+    cb = setproperties(ad_cb.cb; material = new_material)
     if isa(cb, CB) # If type didn't change, no need to recalculate autodiff buffers
-        return _replace_field(ad_cb, Val(:cb), cb)
+        return setproperties(ad_cb; cb)
     else
         return AutoDiffCellBuffer(cb)
     end

@@ -83,7 +83,7 @@ jobs:
                 PackageSpec(;url="https://github.com/KnutAM/IGA.jl", rev="kam/reinit_with_cell"),
                 PackageSpec(path=pwd())
                 ]
-            Pkg.develop(packages)
+            Pkg.add(packages)
             Pkg.instantiate()'
           shell: bash
         - name: Build and deploy
