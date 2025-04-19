@@ -13,6 +13,7 @@ include("states.jl")
 include("ItemBuffers/AbstractItemBuffer.jl")
 
 include("DomainBuffers.jl")
+include("Simulation.jl")
 include("setup.jl")
 
 include("ItemBuffers/CellBuffer.jl")
@@ -28,6 +29,7 @@ include("LoadHandler/LoadHandler.jl")
 
 # Setup 
 export DomainSpec, setup_domainbuffer, setup_domainbuffers
+export Simulation, CoupledSimulations, couple_buffers
 # Main functions to use during simulations
 export work!, update_states!, set_time_increment!
 # Workers
