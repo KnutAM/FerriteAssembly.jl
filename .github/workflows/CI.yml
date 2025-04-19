@@ -46,6 +46,8 @@ jobs:
           files: lcov.info
           plugins: noop
           disable_search: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   docs:
     name: Documentation
     runs-on: ubuntu-latest
