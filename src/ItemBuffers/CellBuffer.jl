@@ -61,14 +61,8 @@ function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange,
     return CellBuffer(numdofs, coords, cv, material, cell_state, dofrange, user_data)
 end
 
-function couple_cellbuffers(;kwargs...)
-    return map((k, cb) -> couple_cellbuffers(cb; kwargs...), pairs(kwargs))
-end
-function couple_cellbuffers(cb::CB; kwargs...) where {CB <: CellBuffer}
-    # TODO: Improve type-stability (perhaps not critical?)
-    # Possible to pass the key as a Val type if required...
-    coupled_buffers = NamedTuple(k => v for (k, v) in kwargs if v !== cb)
-    return  _replace_field(cb, Val(:coupled_buffers), coupled_buffers)
+function couple_buffers(cb::CellBuffer; kwargs...)
+    return setproperties(cb; coupled_buffers = NamedTuple{keys(kwargs)}(values(kwargs)))
 end
 
 struct_to_namedtuple(x::T) where T = NamedTuple{fieldnames(T)}(tuple((getproperty(x,k) for k in fieldnames(T))...));

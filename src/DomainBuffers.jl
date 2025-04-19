@@ -97,6 +97,21 @@ function replace_material(dbs::DomainBuffers, replacement_function)
 end
 
 """
+    couple_buffers(dbs::Dict{String, <:AbstractDomainBuffer}; kwargs::Dict{String, <:AbstractDomainBuffer}...)
+    couple_buffers(db::AbstractDomainBuffer; kwargs::AbstractDomainBuffer...)
+
+Couple the buffer(s) with one or more other buffers provided as keyword arguments. The key can then be used 
+to get the itembuffer inside the element routines from the current itembuffer, allowing it to be updated.
+
+!!! note 
+    This functionality assumes that each setup has the same grid, and in case of multiple domains, these should also 
+    match.
+"""
+function couple_buffers(dbs::DomainBuffers; kwargs...)
+    return Dict(key => couple_buffers(db; (k => v[key] for (k, v) in kwargs)...))
+end
+
+"""
     getset(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
     getset(db::AbstractDomainBuffer)
 
@@ -157,8 +172,20 @@ end
 function replace_material(db::ThreadedDomainBuffer, replacement_function)
     base_ibuf = _replace_material(get_base(db.itembuffer), replacement_function)
     task_ibuf = map(ibuf->_replace_material(ibuf, replacement_function), get_locals(db.itembuffer))
-    itembuffer = TaskLocals(base_ibuf, task_ibuf)
+    return setproperties(db; itembuffer = TaskLocals(base_ibuf, task_ibuf))
+end
+
+function couple_buffers(db::DomainBuffer; kwargs::DomainBuffer...)
+    itembuffer = couple_buffers(db.itembuffer; (k => v.itembuffer for (k, v) in kwargs)...)
     return setproperties(db; itembuffer)
+end
+
+function couple_buffers(db::ThreadedDomainBuffer; kwargs::ThreadedDomainBuffer...)
+    base_ibuf = couple_buffers(get_base(db.itembuffer); (k => get_base(v.itembuffer) for (k, v) in kwargs)...)
+    task_ibuf = map(enumerate(get_locals(db.itembuffer))) do (i, ibuf)
+        couple_buffers(ibuf; (k => get_local(v.itembuffer, i) for (k, v) in kwargs)...)
+    end
+    return setproperties(db; itembuffer = TaskLocals(base_ibuf, task_ibuf))
 end
 
 # Experimental: Insert new states, allows reusing the buffer for multiple simulations with same 
