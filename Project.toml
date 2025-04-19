@@ -14,7 +14,7 @@ ConstructionBase = "1.5"
 Ferrite = "1"
 ForwardDiff = "0.10, 1"
 MaterialModelsBase = "0.2"
-julia = "1.10"
+julia = "1.11"
 
 [extras]
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -23,3 +23,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "Logging", "SparseArrays"]
+
+[sources]
+MaterialModelsBase = {url = "https://github.com/KnutAM/MaterialModelsBase.jl.git"}

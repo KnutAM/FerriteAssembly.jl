@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ['1.10', '1', 'nightly']
+        version: ['1.11', '1']
         os: ['ubuntu-latest']
         include:
           - os: windows-latest
@@ -38,16 +38,7 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
-      #- uses: julia-actions/julia-buildpkg@v1
-      - run: |
-          julia --color=yes --project=. -e '
-            using Pkg
-            packages = [
-                PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
-                ]
-            Pkg.add(packages)
-            Pkg.instantiate()'
-        shell: bash
+      - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v5
@@ -75,15 +66,6 @@ jobs:
           run: |
             julia --color=yes --project=docs -e '
             using Pkg
-            packages = [
-                PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
-                PackageSpec(;url="https://github.com/KnutAM/Newton.jl.git"),
-                PackageSpec(;url="https://github.com/KnutAM/MechanicalMaterialModels.jl.git"),
-                # PackageSpec(;url="https://github.com/lijas/IGA.jl.git"),
-                PackageSpec(;url="https://github.com/KnutAM/IGA.jl", rev="kam/reinit_with_cell"),
-                PackageSpec(path=pwd())
-                ]
-            Pkg.add(packages)
             Pkg.instantiate()'
           shell: bash
         - name: Build and deploy
