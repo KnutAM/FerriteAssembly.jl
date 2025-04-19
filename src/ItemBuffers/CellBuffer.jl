@@ -9,7 +9,7 @@ Each worker that supports a cellbuffer should overload this function.
 """
 function work_single_cell! end
 
-mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC} <: AbstractCellBuffer
+mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,CB} <: AbstractCellBuffer
     const ae_old::Vector{T}           # Old element dof values
     const ae::Vector{T}               # Current element dof values
     const re::Vector{T}               # Residual/force vector 
@@ -26,6 +26,7 @@ mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC} <: AbstractCellBuffer
     old_state::ST                     # Old state variables for the cell (updated in reinit!)
     const user_data::UD               # User data for the cell (used for additional information)
     const user_cache::UC              # Cache for the cell (user type) (deepcopy for each thread)
+    const coupled_buffers::CB         # nothing or NamedTuple with staggered coupled `CellBuffer`s. 
 end
 
 """
@@ -50,7 +51,7 @@ function CellBuffer(numdofs::Int, coords, cellvalues, material, state, dofrange,
     return CellBuffer(
         zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
         zeros(Int, numdofs), coords, 
-        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache)
+        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache, nothing)
 end
 
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
@@ -60,6 +61,17 @@ function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange,
     return CellBuffer(numdofs, coords, cv, material, cell_state, dofrange, user_data)
 end
 
+function couple_cellbuffers(;kwargs...)
+    return map((k, cb) -> couple_cellbuffers(cb; kwargs...), pairs(kwargs))
+end
+function couple_cellbuffers(cb::CB; kwargs...) where {CB <: CellBuffer}
+    # TODO: Improve type-stability (perhaps not critical?)
+    # Possible to pass the key as a Val type if required...
+    coupled_buffers = NamedTuple(k => v for (k, v) in kwargs if v !== cb)
+    return  _replace_field(cb, Val(:coupled_buffers), coupled_buffers)
+end
+
+struct_to_namedtuple(x::T) where T = NamedTuple{fieldnames(T)}(tuple((getproperty(x,k) for k in fieldnames(T))...));
 function setup_cellbuffer(::Val{true}, args...)
     return AutoDiffCellBuffer(setup_cellbuffer(Val(false), args...))
 end
@@ -68,7 +80,7 @@ end
 # TaskLocals interface (only `create_local` required for other `AbstractCellBuffer`s) (unless gather! is req.)
 function create_local(cb::CellBuffer)
     dcpy = map(deepcopy, (cb.ae_old, cb.ae, cb.re, cb.Ke, cb.dofs, cb.coords, cb.cellvalues, cb.Δt, cb.cellid, cb.dofrange, cb.material, cb.state, cb.old_state))
-    return CellBuffer(dcpy..., cb.user_data, deepcopy(cb.user_cache))
+    return CellBuffer(dcpy..., cb.user_data, deepcopy(cb.user_cache), create_local(cb.coupled_buffers))
 end
 
 set_time_increment!(cb::CellBuffer, Δt) = (cb.Δt=Δt)
