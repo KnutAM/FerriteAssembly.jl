@@ -175,12 +175,12 @@ function replace_material(db::ThreadedDomainBuffer, replacement_function)
     return setproperties(db; itembuffer = TaskLocals(base_ibuf, task_ibuf))
 end
 
-function couple_buffers(db::DomainBuffer; kwargs::DomainBuffer...)
+function couple_buffers(db::DomainBuffer; kwargs...)
     itembuffer = couple_buffers(db.itembuffer; (k => v.itembuffer for (k, v) in kwargs)...)
     return setproperties(db; itembuffer)
 end
 
-function couple_buffers(db::ThreadedDomainBuffer; kwargs::ThreadedDomainBuffer...)
+function couple_buffers(db::ThreadedDomainBuffer; kwargs...)
     base_ibuf = couple_buffers(get_base(db.itembuffer); (k => get_base(v.itembuffer) for (k, v) in kwargs)...)
     task_ibuf = map(enumerate(get_locals(db.itembuffer))) do (i, ibuf)
         couple_buffers(ibuf; (k => get_local(v.itembuffer, i) for (k, v) in kwargs)...)

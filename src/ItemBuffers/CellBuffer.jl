@@ -125,7 +125,7 @@ to update the cell degree of freedom vectors in `c`.
 If the global vectors are instead `::Nothing`, the corresponding cell values are set to `NaN`
 The element stiffness, `cb.Ke`, and residual, `cb.re`, are also zeroed. 
 """
-function reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; a=nothing, aold=nothing)
+function reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; a=nothing, aold=nothing, coupled = nothing)
     dh = get_dofhandler(db)
     grid = dh.grid
     cb.cellid = cellnum
@@ -138,7 +138,26 @@ function reinit_buffer!(cb::CellBuffer, db::AbstractDomainBuffer, cellnum::Int; 
     _copydofs!(cb.ae_old, aold, cb.dofs) # ae_old .= a_old[dofs]
     fill!(cb.Ke, 0)
     fill!(cb.re, 0)
+    reinit_coupled!(cb.coupled_buffers, coupled, cellnum)
     return nothing  # Ferrite's reinit! doesn't return 
+end
+
+reinit_coupled!(::Nothing, ::Nothing, ::Int) = nothing # No coupling 
+
+function reinit_coupled!(coupled_buffers::NamedTuple, coupled::NamedTuple, cellnum::Int)
+    
+end
+
+# Error handling if user didn't couple
+function reinit_coupled!(::Nothing, ::NamedTuple, ::Int)
+    throw(ArgumentError(
+        """Coupled buffers provided to work!, but the buffers haven't been coupled. 
+        Couple first by using `couple_buffers`"""
+        ))
+end
+# Error handling if user didn't pass coupled buffers. 
+function reinit_coupled!(::NamedTuple, ::Nothing, ::Int)
+    throw(ArgumentError("Passing `coupled` to `work!` is required when the buffers have been coupled."))
 end
 
 function _replace_material_with(cb::CellBuffer, new_material)

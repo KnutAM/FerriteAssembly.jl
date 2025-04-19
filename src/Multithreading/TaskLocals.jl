@@ -63,6 +63,7 @@ Create a task local variable, `local::TL`. In many cases, `TL=TB`.
 tasks, if more locals are needed)
 """
 function create_local end
+create_local(::Nothing) = nothing
 
 """
     scatter!(local, base)

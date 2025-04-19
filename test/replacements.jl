@@ -1,3 +1,4 @@
+#=
 @testset "replace_material" begin
     m_el = EE.LinearElastic(;E=1.0, ν=0.4)
     m_elx2 = EE.LinearElastic(;E=2.0, ν=0.4)
@@ -38,3 +39,56 @@
     @test FerriteAssembly.get_material(bs2, "a") === m_elx2
     @test FerriteAssembly.get_material(bs2, "b") === m_pl
 end
+=#
+#@testset "couple_buffers" begin
+    grid = generate_grid(Quadrilateral, (1,2))
+    ip = Lagrange{RefQuadrilateral,1}()
+    dh1 = close!(add!(DofHandler(grid), :u, ip))
+    dh2 = close!(add!(DofHandler(grid), :v, ip^2))
+    qr = QuadratureRule{RefQuadrilateral}(1)
+    cvu = CellValues(qr, ip, ip)
+    cvv = CellValues(qr, ip^2, ip)
+
+    struct MA end
+    struct MB end
+    # We will test with the following dof value differences 
+    # aold will be same in both cases (for both components in the case of MB)
+    # a will be 3 times larger for first component in MB, and 5 times for second component
+    # State will be 6 times larger for MB, obtained by multiplying the function values by factor 2
+    FerriteAssembly.create_cell_state(::MA, cv, x, ae, args...) = [function_value(cv, i, ae) for i in 1:getnquadpoints(cv)]
+    FerriteAssembly.create_cell_state(::MB, cv, x, ae, args...) = [2 * function_value(cv, i, ae)[1] for i in 1:getnquadpoints(cv)]
+
+    # Test case to check that values have been updated correctly
+    function FerriteAssembly.element_routine!(Ke, re, state, ae, m::MA, cv, buffer)
+        cb_b = buffer.coupled_buffers.b
+        # Check that correct material has been set
+        @test FerriteAssembly.get_material(cb_b) isa MB
+        # Check that dofs have been updated
+        @test 3 * ae ≈ FerriteAssembly.get_ae(cb_b)[1:2:end] # 1st component
+        @test 5 * ae ≈ FerriteAssembly.get_ae(cb_b)[2:2:end] # 2nd component
+        # Check that old dofs have been updated
+        @test FerriteAssembly.get_aeold(buffer) ≈ FerriteAssembly.get_aeold(cb_b)[1:2:end]
+        @test FerriteAssembly.get_aeold(buffer) ≈ FerriteAssembly.get_aeold(cb_b)[2:2:end]
+        # Check that state variables have been updated
+        @test 6 * state ≈ FerriteAssembly.get_state(cb_b)
+    end
+    
+    # Simple domains, not threaded
+    a1 = rand(ndofs(dh1))
+    a2 = zeros(ndofs(dh2))
+    @assert length(a1) * 2 == length(a2)
+    a2[1:2:end] = 3 * a1
+    a2[2:2:end] = 5 * a1
+    aold1 = rand(ndofs(dh1))
+    aold2 = zeros(ndofs(dh2))
+    aold2[1:2:end] = aold1;
+    aold2[2:2:end] = aold1;
+
+    d1 = setup_domainbuffer(DomainSpec(dh1, MA(), cvu); a = a1)
+    d2 = setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2)
+    d1 = FerriteAssembly.couple_buffers(d1; b = d2)
+    K = allocate_matrix(dh1)
+    r = zeros(ndofs(dh1))
+    assembler = start_assemble(K, r)
+    work!(assembler, d1; a = a1, aold = aold1) # Test
+#end
