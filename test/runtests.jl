@@ -1,4 +1,5 @@
 using Ferrite, FerriteAssembly
+using ForwardDiff
 using SparseArrays
 using Test
 import FerriteAssembly as FA
@@ -15,6 +16,7 @@ include("setup.jl")
 include("assemblers.jl")
 include("facet_assembly.jl")
 include("integration.jl")
+include("quadpoint_evaluation.jl")
 include("load_handler.jl")
 include("scaling.jl")
 include("errors.jl")
@@ -42,9 +44,23 @@ include("errors.jl")
         @test FerriteAssembly.get_dofhandler(buffer_threaded) === dh
         @test FerriteAssembly.get_dofhandler(buffers) === dh
 
-        @test FerriteAssembly.get_state(buffer, 1) === nothing
-        @test FerriteAssembly.get_old_state(buffer, 1) === nothing
-        
+        @test isa(FerriteAssembly.get_state(buffer, 1), Vector{Nothing})
+        @test isa(FerriteAssembly.get_old_state(buffer, 1), Vector{Nothing})
+        @test length(FerriteAssembly.get_state(buffer, 1)) == getnquadpoints(cv)
+        @test length(FerriteAssembly.get_old_state(buffer, 1)) == getnquadpoints(cv)
+
+    end
+
+    @testset "utility functions" begin
+        x = rand()
+        xd = ForwardDiff.Dual(x, rand(3)...)
+        @test x === FerriteAssembly.remove_dual(x)
+        @test x === FerriteAssembly.remove_dual(xd)
+
+        t = rand(Tensor{2,3})
+        td = Tensor{2,3}((i, j) -> ForwardDiff.Dual(t[i, j], rand(), rand()))
+        @test t === FerriteAssembly.remove_dual(t)
+        @test t === FerriteAssembly.remove_dual(td)
     end
 end
 

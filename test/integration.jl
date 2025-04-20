@@ -16,7 +16,7 @@ import .TestIntegrators: MySimpleIntegrand
 
 @testset "Integration" begin
     function solve_problem(dh, ch, buffer; Δt=NaN)
-        K = create_sparsity_pattern(dh)
+        K = allocate_matrix(dh)
         r = zeros(ndofs(dh))
         a = zeros(ndofs(dh))
         aold = zeros(ndofs(dh))

@@ -43,7 +43,7 @@ struct BodyLoadMaterial{FUN}
     dr::UnitRange{Int}
 end
 
-function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv::CellValues, cellbuffer)
+function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv::AbstractCellValues, cellbuffer)
     checkbounds(fe, m.dr)
     t = get_time_increment(cellbuffer) # Abuse...
     for q_point in 1:getnquadpoints(cv)
@@ -61,7 +61,7 @@ function add_bodyload!(bodyloads::Dict{String,BT}, bodyload::BodyLoad, sdh::SubD
     material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, bodyload.fieldname)
-    ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
+    ip_geo = geometric_interpolation(getcelltype(sdh))
     cv = autogenerate_cellvalues(bodyload.cv_info, ip, ip_geo)
 
     set = bodyload.cellset===nothing ? _getcellset(sdh) : bodyload.cellset

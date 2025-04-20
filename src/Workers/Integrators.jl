@@ -140,7 +140,7 @@ end
 zero_val!(integrator::SimpleIntegrator{<:Function,<:Tuple}) = (integrator.val = map(zero, integrator.val))
 zero_val!(integrator::SimpleIntegrator) = (integrator.val = zero(integrator.val))
 
-function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv::CellValues, cellbuffer)
+function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv::AbstractCellValues, cellbuffer)
     length(Ferrite.getfieldnames(cellbuffer)) == 1 || throw(DimensionMismatch("Only one field supported for `CellValues`"))
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
@@ -164,7 +164,7 @@ function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv
     end
 end
 
-function integrate_facet!(integrator::SimpleIntegrator, ae, ::Any, fv::FacetValues, facetbuffer)
+function integrate_facet!(integrator::SimpleIntegrator, ae, ::Any, fv::AbstractFacetValues, facetbuffer)
     length(Ferrite.getfieldnames(facetbuffer)) == 1 || throw(DimensionMismatch("Only one field supported for single `FacetValues`"))
     for q_point in 1:getnquadpoints(fv)
         dΩ = getdetJdV(fv, q_point)

@@ -13,7 +13,7 @@ grid = generate_grid(Quadrilateral, (20, 20))
 ip = Lagrange{RefQuadrilateral,1}()
 dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
 cellvalues = CellValues(QuadratureRule{RefQuadrilateral}(2), ip);
-K = create_sparsity_pattern(dh)
+K = allocate_matrix(dh)
 r = zeros(ndofs(dh));
 
 # ## Define the physics
@@ -73,7 +73,7 @@ apply_zero!(K, r, ch)
 
 # Finally, we can solve the problem and save the results 
 a = -K\r
-VTKFile("heat_equation", grid) do vtk
+VTKGridFile("heat_equation", grid) do vtk
     write_solution(vtk, dh, a)
 end;
 

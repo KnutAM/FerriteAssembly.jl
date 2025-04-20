@@ -27,21 +27,17 @@ jobs:
         arch:
           - x64
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v1
+      - uses: julia-actions/cache@v2
       # - uses: julia-actions/julia-buildpkg@v1   # Replaced by the following
       - run: |
           julia --color=yes --project=. -e '
             using Pkg
-            packages = [
-              PackageSpec(;url="https://github.com/Ferrite-FEM/Ferrite.jl.git", rev="master"),
-              PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
-              ]
-            Pkg.add(packages)
+            Pkg.add(PackageSpec(;url="https://github.com/Ferrite-FEM/Ferrite.jl.git", rev="master"))
             Pkg.instantiate()'
         shell: bash
       - uses: julia-actions/julia-runtest@v1

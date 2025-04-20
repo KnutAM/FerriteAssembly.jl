@@ -101,7 +101,7 @@ function solve(;ν, ipu, ipp)
     domainbuffer = setup_domainbuffer(DomainSpec(dh, mp, cv))
     
     ## Allocate and do the assembly
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     f = zeros(ndofs(dh))
     assembler = start_assemble(K, f)
     work!(assembler, domainbuffer) # Assemble the stiffness matrix
@@ -114,7 +114,7 @@ function solve(;ν, ipu, ipp)
     ## Export the results
     filename = "cook_" * (isa(ipu, Lagrange{2,RefTetrahedron,1}) ? "linear" : "quadratic") *
                          "_linear"
-    VTKFile(filename, dh) do vtk
+    VTKGridFile(filename, dh) do vtk
         write_solution(vtk, dh, u)
     end
     return u

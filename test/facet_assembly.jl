@@ -29,7 +29,7 @@
     @test sum(r) ≈ 2*sum(a)/(length(set)+1)
 
     # Full assembler 
-    function FerriteAssembly.facet_routine!(Ke, re, ae, ::FacetMaterial, fv::FacetValues, facetbuffer)
+    function FerriteAssembly.facet_routine!(Ke, re, ae, ::FacetMaterial, fv::AbstractFacetValues, facetbuffer)
         dofrange = dof_range(facetbuffer, :u)
         for q_point in 1:getnquadpoints(fv)
             dΓ = getdetJdV(fv, q_point)
@@ -48,11 +48,11 @@
     a2 = similar(a)
     r2 = similar(r)
     map!(x -> x≈0 ? zero(x) : rand(), a2, a)
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     assembler = start_assemble(K, r2)
     work!(assembler, buffer; a=a2)
     @test K*(a2-a) ≈ (r2-r)
-    K3 = create_sparsity_pattern(dh)
+    K3 = allocate_matrix(dh)
     r3 = similar(r)
     kra = KeReAssembler(K3, r3)
     work!(kra, buffer; a=a2)

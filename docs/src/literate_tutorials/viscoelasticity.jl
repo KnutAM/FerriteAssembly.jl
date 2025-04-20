@@ -11,7 +11,7 @@
 # ```math
 # \begin{aligned}
 # \boldsymbol{\sigma} &= \boldsymbol{\sigma}^\mathrm{vol} + \boldsymbol{\sigma}^\mathrm{dev} \\
-# \boldsymbol{\sigma}^\mathrm{vol} &= K\boldsymbol{\epsilon}^\mathrm{vol}\\
+# \boldsymbol{\sigma}^\mathrm{vol} &= 3K\boldsymbol{\epsilon}^\mathrm{vol}\\
 # \boldsymbol{\sigma}^\mathrm{dev} &= 2G_1 \boldsymbol{\epsilon}^\mathrm{dev} + 2G_2 \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{e} \\
 # 2G_2 \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{e} &= \eta \dot{\boldsymbol{\epsilon}}_\mathrm{v}^\mathrm{dev} \\
 # \boldsymbol{\epsilon}^\mathrm{dev} &= \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{e} + \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v}
@@ -25,7 +25,7 @@
 # \begin{aligned}
 # \boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v} &= 
 # \frac{2\Delta t*G_2*\boldsymbol{\epsilon}^\mathrm{dev} + \eta {}^\mathrm{n}\boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v}}{\eta + 2\Delta t G_2} \\
-# \boldsymbol{\sigma} &= K \boldsymbol{\epsilon}^\mathrm{vol} + 2G_1 \boldsymbol{\epsilon}^\mathrm{dev} + 2G_2 [\boldsymbol{\epsilon}^\mathrm{dev}-\boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v}]
+# \boldsymbol{\sigma} &= 3 K \boldsymbol{\epsilon}^\mathrm{vol} + 2G_1 \boldsymbol{\epsilon}^\mathrm{dev} + 2G_2 [\boldsymbol{\epsilon}^\mathrm{dev}-\boldsymbol{\epsilon}^\mathrm{dev}_\mathrm{v}]
 # \end{aligned}
 # ```
 # 
@@ -44,7 +44,7 @@ import CairoMakie as CM
 # finite element code. To start the material modeling, we define a material struct with all 
 # parameters. 
 Base.@kwdef struct ZenerMaterial{T}
-    K::T =5.0   # Bulk modulus 
+    K::T =5.0/3 # Bulk modulus 
     G1::T=1.0   # Shear modulus, parallel
     G2::T=50.   # Shear modulus, series 
     η::T =5.0   # Damping modulus 
@@ -53,14 +53,14 @@ end;
 # We then define how to the initial state variables should look like, which also defines the structure 
 # of the state variables. In this case, we will just have states being a single tensor (viscous strain)
 # for each integration point
-function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::CellValues, args...)
+function FerriteAssembly.create_cell_state(::ZenerMaterial, cv::AbstractCellValues, args...)
     ϵ_template = shape_symmetric_gradient(cv, 1, 1) # ::SymmetricTensor
     return [zero(ϵ_template) for _ in 1:getnquadpoints(cv)]
 end;
 
 # Following this, we define the `element_residual!` function (we will use automatic differentiation 
 # to calculate the element stiffness).
-function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::CellValues, buffer)
+function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::AbstractCellValues, buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     old_ϵvs = FerriteAssembly.get_old_state(buffer)
     for q_point in 1:getnquadpoints(cv)
@@ -68,16 +68,17 @@ function FerriteAssembly.element_residual!(re, state, ae, m::ZenerMaterial, cv::
         dΩ = getdetJdV(cv, q_point)
         ϵ = function_symmetric_gradient(cv, q_point, ae)
         ϵdev = dev(ϵ)
-        ϵv = (Δt*2*m.G2*ϵdev + m.η*old_ϵv)/(m.η + Δt*2*m.G2)
-        σ = (m.G1+m.G2)*2*ϵdev - 2*m.G2*ϵv + m.K*vol(ϵ)
+        ϵv = (Δt * 2 * m.G2 * ϵdev + m.η * old_ϵv)/(m.η + Δt * 2 * m.G2)
+        σ = (m.G1 + m.G2) * 2 * ϵdev - 2 * m.G2 * ϵv + 3 * m.K * vol(ϵ)
         for i in 1:getnbasefunctions(cv)
             δ∇N = shape_symmetric_gradient(cv, q_point, i)
-            re[i] += (δ∇N⊡σ)*dΩ
+            re[i] += (δ∇N ⊡ σ) * dΩ
         end
-        ## Note that to save the state by mutation, we need to extract the value from the dual 
-        ## number. Consequently, we do this before assigning to the state vector. Note that 
-        ## if the state was a scalar, we should use `ForwardDiff.value` instead. 
-        state[q_point] = Tensors._extract_value(ϵv)
+        ## We only want to save the value-part of the states, and FerriteAssembly comes with 
+        ## the utility `FerriteAssembly.remove_dual` to do so for scalars and Tensors. 
+        ## Note that using `state[q_point]` instead of ϵv for any calculations 
+        ## affecting re, will result in wrong derivatives.
+        state[q_point] = FerriteAssembly.remove_dual(ϵv)
     end
 end;
 
@@ -85,8 +86,8 @@ end;
 # To setup our problem, we use a simple grid and define all interpolations, quadrature rules, 
 # etc. as normally for `Ferrite` simulations. We also define the `Zener` material and create the 
 # domain buffer. 
-grid = generate_grid(Quadrilateral, (2,2))
-ip = Ferrite.default_interpolation(Quadrilateral)
+grid = generate_grid(Quadrilateral, (20, 20))
+ip = geometric_interpolation(Quadrilateral)
 dh = DofHandler(grid)
 add!(dh, :u, ip^2)
 close!(dh)
@@ -94,19 +95,18 @@ qr = QuadratureRule{RefQuadrilateral}(2)
 cv = CellValues(qr, ip^2, ip)
 m = ZenerMaterial()
 domain = DomainSpec(dh, m, cv)
-buffer = setup_domainbuffer(domain);
+buffer = setup_domainbuffer(domain; autodiffbuffer=true);
 
-# Simple sliding boundary conditions are used to ensure a uniaxial response. 
+# Fix left side of beam, vertical load on right side.
 ch = ConstraintHandler(dh)
-add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(0.0), 1))
-add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(zero(Vec{2}))))
 close!(ch)
 update!(ch, 0.0);
 
 # We use `FerriteAssembly`'s `LoadHandler` to apply the Neumann boundary conditions,
 # which consist of a ramp followed by a hold. 
 lh = LoadHandler(dh)
-traction(t) = clamp(t, 0, 1)*Vec((1.0, 0.0))
+traction(t) = clamp(t, 0, 1)*Vec((0.0, 1.0))
 add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), (x, t, n) -> traction(t)));
 
 # ## Finite element solution 
@@ -117,7 +117,7 @@ add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), (x, t, n) -> traction(t)));
 function solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history)
     maxiter = 10
     tolerance = 1e-6
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
     f = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
@@ -163,6 +163,11 @@ time_history = collect(range(0,1,10)).^2
 append!(time_history, 1 .+ collect(range(0,1,10)[2:end]).^2)
 
 u1_max, t_force = solve_nonlinear_timehistory(buffer, dh, ch, lh; time_history=time_history[2:end]);
+
+# Test the results (hidden from docs)       #src
+using Test                                  #src
+@test sum(abs, u1_max) ≈ 25.076193714123683 #src
+nothing                                     #src
 
 # ## Plot the results 
 fig = CM.Figure()

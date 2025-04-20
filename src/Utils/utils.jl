@@ -1,3 +1,21 @@
+# Public functions for convenience 
+"""
+    remove_dual(x::T) where {T <: Number}
+    remove_dual(x::AbstractTensor{<:Any, <:Any, T}) where {T}
+
+Removes the dual part if `T <: ForwardDiff.Dual`, extract the value part.
+Typically used when assigning state variables during differentiation calls.
+"""
+function remove_dual end
+
+# Scalars
+remove_dual(x::ForwardDiff.Dual) = ForwardDiff.value(x)
+remove_dual(x::Number) = x
+
+# Tensors
+remove_dual(x::AbstractTensor{<:Any, <:Any, <:ForwardDiff.Dual}) = Tensors._extract_value(x)
+remove_dual(x::AbstractTensor) = x
+
 # Internal functions used for convenience
 
 """
@@ -48,13 +66,8 @@ end
 overlaps_with_cellset(::Nothing, cellset) = !isempty(cellset)
 
 """
-    _replace_field(container, field::Val{F}, val)
+    asset_url(name::AbstractString)
 
-Return a modified `container`, which has the same name of the type,
-but may have different parametric fields. The field with symbol `F`
-is replaced by `val`, while all other fields remain the same
+Get the location of the asset `name` for download when building the documentation.
 """
-function _replace_field(container::T, ::Val{FieldName}, val) where {T, FieldName}
-    W = Base.typename(T).wrapper
-    return W(map(name-> name===FieldName ? val : getproperty(container, name), fieldnames(T))...)
-end
+asset_url(name::AbstractString) = string("https://raw.githubusercontent.com/KnutAM/FerriteAssembly.jl/gh-pages/assets/", name)

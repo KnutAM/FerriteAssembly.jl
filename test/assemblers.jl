@@ -16,7 +16,7 @@
     a = rand(ndofs(dh))
     aold = zeros(ndofs(dh))
 
-    K0 = create_sparsity_pattern(dh); r0 = zeros(ndofs(dh))
+    K0 = allocate_matrix(dh); r0 = zeros(ndofs(dh))
     ferrite_assembler = start_assemble(K0, r0)
     work!(ferrite_assembler, buffer; a=a, aold=aold)
     

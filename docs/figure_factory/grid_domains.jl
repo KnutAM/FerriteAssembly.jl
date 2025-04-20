@@ -61,7 +61,7 @@ function save_as_vtk()
         end
     end
 
-    VTKFile(joinpath(@__DIR__, "..", "..", "DomainSpecs"), grid) do vtk
+    VTKGridFile(joinpath(@__DIR__, "..", "..", "DomainSpecs"), grid) do vtk
         write_cell_data(vtk, cell_type_data, "cell_type_data")
         write_cell_data(vtk, cell_physical_domains, "cell_physical_domains")
         write_cell_data(vtk, cell_work_domains, "cell_work_domains")

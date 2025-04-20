@@ -1,5 +1,6 @@
 module FerriteAssembly
 using Ferrite, ForwardDiff
+using ConstructionBase: setproperties
 
 include("Multithreading/TaskLocals.jl") # Task-local storage model 
 include("Multithreading/TaskChunks.jl") # Thread-safe iteration over chunks of cells
@@ -21,9 +22,9 @@ include("Autodiff/autodiff.jl")
 include("work.jl")
 include("Workers/Assemblers.jl")
 include("Workers/Integrators.jl")
+include("Workers/QuadPointEvaluator.jl")
 
 include("LoadHandler/LoadHandler.jl")
-
 
 # Setup 
 export DomainSpec, setup_domainbuffer, setup_domainbuffers
@@ -32,6 +33,7 @@ export work!, update_states!, set_time_increment!
 # Workers
 export ReAssembler, KeReAssembler   # Assemblers
 export Integrator, SimpleIntegrator # Integrators
+export QuadPointEvaluator          # QP evaluation
 # Builtin convenience 
 export LoadHandler, Neumann, BodyLoad, DofLoad
 export ElementResidualScaling, reset_scaling!

@@ -1,16 +1,15 @@
 function get_dh_cv(grid, ::Val{false})
-    ip = Ferrite.default_interpolation(getcelltype(grid,1))
+    ip = geometric_interpolation(getcelltype(grid,1))
     dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
     RefShape = Ferrite.getrefshape(ip)
     cv = CellValues(QuadratureRule{RefShape}(2), ip)
     return dh, cv
 end
 function get_dh_cv(grid, ::Val{true})
-    ip = Ferrite.default_interpolation(getcelltype(grid,1))
-    dim = Ferrite.getdim(ip)
-    dh = DofHandler(grid); add!(dh, :u, ip^dim); close!(dh)
+    ip = VectorizedInterpolation(geometric_interpolation(getcelltype(grid,1)))
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
     RefShape = Ferrite.getrefshape(ip)
-    cv = CellValues(QuadratureRule{RefShape}(2), ip^dim)
+    cv = CellValues(QuadratureRule{RefShape}(2), ip)
     return dh, cv
 end
 
@@ -18,7 +17,7 @@ function assemble_test(dh, cv, m, a, aold, Δt)
     buffer = setup_domainbuffer(DomainSpec(dh, m, cv); a=a)
     set_time_increment!(buffer, Δt)
     # Assemble both K and r
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
     assembler = start_assemble(K, r)
     work!(assembler, buffer; a=a, aold=aold)

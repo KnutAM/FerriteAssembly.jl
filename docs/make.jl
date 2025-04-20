@@ -7,13 +7,15 @@ using Documenter
 
 const is_ci = get(ENV, "CI", "false") == "true"
 
+include("download_assets.jl")
+
 include("generate.jl")
 tutorials = [
     "heat_equation.jl", 
     "viscoelasticity.jl", 
     "incompressible_elasticity.jl", 
     "mixed_materials.jl", 
-    #"iga.jl", # Doesn't currently support Ferrite master/v1.0
+    "iga.jl",
     ]
 generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [
@@ -32,8 +34,6 @@ makedocs(;
         assets=String[],
         collapselevel = 1,
     ),
-    warnonly = true,
-    doctest = false,
     pages=[
         "Home" => "index.md",
         "Learning by doing" => [
@@ -51,6 +51,7 @@ makedocs(;
                 "Workers" => "Workers/Workers.md",
                 "Assemblers" => "Workers/Assemblers.md",
                 "Integrators" => "Workers/Integrators.md",
+                "Quadrature point eval" => "Workers/QuadPointEvaluator.md",
             ],
             "Convenience" => [
                 "External loads" => "Convenience/LoadHandler.md",
@@ -61,7 +62,6 @@ makedocs(;
             "Internals" => "internals.md",
         ]
     ],
-    #strict=true,
 )
 
 # Remove output files from build directory

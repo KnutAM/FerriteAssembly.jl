@@ -40,7 +40,7 @@ struct NeumannMaterial{FUN}
     f::FUN
     dr::UnitRange{Int}
 end
-function facet_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::FacetValues, facetbuffer)
+function facet_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::AbstractFacetValues, facetbuffer)
     checkbounds(fe, m.dr)
     t = get_time_increment(facetbuffer) # Abuse...
     for q_point in 1:getnquadpoints(fv)
@@ -59,7 +59,7 @@ function add_neumann!(nbcs::Dict{String,BT}, nbc::Neumann, sdh::SubDofHandler) w
     material = NeumannMaterial(nbc.f, dof_range(sdh, nbc.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
-    ip_geo = Ferrite.default_interpolation(getcelltype(sdh))
+    ip_geo = geometric_interpolation(getcelltype(sdh))
     fv = autogenerate_facetvalues(nbc.fv_info, ip, ip_geo)
     
     domain_spec = DomainSpec(sdh, material, fv; set=nbc.facetset)

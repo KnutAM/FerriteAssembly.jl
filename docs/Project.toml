@@ -2,9 +2,22 @@
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 Ferrite = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
 FerriteAssembly = "fd21fc07-c509-4fe1-9468-19963fd5935d"
+FerriteMeshParser = "0f8c756f-80dd-4a75-85c6-b0a5ab9d4620"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+IGA = "e7b8d123-e02a-40ba-ad18-d3943ed54f1c"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
+MechanicalMaterialModels = "b3282f9b-607f-4337-ab95-e5488ab5652c"
+Newton = "83aa5b51-0588-403c-85e4-434ec185aae7"
 Tensors = "48a634ad-e948-5137-8d70-aa71f2a747f4"
+WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
+
+[sources]
+FerriteAssembly = {path = ".."}
+IGA = {rev = "kam/reinit_with_cell", url = "https://github.com/KnutAM/IGA.jl"}
+MaterialModelsBase = {url = "https://github.com/KnutAM/MaterialModelsBase.jl.git"}
+MechanicalMaterialModels = {url = "https://github.com/KnutAM/MechanicalMaterialModels.jl.git"}
+Newton = {url = "https://github.com/KnutAM/Newton.jl.git"}

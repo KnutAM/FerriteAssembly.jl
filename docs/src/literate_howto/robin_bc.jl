@@ -24,7 +24,7 @@ struct RobinBC{T}
 end
 
 function FerriteAssembly.facet_routine!(
-        Ke, re, ae, rbc::RobinBC, fv::FacetValues, facetbuffer
+        Ke, re, ae, rbc::RobinBC, fv::AbstractFacetValues, facetbuffer
         )
     for q_point in 1:getnquadpoints(fv)
         dΓ = getdetJdV(fv, q_point)
@@ -51,7 +51,7 @@ dh = DofHandler(grid)
 add!(dh, :u, ip)
 close!(dh)
 
-K = create_sparsity_pattern(dh)
+K = allocate_matrix(dh)
 r = zeros(ndofs(dh))
 a = zeros(ndofs(dh));
 
@@ -75,7 +75,7 @@ work!(assembler, domainbuffer; a=a);
 # ## Visualizing the BC
 # To visualize the output, we can export the vtk the residual, showing how 
 # contributions have been added to the boundary. 
-VTKFile("RobinBC", grid) do vtk
+VTKGridFile("RobinBC", grid) do vtk
     write_solution(vtk, dh, r)
 end;
 

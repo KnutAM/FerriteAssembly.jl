@@ -1,3 +1,30 @@
+# Minimal interface for a vector, storage format will probably be updated later. 
+mutable struct StateVector{SV}
+    vals::Dict{Int, SV}
+end
+Base.getindex(s::StateVector, cellnum::Int) = s.vals[cellnum]
+Base.setindex!(s::StateVector, v, cellnum::Int) = setindex!(s.vals, v, cellnum)
+Base.:(==)(a::StateVector, b::StateVector) = (a.vals == b.vals)
+
+struct StateVariables{SV}
+    old::StateVector{SV} # Rule: Referenced during assembly, not changed (ever)
+    new::StateVector{SV} # Rule: Updated during assembly, not referenced (before updated)
+end
+StateVariables(old::Dict, new::Dict) = StateVariables(StateVector(old), StateVector(new))
+
+function update_states!(sv::StateVariables)
+    tmp = sv.old.vals
+    sv.old.vals = sv.new.vals
+    sv.new.vals = tmp
+end
+
+# Experimental, basically copy!, but use separate name for clarity
+function replace_states!(dst::StateVariables, src::StateVariables)
+    dst.old.vals = src.old.vals 
+    dst.new.vals = src.new.vals
+    return dst
+end
+
 """
     create_cell_state(material, cellvalues, x, ae, dofrange)
 
@@ -10,7 +37,10 @@ Overload this function to create the state which should be passed into the
 As for the element routines, `ae`, is filled with `NaN` unless the global degree 
 of freedom vector is given to the [`setup_domainbuffer`](@ref) function.
 """
-create_cell_state(args...) = nothing
+create_cell_state(material, cv, args...) = [nothing for _ in 1:_getnquadpoints(cv)]
+
+_getnquadpoints(fe_v::Ferrite.AbstractValues) = getnquadpoints(fe_v)
+_getnquadpoints(nt::NamedTuple) = getnquadpoints(first(nt))
 
 """
     _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr)
@@ -21,7 +51,7 @@ pass these into the `create_cell_state` function that the user should specify.
 """
 function _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr)
     getcoordinates!(coords, _getgrid(sdh), cellnr)
-    reinit!(cellvalues, coords)
+    reinit!(cellvalues, getcells(_getgrid(sdh), cellnr), coords)
     celldofs!(dofs, sdh.dh, cellnr)
     _copydofs!(ae, a, dofs)
     return create_cell_state(material, cellvalues, coords, ae, dofrange)
@@ -40,25 +70,3 @@ function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dof
     dofs = zeros(Int, ndofs_per_cell(sdh))
     return Dict(cellnr => _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr) for cellnr in cellset)
 end
-
-"""
-    update_states!(old_states, states)
-
-In most cases, this 2-argument function is not required, and the 
-entire domain buffer can be passed instead, see
-[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)).
-This 2-argument function will then be called for the stored state variables. 
-""" 
-function update_states!(old_states::T, states::T) where T<:Dict{Int,<:Vector}
-    for (key, new_s) in states
-        update_states!(old_states[key], new_s)
-    end
-end
-function update_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing},Dict{Int,Vector{Nothing}}}
-    return nothing 
-end
-@inline function update_states!(old_states::T, states::T) where T<:Union{Vector{ET},Dict{Int,ET}} where ET
-    copy_states!(Val(isbitstype(ET)), old_states, states)
-end
-@inline copy_states!(::Val{true},  old_states, states) = copy!(old_states,states)
-@inline copy_states!(::Val{false}, old_states, states) = copy!(old_states,deepcopy(states))

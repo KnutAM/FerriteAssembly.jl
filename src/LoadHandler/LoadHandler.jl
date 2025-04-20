@@ -37,9 +37,9 @@ function LoadHandler(dh::Ferrite.AbstractDofHandler; threading=false)
     return LoadHandler(Dict{String,BT}(), Dict{String,BT}(), DofLoad[], dh)
 end
 
-Ferrite.add!(lh::LoadHandler, nbc::Neumann) = add_neumann!(lh.nbcs, nbc, lh.dh)
-Ferrite.add!(lh::LoadHandler, bl::BodyLoad) = add_bodyload!(lh.bodyloads, bl, lh.dh)
-Ferrite.add!(lh::LoadHandler, dl::DofLoad) = push!(lh.dof_loads, dl)
+Ferrite.add!(lh::LoadHandler, nbc::Neumann) = (add_neumann!(lh.nbcs, nbc, lh.dh); lh)
+Ferrite.add!(lh::LoadHandler, bl::BodyLoad) = (add_bodyload!(lh.bodyloads, bl, lh.dh); lh)
+Ferrite.add!(lh::LoadHandler, dl::DofLoad) = (push!(lh.dof_loads, dl); lh)
 
 # Application of boundary conditions
 function Ferrite.apply!(f::Vector, lh::LoadHandler, time)
