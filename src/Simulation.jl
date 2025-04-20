@@ -30,6 +30,8 @@ get_old_state(sim::Simulation, args::Vararg{Any,N}) where N = get_old_state(sim.
 
 get_domain(sim::Simulation{<:Dict}, name::String) = Simulation(sim.db[name], sim.a, sim.aold)
 
+update_states!(sim::Simulation) = update_states!(sim.db)
+
 struct CoupledSimulations{NT <: NamedTuple{<:Any, <:NTuple{<:Any, Simulation}}}
     sims::NT
 end

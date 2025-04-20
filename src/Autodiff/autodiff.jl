@@ -45,9 +45,9 @@ function AutoDiffCellBuffer(cb::CellBuffer)
 end
 
 for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_values, :get_time_increment, 
-        :get_aeold, :get_state, :get_old_state, :get_user_data, :get_user_cache)
+        :get_aeold, :get_state, :get_old_state, :get_user_data, :get_user_cache, :get_coupled_buffers)
     eval(quote
-        $op(cb::AutoDiffCellBuffer) = $op(cb.cb)
+        @inline $op(cb::AutoDiffCellBuffer) = $op(cb.cb)
     end)
 end
 reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.cb, args...; kwargs...)
@@ -61,6 +61,10 @@ function _replace_material_with(ad_cb::AutoDiffCellBuffer{CB}, new_material) whe
     else
         return AutoDiffCellBuffer(cb)
     end
+end
+
+function couple_buffers(cb::AutoDiffCellBuffer; kwargs...)
+    return AutoDiffCellBuffer(couple_buffers(cb.cb; kwargs...))
 end
 
 function create_local(c::AutoDiffCellBuffer)

@@ -46,7 +46,9 @@ Get the `user_cache` created by [`allocate_cell_cache`](@ref).
 For multithreaded applications, this cache is copied between 
 for each tasks, and can be modified without risking race conditions. 
 """
-function get_user_cache end 
+function get_user_cache end
+
+@inline get_coupled_buffer(b::AbstractItemBuffer, key::Symbol) = getfield(get_coupled_buffers(b), key)
 
 """
     Ferrite.celldofs(::AbstractItemBuffer)

@@ -61,7 +61,7 @@ end
 
     # Test case to check that values have been updated correctly
     function FerriteAssembly.element_routine!(Ke, re, state, ae, m::MA, cv, buffer)
-        cb_b = buffer.coupled_buffers.b
+        cb_b = FerriteAssembly.get_coupled_buffer(buffer, :b)
         # Check that correct material has been set
         @test FerriteAssembly.get_material(cb_b) isa MB
         # Check that dofs have been updated
@@ -85,22 +85,24 @@ end
     aold2[2:2:end] = aold1;
 
     for threading in (false, true)
-        for singledomain in (true, false)
-            if singledomain    
-                d1 = setup_domainbuffer(DomainSpec(dh1, MA(), cvu); a = a1, threading)
-                d2 = setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2, threading)
-            else
-                sets = Dict(k => getcellset(grid, k) for k in ("left", "right"))
-                d1 = setup_domainbuffers(Dict(k => DomainSpec(dh1, MA(), cvu; set) for (k, set) in sets); a = a1, threading)
-                d2 = setup_domainbuffers(Dict(k => DomainSpec(dh2, MB(), cvv; set) for (k, set) in sets); a = a2, threading)
+        for autodiffbuffer in (false, true)
+            for singledomain in (true, false)
+                if singledomain    
+                    d1 = setup_domainbuffer(DomainSpec(dh1, MA(), cvu); a = a1, threading, autodiffbuffer)
+                    d2 = setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2, threading, autodiffbuffer)
+                else
+                    sets = Dict(k => getcellset(grid, k) for k in ("left", "right"))
+                    d1 = setup_domainbuffers(Dict(k => DomainSpec(dh1, MA(), cvu; set) for (k, set) in sets); a = a1, threading, autodiffbuffer)
+                    d2 = setup_domainbuffers(Dict(k => DomainSpec(dh2, MB(), cvv; set) for (k, set) in sets); a = a2, threading, autodiffbuffer)
+                end
+                d1 = couple_buffers(d1; b = d2)
+                sim1 = Simulation(d1, a1, aold1)
+                sim2 = Simulation(d2, a2, aold2)
+                K = allocate_matrix(dh1)
+                r = zeros(ndofs(dh1))
+                assembler = start_assemble(K, r)
+                work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
             end
-            d1 = couple_buffers(d1; b = d2)
-            sim1 = Simulation(d1, a1, aold1)
-            sim2 = Simulation(d2, a2, aold2)
-            K = allocate_matrix(dh1)
-            r = zeros(ndofs(dh1))
-            assembler = start_assemble(K, r)
-            work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
         end
     end
 end

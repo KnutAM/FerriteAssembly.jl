@@ -2,7 +2,7 @@
 
 julia_version = "1.11.4"
 manifest_format = "2.0"
-project_hash = "3cccd2fa35dbbf97d5cd332812d31f9109f498c6"
+project_hash = "2e2a0c6d291829b97d8b20655d87ddf9bb983bba"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -52,6 +52,12 @@ deps = ["Colors"]
 git-tree-sha1 = "e092fa223bf66a3c41f9c022bd074d916dc303e7"
 uuid = "27a7e980-b3e6-11e9-2bcd-0b925532e340"
 version = "0.4.2"
+
+[[deps.AppleAccelerate]]
+deps = ["Libdl", "LinearAlgebra"]
+git-tree-sha1 = "00163fcafc58970fb18e68ef5def1fde0b7cb692"
+uuid = "13e28ba4-7ad8-5781-acae-3021b1ed3924"
+version = "0.4.0"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"

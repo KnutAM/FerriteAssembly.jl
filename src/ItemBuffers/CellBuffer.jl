@@ -106,6 +106,8 @@ Ferrite.getfieldnames(cb::CellBuffer) = keys(cb.dofrange)
 
 @inline get_user_cache(cb::CellBuffer) = cb.user_cache
 
+@inline get_coupled_buffers(cb::CellBuffer) = cb.coupled_buffers
+
 """
     FerriteAssembly.allocate_cell_cache(material, cellvalues)
 
