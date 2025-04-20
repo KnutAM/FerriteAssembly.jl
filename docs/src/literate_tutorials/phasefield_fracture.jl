@@ -10,7 +10,7 @@ different number of time steps in the two cases.
 ![animation](sent_animation.gif)
 **Figure 1**: Phase-field evolution during the SENT (Single Edge Notch Tension) test.
 
-In this tutorial, we wil use the so-called AT2 fracture model, and 
+In this tutorial, we will use the so-called AT2 fracture model, and 
 we use the micromorphic formulation [1] to ensure irreversibility.
 The geometry and parameters are also taken from [1]. 
 
@@ -94,9 +94,9 @@ function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{
         end
         
         for i in 1:getnbasefunctions(cv)
-            ∇δNd = shape_gradient(cv, q_point, i)
-            δNd = shape_value(cv, q_point, i)
-            re[i] += ((2 * m.Gc * m.l / cw) * (∇δNd ⋅ ∇d) - m.α * (ϕ - d) * δNd) * dΩ
+            ∇δN = shape_gradient(cv, q_point, i)
+            δN = shape_value(cv, q_point, i)
+            re[i] += ((2 * m.Gc * m.l / cw) * (∇δN ⋅ ∇d) - m.α * (ϕ - d) * δN) * dΩ
         end
         state[q_point] = FerriteAssembly.remove_dual(ϕ)
     end
