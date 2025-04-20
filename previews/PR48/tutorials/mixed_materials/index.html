@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Multiple materials · FerriteAssembly.jl</title><meta name="title" content="Multiple materials · FerriteAssembly.jl"/><meta property="og:title" content="Multiple materials · FerriteAssembly.jl"/><meta property="twitter:title" content="Multiple materials · FerriteAssembly.jl"/><meta name="description" content="Documentation for FerriteAssembly.jl."/><meta property="og:description" content="Documentation for FerriteAssembly.jl."/><meta property="twitter:description" content="Documentation for FerriteAssembly.jl."/><meta property="og:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><meta property="twitter:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><link rel="canonical" href="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/mixed_materials/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteAssembly.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Learning by doing</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-2-1" type="checkbox" checked/><label class="tocitem" for="menuitem-2-1"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../heat_equation/">Heat Equation</a></li><li><a class="tocitem" href="../viscoelasticity/">Viscoelasticity with state variables</a></li><li><a class="tocitem" href="../incompressible_elasticity/">Multiple fields</a></li><li class="is-active"><a class="tocitem" href>Multiple materials</a><ul class="internal"><li><a class="tocitem" href="#Setup-Ferrite-quantities"><span>Setup Ferrite quantities</span></a></li><li><a class="tocitem" href="#FerriteAssembly-setup"><span>FerriteAssembly setup</span></a></li><li><a class="tocitem" href="#Solving-the-nonlinear-problem-via-time-stepping"><span>Solving the nonlinear problem via time-stepping</span></a></li><li><a class="tocitem" href="#mixed_materials_plain_program"><span>Plain program</span></a></li></ul></li><li><a class="tocitem" href="../iga/">Using <code>IGA.jl</code></a></li></ul></li><li><input class="collapse-toggle" id="menuitem-2-2" type="checkbox"/><label class="tocitem" for="menuitem-2-2"><span class="docs-label">How-to</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../howto/threaded_assembly/">Threaded assembly</a></li><li><a class="tocitem" href="../../howto/automatic_differentiation/">Automatic differentiation</a></li><li><a class="tocitem" href="../../howto/local_constraints/">Local constraint application</a></li><li><a class="tocitem" href="../../howto/robin_bc/">Robin boundary conditions</a></li><li><a class="tocitem" href="../../howto/volume_integral/">Volume integration</a></li><li><a class="tocitem" href="../../howto/surface_integral/">Surface integration</a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../design/">Design</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">DomainBuffers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../DomainBuffers/Setup/">DomainBuffers</a></li><li><a class="tocitem" href="../../DomainBuffers/StateVariables/">State variables</a></li><li><a class="tocitem" href="../../DomainBuffers/ItemBuffer/">ItemBuffer</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Workers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Workers/Workers/">Workers</a></li><li><a class="tocitem" href="../../Workers/Assemblers/">Assemblers</a></li><li><a class="tocitem" href="../../Workers/Integrators/">Integrators</a></li><li><a class="tocitem" href="../../Workers/QuadPointEvaluator/">Quadrature point eval</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Convenience</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Convenience/LoadHandler/">External loads</a></li><li><a class="tocitem" href="../../Convenience/MaterialModelsBase/">Mechanical materials</a></li><li><a class="tocitem" href="../../Convenience/ExampleElements/">Example elements</a></li></ul></li><li><a class="tocitem" href="../../Customization/">Customizations</a></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Learning by doing</a></li><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Multiple materials</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multiple materials</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl/blob/main/docs/src/literate_tutorials/mixed_materials.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Multiple-materials"><a class="docs-heading-anchor" href="#Multiple-materials">Multiple materials</a><a id="Multiple-materials-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-materials" title="Permalink"></a></h1><p>In this tutorial, we will see how we can assemble a domain and solve a problem where we have multiple material behaviors. In this simple case, we will consider an elastic inclusion, embedded in a plastically deforming matrix.</p><p><img src="../mixed_materials.png" alt="results"/></p><p><strong>Figure 1:</strong> Results showing horizontal stresses (<span>$\sigma_{11}$</span> [MPa]) on the deformed mesh.</p><p>For this example, we&#39;ll use material models defined in the <a href="https://github.com/KnutAM/MechanicalMaterialModels.jl"><code>MechanicalMaterialModels.jl</code></a> package, which defines models according to the <code>MaterialModelsBase</code> interface.</p><p>The full script without intermediate comments is available at the <a href="#mixed_materials_plain_program">bottom of this page</a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, FerriteMeshParser
+using MaterialModelsBase, MechanicalMaterialModels, WriteVTK</code></pre><h2 id="Setup-Ferrite-quantities"><a class="docs-heading-anchor" href="#Setup-Ferrite-quantities">Setup Ferrite quantities</a><a id="Setup-Ferrite-quantities-1"></a><a class="docs-heading-anchor-permalink" href="#Setup-Ferrite-quantities" title="Permalink"></a></h2><p>We start by the loading a grid containing a central inclusion,</p><pre><code class="language-julia hljs">grid = get_ferrite_grid(joinpath(@__DIR__, &quot;square_with_inclusion.inp&quot;));</code></pre><p>Define interpolation</p><pre><code class="language-julia hljs">ip = Lagrange{RefTriangle, 2}()^2;</code></pre><p>Followed by the dof handler</p><pre><code class="language-julia hljs">dh = DofHandler(grid)
+add!(dh, :u, ip)
+close!(dh);</code></pre><p>Dirichlet boundary conditions</p><pre><code class="language-julia hljs">ch = ConstraintHandler(dh)
+add!(ch, Dirichlet(:u, getfacetset(grid,&quot;left&quot;), Returns(0.0), 1))
+add!(ch, Dirichlet(:u, getfacetset(grid,&quot;bottom&quot;), Returns(0.0), 2))
+close!(ch);</code></pre><p>and a Neumann boundary condition.</p><pre><code class="language-julia hljs">lh = LoadHandler(dh)
+add!(lh, Neumann(:u, 3, getfacetset(grid, &quot;right&quot;), (x, t, n) -&gt; 1e3 * t * n));</code></pre><p>Finally, we define the cellvalues</p><pre><code class="language-julia hljs">qr = QuadratureRule{RefTriangle}(4)
+ip_geo = Lagrange{RefTriangle, 2}()
+cv = CellValues(qr, ip, ip_geo);</code></pre><h2 id="FerriteAssembly-setup"><a class="docs-heading-anchor" href="#FerriteAssembly-setup">FerriteAssembly setup</a><a id="FerriteAssembly-setup-1"></a><a class="docs-heading-anchor-permalink" href="#FerriteAssembly-setup" title="Permalink"></a></h2><p>We first define the material models, and use the <code>ReducedStressState</code> to get a plane stress response.</p><pre><code class="language-julia hljs">elastic_material = ReducedStressState(PlaneStress(), LinearElastic(;E=210e3, ν=0.3))
+
+plastic_material = ReducedStressState(PlaneStress(), Plastic(;
+    elastic   = LinearElastic(E = 210e3, ν = 0.3),
+    yield     = 100.0,
+    isotropic = Voce(;Hiso = 50e3, κ∞ = 1e9),         # Linear isotropic hardening
+    kinematic = ArmstrongFrederick(;Hkin = 0.0, β∞ = 1.0) # No kinematic hardening
+    ));</code></pre><p>We need to create the domain buffers, where the difference from earlier tutorials is that we have multiple domains. The domain specification should then be a <code>Dict</code> with one entry for each domain:</p><pre><code class="language-julia hljs">domains = Dict(
+    &quot;elastic&quot;=&gt;DomainSpec(dh, elastic_material, cv; set=getcellset(grid, &quot;inclusion&quot;)),
+    &quot;plastic&quot;=&gt;DomainSpec(dh, plastic_material, cv; set=getcellset(grid, &quot;matrix&quot;)) );</code></pre><p>Now, we can call <code>setup_domainbuffers</code>, which accepts the same keyword arguments as <code>setup_domainbuffer</code>. Here, we accept the defaults.</p><pre><code class="language-julia hljs">buffer = setup_domainbuffers(domains);</code></pre><h3 id="Postprocessing-setup"><a class="docs-heading-anchor" href="#Postprocessing-setup">Postprocessing setup</a><a id="Postprocessing-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing-setup" title="Permalink"></a></h3><p>In this tutorial, we also demonstrate how the <code>QuadPointEvaluator</code> can be used to obtain quadrature point data which can be used to visualize the results, in this case the stresses. Specifically, we will use the evaluated data in combination with <code>Ferrite</code>&#39;s <code>L2Projector</code>.</p><p>First, we define a function to calculate the stresses for each material. Note that here we have to use some internals from <code>MechanicalMaterialModels.jl</code>, but this should be solved with <a href="https://github.com/KnutAM/MaterialModelsBase.jl/issues/12">MaterialModelsBase#12</a>.</p><pre><code class="language-julia hljs">function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
+    ϵ = MaterialModelsBase.expand_tensordim(m.stress_state, symmetric(∇u))
+    σ = calculate_stress(m.material, ϵ, qp_state)
+    return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
+end
+calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
+calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);</code></pre><p>And then we create the QuadPointEvaluator including this function</p><pre><code class="language-julia hljs">qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);</code></pre><p>Finally, we&#39;ll setup the L2Projector that we will use</p><pre><code class="language-julia hljs">proj = L2Projector(grid)
+add!(proj, 1:getncells(grid), Lagrange{RefTriangle, 1}(); qr_rhs = qr)
+close!(proj);</code></pre><h2 id="Solving-the-nonlinear-problem-via-time-stepping"><a class="docs-heading-anchor" href="#Solving-the-nonlinear-problem-via-time-stepping">Solving the nonlinear problem via time-stepping</a><a id="Solving-the-nonlinear-problem-via-time-stepping-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-nonlinear-problem-via-time-stepping" title="Permalink"></a></h2><pre><code class="language-julia hljs">function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; time_history)
+    maxiter = 100
+    tolerance = 1e-6
+    K = allocate_matrix(dh)
+    r = zeros(ndofs(dh))
+    fext = zeros(ndofs(dh))
+    a = zeros(ndofs(dh))
+    # Prepare postprocessing
+    pvd = paraview_collection(&quot;multiple_materials&quot;)
+    for (n, t) in enumerate(time_history)
+        # Update and apply the Dirichlet boundary conditions
+        update!(ch, t)
+        apply!(a, ch)
+        apply!(fext, lh, t)
+        for i in 1:maxiter
+            # Assemble the system
+            assembler = start_assemble(K, r)
+            work!(assembler, buffer; a=a)
+            # Apply boundary conditions
+            r .-= fext
+            apply_zero!(K, r, ch)
+            # Check convergence
+            norm(r) &lt; tolerance &amp;&amp; break
+            i == maxiter &amp;&amp; error(&quot;Did not converge&quot;)
+            # Solve the linear system and update the dof vector
+            a .-= K \ r
+            apply!(a, ch)
+        end
+
+        # If converged, update the old state variables to the current.
+        update_states!(buffer)
+
+        # Postprocess
+        work!(qp_evaluator, buffer; a=a)
+        stresses = project(l2_proj, qp_evaluator.data)
+        VTKGridFile(&quot;multiple_materials_$n&quot;, dh) do vtk
+            write_solution(vtk, dh, a)
+            write_projection(vtk, l2_proj, stresses, &quot;stress&quot;)
+            Ferrite.write_cellset(vtk, dh.grid, &quot;inclusion&quot;)
+            pvd[t] = vtk
+        end
+    end
+    vtk_save(pvd)
+    return nothing
+end;
+solve_nonlinear_timehistory(buffer, dh, ch, lh, proj, qe; time_history=collect(range(0, 1, 20)));</code></pre><h2 id="mixed_materials_plain_program"><a class="docs-heading-anchor" href="#mixed_materials_plain_program">Plain program</a><a id="mixed_materials_plain_program-1"></a><a class="docs-heading-anchor-permalink" href="#mixed_materials_plain_program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../mixed_materials.jl"><code>mixed_materials.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, FerriteMeshParser
+using MaterialModelsBase, MechanicalMaterialModels, WriteVTK
+
+grid = get_ferrite_grid(joinpath(@__DIR__, &quot;square_with_inclusion.inp&quot;));
+
+ip = Lagrange{RefTriangle, 2}()^2;
+
+dh = DofHandler(grid)
+add!(dh, :u, ip)
+close!(dh);
+
+ch = ConstraintHandler(dh)
+add!(ch, Dirichlet(:u, getfacetset(grid,&quot;left&quot;), Returns(0.0), 1))
+add!(ch, Dirichlet(:u, getfacetset(grid,&quot;bottom&quot;), Returns(0.0), 2))
+close!(ch);
+
+lh = LoadHandler(dh)
+add!(lh, Neumann(:u, 3, getfacetset(grid, &quot;right&quot;), (x, t, n) -&gt; 1e3 * t * n));
+
+qr = QuadratureRule{RefTriangle}(4)
+ip_geo = Lagrange{RefTriangle, 2}()
+cv = CellValues(qr, ip, ip_geo);
+
+elastic_material = ReducedStressState(PlaneStress(), LinearElastic(;E=210e3, ν=0.3))
+
+plastic_material = ReducedStressState(PlaneStress(), Plastic(;
+    elastic   = LinearElastic(E = 210e3, ν = 0.3),
+    yield     = 100.0,
+    isotropic = Voce(;Hiso = 50e3, κ∞ = 1e9),         # Linear isotropic hardening
+    kinematic = ArmstrongFrederick(;Hkin = 0.0, β∞ = 1.0) # No kinematic hardening
+    ));
+
+domains = Dict(
+    &quot;elastic&quot;=&gt;DomainSpec(dh, elastic_material, cv; set=getcellset(grid, &quot;inclusion&quot;)),
+    &quot;plastic&quot;=&gt;DomainSpec(dh, plastic_material, cv; set=getcellset(grid, &quot;matrix&quot;)) );
+
+buffer = setup_domainbuffers(domains);
+
+function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
+    ϵ = MaterialModelsBase.expand_tensordim(m.stress_state, symmetric(∇u))
+    σ = calculate_stress(m.material, ϵ, qp_state)
+    return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
+end
+calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
+calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);
+
+qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
+
+proj = L2Projector(grid)
+add!(proj, 1:getncells(grid), Lagrange{RefTriangle, 1}(); qr_rhs = qr)
+close!(proj);
+
+function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; time_history)
+    maxiter = 100
+    tolerance = 1e-6
+    K = allocate_matrix(dh)
+    r = zeros(ndofs(dh))
+    fext = zeros(ndofs(dh))
+    a = zeros(ndofs(dh))
+    # Prepare postprocessing
+    pvd = paraview_collection(&quot;multiple_materials&quot;)
+    for (n, t) in enumerate(time_history)
+        # Update and apply the Dirichlet boundary conditions
+        update!(ch, t)
+        apply!(a, ch)
+        apply!(fext, lh, t)
+        for i in 1:maxiter
+            # Assemble the system
+            assembler = start_assemble(K, r)
+            work!(assembler, buffer; a=a)
+            # Apply boundary conditions
+            r .-= fext
+            apply_zero!(K, r, ch)
+            # Check convergence
+            norm(r) &lt; tolerance &amp;&amp; break
+            i == maxiter &amp;&amp; error(&quot;Did not converge&quot;)
+            # Solve the linear system and update the dof vector
+            a .-= K \ r
+            apply!(a, ch)
+        end
+
+        # If converged, update the old state variables to the current.
+        update_states!(buffer)
+
+        # Postprocess
+        work!(qp_evaluator, buffer; a=a)
+        stresses = project(l2_proj, qp_evaluator.data)
+        VTKGridFile(&quot;multiple_materials_$n&quot;, dh) do vtk
+            write_solution(vtk, dh, a)
+            write_projection(vtk, l2_proj, stresses, &quot;stress&quot;)
+            Ferrite.write_cellset(vtk, dh.grid, &quot;inclusion&quot;)
+            pvd[t] = vtk
+        end
+    end
+    vtk_save(pvd)
+    return nothing
+end;
+solve_nonlinear_timehistory(buffer, dh, ch, lh, proj, qe; time_history=collect(range(0, 1, 20)));
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Multiple fields</a><a class="docs-footer-nextpage" href="../iga/">Using <code>IGA.jl</code> »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.1 on <span class="colophon-date" title="Sunday 20 April 2025 14:12">Sunday 20 April 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
