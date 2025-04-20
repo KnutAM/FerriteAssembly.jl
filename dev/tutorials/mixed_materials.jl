@@ -1,7 +1,10 @@
 using Ferrite, FerriteAssembly, FerriteMeshParser
 using MaterialModelsBase, MechanicalMaterialModels, WriteVTK
+using Downloads: download
 
-grid = get_ferrite_grid(joinpath(@__DIR__, "square_with_inclusion.inp"));
+gridfile = "square_with_inclusion.inp"
+download(FerriteAssembly.asset_url(gridfile), gridfile)
+grid = get_ferrite_grid(gridfile);
 
 ip = Lagrange{RefTriangle, 2}()^2;
 
