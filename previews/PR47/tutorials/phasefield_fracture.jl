@@ -2,8 +2,6 @@ using Ferrite, FerriteAssembly, FerriteMeshParser
 using AppleAccelerate
 using Downloads: download
 
-# Implementation of physics
-
 struct PhaseFieldFracture{C, T}
     G::T    # Elastic shear modulus
     K::T    # Elastic bulk modulus
@@ -71,9 +69,9 @@ function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{
         end
 
         for i in 1:getnbasefunctions(cv)
-            ∇δNd = shape_gradient(cv, q_point, i)
-            δNd = shape_value(cv, q_point, i)
-            re[i] += ((2 * m.Gc * m.l / cw) * (∇δNd ⋅ ∇d) - m.α * (ϕ - d) * δNd) * dΩ
+            ∇δN = shape_gradient(cv, q_point, i)
+            δN = shape_value(cv, q_point, i)
+            re[i] += ((2 * m.Gc * m.l / cw) * (∇δN ⋅ ∇d) - m.α * (ϕ - d) * δN) * dΩ
         end
         state[q_point] = FerriteAssembly.remove_dual(ϕ)
     end
@@ -83,7 +81,7 @@ function FerriteAssembly.create_cell_state(::PhaseFieldFracture{:d}, cv::CellVal
     return [function_value(cv, i, ae) for i in 1:getnquadpoints(cv)]
 end;
 
-gridfile = "sent_fine.inp" # "sent_fine.inp" also possible
+gridfile = "sent_fine.inp" # "sent_coarse.inp" also possible
 isfile(gridfile) || download(FerriteAssembly.asset_url(gridfile), gridfile)
 grid = get_ferrite_grid(gridfile)
 mbase = PhaseFieldFracture(;E = 210e3, ν = 0.3, Gc = 2.7, l = 1.5e-2, β = 100.0);
