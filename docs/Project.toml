@@ -13,3 +13,10 @@ MechanicalMaterialModels = "b3282f9b-607f-4337-ab95-e5488ab5652c"
 Newton = "83aa5b51-0588-403c-85e4-434ec185aae7"
 Tensors = "48a634ad-e948-5137-8d70-aa71f2a747f4"
 WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
+
+[sources]
+MaterialModelsBase = {url = "https://github.com/KnutAM/MaterialModelsBase.jl.git"}
+Newton = {url = "https://github.com/KnutAM/Newton.jl.git"}
+MechanicalMaterialModels = {url="https://github.com/KnutAM/MechanicalMaterialModels.jl.git"}
+IGA = {url="https://github.com/KnutAM/IGA.jl", rev="kam/reinit_with_cell"}
+FerriteAssembly = {path = ".."}

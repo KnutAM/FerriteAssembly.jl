@@ -64,15 +64,3 @@ function overlaps_with_cellset(set::Union{AbstractSet,AbstractVector}, cellset)
     return any(x -> first(x) ∈ cellset, set)
 end
 overlaps_with_cellset(::Nothing, cellset) = !isempty(cellset)
-
-"""
-    _replace_field(container, field::Val{F}, val)
-
-Return a modified `container`, which has the same name of the type,
-but may have different parametric fields. The field with symbol `F`
-is replaced by `val`, while all other fields remain the same
-"""
-function _replace_field(container::T, ::Val{FieldName}, val) where {T, FieldName}
-    W = Base.typename(T).wrapper
-    return W(map(name-> name===FieldName ? val : getproperty(container, name), fieldnames(T))...)
-end

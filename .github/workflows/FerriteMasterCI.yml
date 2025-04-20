@@ -37,11 +37,7 @@ jobs:
       - run: |
           julia --color=yes --project=. -e '
             using Pkg
-            packages = [
-              PackageSpec(;url="https://github.com/Ferrite-FEM/Ferrite.jl.git", rev="master"),
-              PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
-              ]
-            Pkg.add(packages)
+            Pkg.add(PackageSpec(;url="https://github.com/Ferrite-FEM/Ferrite.jl.git", rev="master"))
             Pkg.instantiate()'
         shell: bash
       - uses: julia-actions/julia-runtest@v1

@@ -160,13 +160,13 @@ end
 
 function replace_material(db::DomainBuffer, replacement_function)
     itembuffer = _replace_material(db.itembuffer, replacement_function)
-    return _replace_field(db, Val(:itembuffer), itembuffer)
+    return setproperties(db; itembuffer)
 end
 function replace_material(db::ThreadedDomainBuffer, replacement_function)
     base_ibuf = _replace_material(get_base(db.itembuffer), replacement_function)
     task_ibuf = map(ibuf->_replace_material(ibuf, replacement_function), get_locals(db.itembuffer))
     itembuffer = TaskLocals(base_ibuf, task_ibuf)
-    return _replace_field(db, Val(:itembuffer), itembuffer)
+    return setproperties(db; itembuffer)
 end
 
 # Experimental: Insert new states, allows reusing the buffer for multiple simulations with same 
