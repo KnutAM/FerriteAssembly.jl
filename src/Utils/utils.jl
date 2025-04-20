@@ -64,3 +64,10 @@ function overlaps_with_cellset(set::Union{AbstractSet,AbstractVector}, cellset)
     return any(x -> first(x) ∈ cellset, set)
 end
 overlaps_with_cellset(::Nothing, cellset) = !isempty(cellset)
+
+"""
+    asset_url(name::AbstractString)
+
+Get the location of the asset `name` for download when building the documentation.
+"""
+asset_url(name::AbstractString) = string("https://raw.githubusercontent.com/KnutAM/FerriteAssembly.jl/gh-pages/assets/", name)

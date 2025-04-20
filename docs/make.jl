@@ -7,6 +7,8 @@ using Documenter
 
 const is_ci = get(ENV, "CI", "false") == "true"
 
+include("download_assets.jl")
+
 include("generate.jl")
 tutorials = [
     "heat_equation.jl", 

@@ -37,6 +37,17 @@
             cb2 = FerriteAssembly.get_itembuffer(db2)
             @test FerriteAssembly.get_user_cache(cb1) !== FerriteAssembly.get_user_cache(cb2)
         end
+        # Warnings for user input mistakes 
+        # Missing cells (hit fewer cells + cells not included)
+        @test_logs (:warn,) (:warn,) setup_domainbuffers(Dict("1" => DomainSpec(dh, CellMatCache(), cv; set = getcellset(grid, "left"))))
+        # Overlapping sets (hit cells not included)
+        @test_logs (:warn,) setup_domainbuffers(Dict(
+            "1" => DomainSpec(dh, CellMatCache(), cv; set = Set(1:50)),
+            "2" => DomainSpec(dh, CellMatCache(), cv; set = Set(1:50))))
+        # Repeated sets (hit more cells)
+        @test_logs (:warn,) setup_domainbuffers(Dict(
+            "1" => DomainSpec(dh, CellMatCache(), cv),
+            "2" => DomainSpec(dh, CellMatCache(), cv)))
     end
     
     @testset "facets" begin
