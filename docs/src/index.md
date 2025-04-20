@@ -19,9 +19,9 @@ The documentation has two main parts
 
 | **Learning by doing:** Runnable examples                       | **Reference:** Explanations and docstrings                                      |
 | :------------------------------------------------------------- | :------------------------------------------------------------------------------ |
-| [Tutorials](tutorials/heat_equation/): Complete examples      | [Design](design/): *Extended overview of FerriteAssembly*                      |
-| [How-to](howto/threaded_assembly/): Guides for specific tasks | [Domains](DomainBuffers/Setup/): *What items to work on*                       |
-|                                                                | [Workers](Workers/Workers/): *What to do for an item*                          | 
-|                                                                | [Convenience](Convenience/LoadHandler/): *Premade solutions to make life easy* |
-|                                                                | [Customizations](Customization/): *When the standard isn't good enough*        |
-|                                                                | [Internals](internals/): *Developer documentation*                             |
+| [Tutorials](@ref Heat-Equation): Complete examples      | [Design](@ref Package-design): *Extended overview of FerriteAssembly*                      |
+| [How-to](@ref Threaded-assembly ): Guides for specific tasks | [Domains](@ref DomainBufferSetup): *What items to work on*                       |
+|                                                                | [Workers](@ref Workers): *What to do for an item*                          | 
+|                                                                | [Convenience](@ref External-loading): *Premade solutions to make life easy* |
+|                                                                | [Customizations](@ref Customizations): *When the standard isn't good enough*        |
+|                                                                | [Internals](@ref Internal-API): *Developer documentation*                             |
