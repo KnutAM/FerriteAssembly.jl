@@ -4,9 +4,13 @@
 *.vscode
 /Manifest.toml
 /docs/build/
+/docs/src/assets/
 
 /docs/src/tutorials/
 /docs/src/howto/
 
 *.vtu
 *.pvd
+*.inp
+*.svg
+*.png
