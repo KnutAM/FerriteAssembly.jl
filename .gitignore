@@ -11,3 +11,6 @@
 
 *.vtu
 *.pvd
+*.inp
+*.svg
+*.png
