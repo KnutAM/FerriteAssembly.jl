@@ -8,6 +8,7 @@ This is useful for staggered schemes, but can also be used for cases with
 different number of time steps in the two cases.
 
 ![animation](sent_animation.gif)
+
 **Figure 1**: Phase-field evolution during the SENT (Single Edge Notch Tension) test.
 
 In this tutorial, we will use the so-called AT2 fracture model, and 
@@ -15,15 +16,18 @@ we use the micromorphic formulation [1] to ensure irreversibility.
 The geometry and parameters are also taken from [1]. 
 
 1. [Bharali, R., Larsson, F., & Jänicke, R. (2023). 
-A micromorphic phase-field model for brittle and quasi-brittle fracture. 
-*Computational Mechanics*, 73, 579–598](https://doi.org/10.1007/s00466-023-02380-1)
+   A micromorphic phase-field model for brittle and quasi-brittle fracture. 
+   *Computational Mechanics*, 73, 579–598](https://doi.org/10.1007/s00466-023-02380-1)
 
+The full script without intermediate comments is available at the 
+[bottom of this page](@ref phasefield_fracture_plain_program).
 =#
+
 using Ferrite, FerriteAssembly, FerriteMeshParser
 using AppleAccelerate
 using Downloads: download
 
-## Implementation of physics
+# ## Implementation of physics
 
 struct PhaseFieldFracture{C, T}
     G::T    # Elastic shear modulus
@@ -44,7 +48,7 @@ function PhaseFieldFracture{C}(m::PhaseFieldFracture{<:Any, T}) where {C, T}
     return PhaseFieldFracture{C, T}(m.G, m.K, m.Gc, m.l, m.α, m.model)
 end;
 
-# Elastic (displacement) part (:u)
+# ### Elastic (displacement) part (:u)
 function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{:u}, cv::CellValues, buffer)
     ## Fixed parameters
     gϕ_min = 1e-10
@@ -66,7 +70,7 @@ function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{
     end
 end;
 
-# Phase-Field (damage) part (:d)
+# ### Phase-Field (damage) part (:d)
 function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{:d}, cv::CellValues, buffer)
     ## Values from elasticity problem
     cb_u = FerriteAssembly.get_coupled_buffer(buffer, :u)
@@ -108,7 +112,7 @@ end;
 
 # ## Simulation setup
 # We start by loading the grid (Single Edge Notch Tension)
-gridfile = "sent_fine.inp" # "sent_fine.inp" also possible
+gridfile = "sent_fine.inp" # "sent_coarse.inp" also possible
 isfile(gridfile) || download(FerriteAssembly.asset_url(gridfile), gridfile)
 grid = get_ferrite_grid(gridfile)
 mbase = PhaseFieldFracture(;E = 210e3, ν = 0.3, Gc = 2.7, l = 1.5e-2, β = 100.0);
@@ -172,6 +176,7 @@ function get_reaction_dofs(dh)
     return ch_dummy.prescribed_dofs
 end;
 
+# ## Solving
 # Write function to solve one simulation part, given the other as input.
 function solve_single_part(sim, coupled, K, r, ch; firsttol = 1e-5, tol = 1e-6, maxiter = 100)
     if ch !== nothing # Displacement part
@@ -240,3 +245,12 @@ display(fig)
 ```
 ![force-displacement](sent_results.png)
 =#
+
+#md # ## [Plain program](@id phasefield_fracture_plain_program)
+#md #
+#md # Here follows a version of the program without any comments.
+#md # The file is also available here: [`phasefield_fracture.jl`](phasefield_fracture.jl).
+#md #
+#md # ```julia
+#md # @__CODE__
+#md # ```
