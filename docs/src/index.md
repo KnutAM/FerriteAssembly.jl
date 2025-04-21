@@ -17,10 +17,11 @@ The package user is responsible for writing the code for the actual work (e.g., 
 ## Documentation structure
 The documentation has two main parts
 
-| 1) Learning by doing: *runnable examples*                | 2) Reference: *explanations and docstrings*              | 
-| :------------------------------------------------------- | :------------------------------------------------------- |
-| Tutorials: Complete examples                             | Domains: *What items to work on*                         |
-| Short guides for specific tasks                          | Workers: *What to do for an item*                        | 
-|                                                          | Convenience: *Premade solutions to make life easy*       |
-|                                                          | Customizations: *When the standard isn't good enough*    |
-|                                                          | Internals: *Developer documentation*                     |
+| **Learning by doing:** Runnable examples                       | **Reference:** Explanations and docstrings                                      |
+| :------------------------------------------------------------- | :------------------------------------------------------------------------------ |
+| [Tutorials](@ref Heat-Equation): Complete examples      | [Design](@ref Package-design): *Extended overview of FerriteAssembly*                      |
+| [How-to](@ref Threaded-assembly ): Guides for specific tasks | [Domains](@ref DomainBufferSetup): *What items to work on*                       |
+|                                                                | [Workers](@ref Workers): *What to do for an item*                          | 
+|                                                                | [Convenience](@ref External-loading): *Premade solutions to make life easy* |
+|                                                                | [Customizations](@ref Customizations): *When the standard isn't good enough*        |
+|                                                                | [Internals](@ref Internal-API): *Developer documentation*                             |

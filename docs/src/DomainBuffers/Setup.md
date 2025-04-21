@@ -1,7 +1,7 @@
 ```@meta
 CurrentModule = FerriteAssembly
 ```
-
+# [Setup](@id DomainBufferSetup)
 ## Setup API
 ```@docs
 DomainSpec
