@@ -40,6 +40,17 @@ export QuadPointEvaluator          # QP evaluation
 export LoadHandler, Neumann, BodyLoad, DofLoad
 export ElementResidualScaling, reset_scaling!
 
+# Public but not exported 
+public element_residual!, element_routine!, facet_residual!, facet_routine!
+# Domain and item buffers
+public get_state, get_old_state, get_material
+# Item buffers
+public get_ae, get_aeold, get_time_increment
+public get_user_data, get_user_cache, get_coupled_buffer
+# Domain buffers / Simulation
+public getset, get_dofhandler, get_grid, get_itembuffer
+public replace_material, couple_buffers
+
 """
     element_routine!(
         Ke::AbstractMatrix, re::AbstractVector, state,

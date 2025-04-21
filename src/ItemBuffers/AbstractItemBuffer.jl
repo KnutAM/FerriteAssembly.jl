@@ -22,7 +22,14 @@ function get_values end
 Get the old state variables for the cell. Currently only available for cells and not for facets. 
 """
 function get_old_state end
+
+"""
+    get_state(itembuffer::AbstractCellBuffer)
+
+Get the state variables for the cell. Currently only available for cells and not for facets. 
+"""
 function get_state end 
+
 """
     get_time_increment(itembuffer::AbstractItemBuffer)
 
@@ -48,6 +55,13 @@ for each tasks, and can be modified without risking race conditions.
 """
 function get_user_cache end
 
+"""
+    get_coupled_buffer(b::AbstractItemBuffer, key::Symbol)
+
+Get the coupled buffer `key` from `b`. To enable this, use [`couple_buffers`](@ref) on the 
+domain buffers. The coupled buffer can be queried just like a normal item buffer,
+e.g. by calling `get_state(coupled_buffer)`.
+""" 
 @inline get_coupled_buffer(b::AbstractItemBuffer, key::Symbol) = getfield(get_coupled_buffers(b), key)
 
 """
@@ -81,7 +95,8 @@ but fully type-stable.
 """
 Ferrite.dof_range(::AbstractItemBuffer, ::Symbol) = error("Not implemented")
 
-# Set functions 
+# Set functions
+# No docstring - public API is calling this on a domain buffer
 function set_time_increment! end
 
 function _replace_material(buf::AbstractItemBuffer, replacement_function)
@@ -94,4 +109,3 @@ function scatter!(task::AbstractItemBuffer, base::AbstractItemBuffer)
     set_time_increment!(task, get_time_increment(base))
 end
 gather!(::AbstractItemBuffer, ::AbstractItemBuffer) = nothing
-

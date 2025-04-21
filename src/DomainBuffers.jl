@@ -2,12 +2,13 @@ abstract type AbstractDomainBuffer end
 
 get_num_tasks(::AbstractDomainBuffer) = Threads.nthreads() # Default for now
 
-const DomainBuffers = Dict{String,<:AbstractDomainBuffer}
+const DomainBuffers = Dict{String, <:AbstractDomainBuffer}
 
 # Accessor functions
 """
     get_dofhandler(dbs::Dict{String,AbstractDomainBuffer})
     get_dofhandler(db::AbstractDomainBuffer)
+    get_dofhandler(sim::Simulation)
 
 Get the dofhandler stored in `db`. Note that this is the global dofhandler,
 and not the `SubDofHandler` that is local to a specific domain.
@@ -17,6 +18,7 @@ get_dofhandler(db::DomainBuffers) = get_dofhandler(first(values(db)))
 """
     get_grid(dbs::Dict{String,AbstractDomainBuffer})
     get_grid(db::AbstractDomainBuffer)
+    get_grid(sim::Simulation)
 
 Get the underlying `grid::AbstractGrid` from the domain buffers
 """
@@ -25,6 +27,7 @@ get_grid(db) = Ferrite.get_grid(get_dofhandler(db))
 """
     get_itembuffer(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
     get_itembuffer(db::AbstractDomainBuffer)
+    get_itembuffer(sim::Simulation[, domain::String])
 
 Get the `AbstractItemBuffer` stored in `db` or `dbs[domain]`. 
 This internal function might change, but currently the full TaskLocals 
@@ -35,6 +38,7 @@ get_itembuffer(db::DomainBuffers, domain::String) = get_itembuffer(db[domain])
 """
     get_state(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
     get_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
+    get_state(sim::Simulation[, domain::String])
 
 Get the `states::Dict{Int,S}`, where `S` type of the state for each entity in the domain,
 stored in the `db` or `dbs[domain]`. If no `domain` is given for multiple domains, a 
@@ -46,6 +50,7 @@ get_state(db::DomainBuffers) = Dict(key=>get_state(val) for (key,val) in db)
 """
     get_old_state(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
     get_old_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
+    get_old_state(sim::Simulation[, domain::String])
 
 Get the `states::Dict{Int,S}`, where `S` type of the state for each entity in the domain,
 stored in the `db` or `dbs[domain]`. If no `domain` is given for multiple domains, a 
@@ -57,6 +62,7 @@ get_old_state(db::DomainBuffers) = Dict(key=>get_old_state(val) for (key,val) in
 """
     get_material(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
     get_material(db::AbstractDomainBuffer)
+    get_material(sim::Simulation)
 
 Get the material for the domain represented by `db` or `dbs[domain]`.
 """
@@ -66,6 +72,7 @@ get_material(db::DomainBuffers, domain::String) = get_material(db[domain])
 """
     update_states!(db::Dict{String,AbstractDomainBuffer})
     update_states!(db::AbstractDomainBuffer)
+    update_states!(sim::Simulation)
 
 Update the states such that `old_states = states` for the states 
 stored in `db`.
@@ -84,6 +91,7 @@ end
 """
     set_time_increment!(db::Dict{String,AbstractDomainBuffer}, Δt)
     set_time_increment!(db::AbstractDomainBuffer, Δt)
+    set_time_increment!(sim::Simulation, Δt)
 
 Update the time increment stored in `db`, which is passed on to the 
 stored `AbstractItemBuffer`
@@ -109,10 +117,10 @@ end
     couple_buffers(dbs::Dict{String, <:AbstractDomainBuffer}; kwargs::Dict{String, <:AbstractDomainBuffer}...)
     couple_buffers(db::AbstractDomainBuffer; kwargs::AbstractDomainBuffer...)
 
-Couple the buffer(s) with one or more other buffers provided as keyword arguments. The key can then be used 
-to get the itembuffer inside the element routines from the current itembuffer, allowing it to be updated.
+Return new buffer(s) that are coupled with the buffers provided as keyword arguments. The key is used in 
+[`get_coupled_buffer`](@ref) to get the coupled itembuffer, such that its values may be queried. 
 
-!!! note 
+!!! note
     This functionality assumes that each setup has the same grid, and in case of multiple domains, these should also 
     match.
 """
@@ -123,6 +131,7 @@ end
 """
     getset(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
     getset(db::AbstractDomainBuffer)
+    getset(sim::Simulation[, domain::String])
 
 Get the set of items stored in `db` or `dbs[domain]`
 """

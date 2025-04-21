@@ -1,14 +1,22 @@
-function work!(worker, buffer; a = nothing, aold = nothing)
+function work!(worker, buffer::Union{AbstractDomainBuffer, DomainBuffers}; a = nothing, aold = nothing)
     return work!(worker, Simulation(buffer, a, aold))
 end
 
 """
-    work!(worker, simulation, [coupled_simulations])
+    work!(worker, sim::Simulation, [coupled_simulations::CoupledSimulations])
 
-Perform the work according to `worker` over the domain(s) specified by 
-`buffer`. Current, `a`, and old, `aold`, global degree of freedom vectors 
-are passed to get these values passed into the innermost user-defined functions.
-If not passed (or as `nothing`), `NaN` values are passed into the innermost functions. 
+Perform the work according to `worker` over the domain(s) in `sim`.
+
+**Advance usage:** By passing the optional `coupled_simulations`, values from those simulations 
+(e.g. state variables and local dof-values) become available on the local level via 
+[`get_coupled_buffer`](@ref). This requires that the domainbuffer(s) in `sim` has been coupled 
+using [`couple_buffers`](@ref).
+
+    work!(worker, db::Union{AbstractDomainBuffer, Dict}; a = nothing, aold = nothing)
+
+Simplified interface that doesn't support coupled simulations, directly forwarded to 
+`work!(worker, Simulation(db, a, aold))`. The global degree of freedom vectors, `a` and `aold`,
+make their corresponding local values available. If not passed, the local values are `NaN`s.
 """
 function work!(worker, multisim::MultiDomainSim, coupled_simulations = CoupledSimulations())
     for (name, sim) in multisim
