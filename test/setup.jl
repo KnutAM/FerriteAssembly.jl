@@ -1,7 +1,10 @@
 @testset "setup" begin
     
     @testset "cells" begin
-        struct CellMatCache end 
+        struct CellMatCache
+            dummy::Vector{Int}
+        end
+        CellMatCache() = CellMatCache([1])
         FerriteAssembly.allocate_cell_cache(::CellMatCache, ::Any) = ones(1)
         FerriteAssembly.create_cell_state(::CellMatCache, args...) = ones(2)
         grid = generate_grid(Quadrilateral, (10,10))
@@ -11,31 +14,45 @@
         dh = DofHandler(grid); add!(dh, :u, ip); close!(dh);
         cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
         userdata = [1.0]
-        domains = Dict(key => DomainSpec(dh, CellMatCache(), cv; set=getcellset(grid, key), user_data=userdata) for key in ("left", "right"))
+        material = CellMatCache()
+        domains = Dict(key => DomainSpec(dh, material, cv; set=getcellset(grid, key), user_data=userdata) for key in ("left", "right"))
         buffers = setup_domainbuffers(domains)
         buffers_ad = setup_domainbuffers(domains; autodiffbuffer=true)
         aold_value = rand()
         aold = ones(ndofs(dh))*aold_value
-        for domainbuffers in (buffers, buffers_ad)
-            db1 = domainbuffers["left"]
-            cellset = FerriteAssembly.getset(db1)
-            @test FerriteAssembly.getset(domainbuffers, "left") === cellset
-            cell_id = first(cellset)            
-            cb1 = FerriteAssembly.get_itembuffer(db1)
-            FerriteAssembly.reinit_buffer!(cb1, Simulation(db1, zeros(ndofs(dh)), aold), CoupledSimulations(), cell_id)
+        _getdomain(dbs::Dict, key::String) = dbs[key]
+        _getdomain(sim::Simulation, key) = FerriteAssembly.get_domain_simulation(sim, key)
+        for container in (buffers, buffers_ad, Simulation(buffers, nothing, aold), Simulation(buffers_ad, nothing, aold))
+            # Basic access functions
+            @test FerriteAssembly.get_dofhandler(container) === dh
+            @test FerriteAssembly.get_material(container, "left") === material
+            @test FerriteAssembly.get_grid(container) === grid
+            Δt = rand()
+            FerriteAssembly.set_time_increment!(container, Δt)
+            # Check properties of stored values
+            cont1 = _getdomain(container, "left")
+            cellset = FerriteAssembly.getset(cont1)
+            @test FerriteAssembly.getset(container, "left") === cellset
+            cell_id = first(cellset)
+            cb1 = FerriteAssembly.get_itembuffer(cont1)
+            sim = isa(container, Simulation) ? cont1 : Simulation(cont1, nothing, aold)
+            FerriteAssembly.reinit_buffer!(cb1, sim, CoupledSimulations(), cell_id)
             @test FerriteAssembly.get_user_data(cb1) === userdata 
             @test FerriteAssembly.get_user_cache(cb1) == [1.0]
             ae_old = FerriteAssembly.get_aeold(cb1)
             @test all(aold_value == aeold for aeold in ae_old)
             @test cell_id == Ferrite.cellid(cb1)
-            @test FerriteAssembly.get_old_state(cb1) === FerriteAssembly.get_old_state(db1, cell_id)
-            @test FerriteAssembly.get_state(cb1) === FerriteAssembly.get_state(db1, cell_id)
-            @test FerriteAssembly.get_old_state(domainbuffers, "left") === FerriteAssembly.get_old_state(db1)
-            @test FerriteAssembly.get_state(domainbuffers, "left") === FerriteAssembly.get_state(db1)
+            @test FerriteAssembly.get_old_state(cb1) === FerriteAssembly.get_old_state(cont1, cell_id)
+            @test FerriteAssembly.get_state(cb1) === FerriteAssembly.get_state(cont1, cell_id)
+            @test FerriteAssembly.get_old_state(container, "left") === FerriteAssembly.get_old_state(cont1)
+            @test FerriteAssembly.get_state(container, "left") === FerriteAssembly.get_state(cont1)
+            @test FerriteAssembly.get_state(container)["left"] === FerriteAssembly.get_state(cont1)
+            @test FerriteAssembly.get_time_increment(cb1) == Δt
 
-            db2 = domainbuffers["right"]
-            cb2 = FerriteAssembly.get_itembuffer(db2)
+            cont2 = _getdomain(container, "right")
+            cb2 = FerriteAssembly.get_itembuffer(cont2)
             @test FerriteAssembly.get_user_cache(cb1) !== FerriteAssembly.get_user_cache(cb2)
+            @test FerriteAssembly.get_time_increment(cb2) == Δt
         end
         # Warnings for user input mistakes 
         # Missing cells (hit fewer cells + cells not included)

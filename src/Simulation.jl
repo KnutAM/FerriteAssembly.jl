@@ -26,16 +26,16 @@ const MultiDomainThreadedSim = Simulation{<:Dict{String, <:ThreadedDomainBuffer}
 # Forwarding for public API
 get_material(sim::Simulation, args::Vararg{Any, N}) where N = get_material(sim.db, args...)
 get_dofhandler(sim::Simulation) = get_dofhandler(sim.db)
+get_grid(sim::Simulation) = get_grid(sim.db)
 get_state(sim::Simulation, args::Vararg{Any, N}) where N = get_state(sim.db, args...)
 get_old_state(sim::Simulation, args::Vararg{Any, N}) where N = get_old_state(sim.db, args...)
-getset(sim::Simulation{<:AbstractDomainBuffer}) = getset(sim.db)
+getset(sim::Simulation, args::Vararg{Any, N}) where N = getset(sim.db, args...)
 update_states!(sim::Simulation) = update_states!(sim.db)
 set_time_increment!(sim::Simulation, Δt) = set_time_increment!(sim.db, Δt)
 
 # Forwarding for internal API
 get_num_tasks(sim::Simulation{<:AbstractDomainBuffer}) = get_num_tasks(sim.db)
 get_chunks(sim::Simulation{<:AbstractDomainBuffer}) = get_chunks(sim.db)
-# get_grid(sim::Simulation) = get_grid(sim.db) # Currently not used, and is internal...
 get_itembuffer(sim::Simulation, args::Vararg{Any, N}) where {N} = get_itembuffer(sim.db, args...)
 
 # Internal API
