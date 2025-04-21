@@ -21,7 +21,7 @@ make their corresponding local values available. If not passed, the local values
 function work!(worker, multisim::MultiDomainSim, coupled_simulations = CoupledSimulations())
     for (name, sim) in multisim
         skip_this_domain(worker, name) && continue
-        coupled = get_domain(coupled_simulations, name)
+        coupled = get_domain_simulation(coupled_simulations, name)
         work_domain_sequential!(worker, sim, coupled)
     end
 end
@@ -33,13 +33,13 @@ function work!(worker, multisim::MultiDomainThreadedSim, coupled_simulations = C
         workers = TaskLocals(worker)
         for (name, sim) in multisim
             skip_this_domain(worker, name) && continue
-            coupled = get_domain(coupled_simulations, name)
+            coupled = get_domain_simulation(coupled_simulations, name)
             work_domain_threaded!(workers, sim, coupled)
         end
     else
         for (name, sim) in multisim
             skip_this_domain(worker, name) && continue
-            coupled = get_domain(coupled_simulations, name)
+            coupled = get_domain_simulation(coupled_simulations, name)
             work_domain_sequential!(worker, sim, coupled)
         end
     end
