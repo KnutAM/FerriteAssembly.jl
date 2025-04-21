@@ -14,6 +14,9 @@ download_assets(
     )
 
 download_assets(
-    joinpath(@__DIR__, "src", "literate_tutorials"),
-    ["mixed_materials.png", "zener.svg"],
+    joinpath(@__DIR__, "src", "literate_tutorials"), 
+    [
+        "mixed_materials.png", "zener.svg", 
+        "sent_results.png", "sent_animation.gif"
+    ],
     )

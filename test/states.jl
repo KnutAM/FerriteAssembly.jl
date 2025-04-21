@@ -74,16 +74,18 @@ end
             @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
             work!(r_assembler, buffer)
             @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)] # Unchanged
-            for cellnr in 1:getncells(grid)
-                @test states[cellnr] == [StateA(cellnr, i) for i in 1:getnquadpoints(cv)]  # Updated
+            for container in (buffer, Simulation(buffer))
+                for cellnr in 1:getncells(grid)
+                    @test states[cellnr] == [StateA(cellnr, i) for i in 1:getnquadpoints(cv)]  # Updated
+                end
+                states_dc = deepcopy(states) # Allowed to update states during update_states!
+                update_states!(container)
+                @test old_states == states_dc          # Correctly updated values
+                states[1][1] = StateA(0,0)
+                @test old_states[1][1] == StateA(1,1)   # But not aliased
+                allocs = @allocated update_states!(container)
+                @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
             end
-            states_dc = deepcopy(states) # Allowed to update states during update_states!
-            update_states!(buffer)
-            @test old_states == states_dc          # Correctly updated values
-            states[1][1] = StateA(0,0)
-            @test old_states[1][1] == StateA(1,1)   # But not aliased
-            allocs = @allocated update_states!(buffer)
-            @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
 
             # MatB (not bitstype)
             # - Check correct values before and after update

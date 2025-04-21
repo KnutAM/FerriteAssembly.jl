@@ -16,6 +16,7 @@ tutorials = [
     "incompressible_elasticity.jl", 
     "mixed_materials.jl", 
     "iga.jl",
+    "phasefield_fracture.jl"
     ]
 generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [

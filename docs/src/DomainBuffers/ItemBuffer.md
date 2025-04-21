@@ -19,6 +19,7 @@ Ferrite.celldofs(::AbstractItemBuffer)
 Ferrite.cellid(::AbstractItemBuffer)
 get_user_data
 get_user_cache
+get_coupled_buffer
 ```
 
 ## AbstractCellBuffer
