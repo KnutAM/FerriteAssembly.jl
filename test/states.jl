@@ -74,7 +74,7 @@ end
             @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
             work!(r_assembler, buffer)
             @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)] # Unchanged
-            for container in (buffer, Simulation(buffer, a, copy(a)))
+            for container in (buffer, Simulation(buffer))
                 for cellnr in 1:getncells(grid)
                     @test states[cellnr] == [StateA(cellnr, i) for i in 1:getnquadpoints(cv)]  # Updated
                 end
