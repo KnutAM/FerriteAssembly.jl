@@ -27,7 +27,7 @@ end
 QuadPointEvaluator(data::ArrayOfVectorViews, qe_type::Symbol) = QuadPointEvaluator(data, Val(qe_type))
 
 function QuadPointEvaluator{VT}(domainbuffer::AbstractDomainBuffer, qe_type::Union{Symbol, Function}) where {VT}
-    cv = get_values(get_itembuffer(domainbuffer))
+    cv = get_values(get_base(get_itembuffer(domainbuffer)))
     nqp = if cv isa Ferrite.AbstractCellValues
         getnquadpoints(cv)
     elseif cv isa NamedTuple
@@ -48,7 +48,7 @@ function QuadPointEvaluator{VT}(domainbuffers::DomainBuffers, qe_type::Union{Sym
     nqps = Vector{Int}(undef, ncells)
     nqp_total = 0
     for (_, db) in domainbuffers
-        cv = get_values(get_itembuffer(db))
+        cv = get_values(get_base(get_itembuffer(db)))
         @assert cv isa CellValues # For now, only CellValues supported
         nqp = getnquadpoints(cv)
         set = getset(db)
@@ -67,6 +67,10 @@ end
 
 can_thread(::QuadPointEvaluator) = true 
 skip_this_domain(::QuadPointEvaluator, ::String) = false
+
+create_local(qe::QuadPointEvaluator) = qe # Safe to alias
+scatter!(::QuadPointEvaluator, ::QuadPointEvaluator) = nothing
+gather!(::QuadPointEvaluator, ::QuadPointEvaluator) = nothing
 
 """
     eval_quadpoints_cell!(qp_values::AbstractVector, ::Val{type}, cell_state, ae, material, cv, cellbuffer)
