@@ -2,7 +2,7 @@
 # Phase-field fracture
 This tutorial demonstrates how the phase-field fracture 
 problem can be solved using FerriteAssembly with staggered iterations. 
-Specfiically, the ability to couple two simulations on the same grid, but 
+Specifically, the ability to couple two simulations on the same grid, but 
 with different dofhandlers, state variables, etc. 
 This is useful for staggered schemes, but can also be used for cases with 
 different number of time steps in the two cases.
