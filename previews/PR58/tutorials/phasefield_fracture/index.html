@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Phase-field fracture · FerriteAssembly.jl</title><meta name="title" content="Phase-field fracture · FerriteAssembly.jl"/><meta property="og:title" content="Phase-field fracture · FerriteAssembly.jl"/><meta property="twitter:title" content="Phase-field fracture · FerriteAssembly.jl"/><meta name="description" content="Documentation for FerriteAssembly.jl."/><meta property="og:description" content="Documentation for FerriteAssembly.jl."/><meta property="twitter:description" content="Documentation for FerriteAssembly.jl."/><meta property="og:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/phasefield_fracture/"/><meta property="twitter:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/phasefield_fracture/"/><link rel="canonical" href="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/phasefield_fracture/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteAssembly.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Learning by doing</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-2-1" type="checkbox" checked/><label class="tocitem" for="menuitem-2-1"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../heat_equation/">Heat Equation</a></li><li><a class="tocitem" href="../viscoelasticity/">Viscoelasticity with state variables</a></li><li><a class="tocitem" href="../incompressible_elasticity/">Multiple fields</a></li><li><a class="tocitem" href="../mixed_materials/">Multiple materials</a></li><li><a class="tocitem" href="../iga/">Using <code>IGA.jl</code></a></li><li class="is-active"><a class="tocitem" href>Phase-field fracture</a><ul class="internal"><li><a class="tocitem" href="#Implementation-of-physics"><span>Implementation of physics</span></a></li><li><a class="tocitem" href="#Simulation-setup"><span>Simulation setup</span></a></li><li><a class="tocitem" href="#Solving"><span>Solving</span></a></li><li><a class="tocitem" href="#phasefield_fracture_plain_program"><span>Plain program</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-2-2" type="checkbox"/><label class="tocitem" for="menuitem-2-2"><span class="docs-label">How-to</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../howto/threaded_assembly/">Threaded assembly</a></li><li><a class="tocitem" href="../../howto/automatic_differentiation/">Automatic differentiation</a></li><li><a class="tocitem" href="../../howto/local_constraints/">Local constraint application</a></li><li><a class="tocitem" href="../../howto/robin_bc/">Robin boundary conditions</a></li><li><a class="tocitem" href="../../howto/volume_integral/">Volume integration</a></li><li><a class="tocitem" href="../../howto/surface_integral/">Surface integration</a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../design/">Design</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">DomainBuffers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../DomainBuffers/Setup/">DomainBuffers</a></li><li><a class="tocitem" href="../../DomainBuffers/StateVariables/">State variables</a></li><li><a class="tocitem" href="../../DomainBuffers/ItemBuffer/">ItemBuffer</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Workers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Workers/Workers/">Workers</a></li><li><a class="tocitem" href="../../Workers/Assemblers/">Assemblers</a></li><li><a class="tocitem" href="../../Workers/Integrators/">Integrators</a></li><li><a class="tocitem" href="../../Workers/QuadPointEvaluator/">Quadrature point eval</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Convenience</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Convenience/LoadHandler/">External loads</a></li><li><a class="tocitem" href="../../Convenience/MaterialModelsBase/">Mechanical materials</a></li><li><a class="tocitem" href="../../Convenience/ExampleElements/">Example elements</a></li></ul></li><li><a class="tocitem" href="../../Customization/">Customizations</a></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Learning by doing</a></li><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Phase-field fracture</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Phase-field fracture</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl/blob/main/docs/src/literate_tutorials/phasefield_fracture.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Phase-field-fracture"><a class="docs-heading-anchor" href="#Phase-field-fracture">Phase-field fracture</a><a id="Phase-field-fracture-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-field-fracture" title="Permalink"></a></h1><p>This tutorial demonstrates how the phase-field fracture problem can be solved using FerriteAssembly with staggered iterations. Specifically, the ability to couple two simulations on the same grid, but with different dofhandlers, state variables, etc. This is useful for staggered schemes, but can also be used for cases with different number of time steps in the two cases.</p><p><img src="../sent_animation.gif" alt="animation"/></p><p><strong>Figure 1</strong>: Phase-field evolution during the SENT (Single Edge Notch Tension) test.</p><p>In this tutorial, we will use the so-called AT2 fracture model, and we use the micromorphic formulation [1] to ensure irreversibility. The geometry and parameters are also taken from [1].</p><ol><li><a href="https://doi.org/10.1007/s00466-023-02380-1">Bharali, R., Larsson, F., &amp; Jänicke, R. (2023). A micromorphic phase-field model for brittle and quasi-brittle fracture. <em>Computational Mechanics</em>, 73, 579–598</a></li></ol><p>The full script without intermediate comments is available at the <a href="#phasefield_fracture_plain_program">bottom of this page</a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, FerriteMeshParser
+using AppleAccelerate
+using Downloads: download</code></pre><h2 id="Implementation-of-physics"><a class="docs-heading-anchor" href="#Implementation-of-physics">Implementation of physics</a><a id="Implementation-of-physics-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation-of-physics" title="Permalink"></a></h2><pre><code class="language-julia hljs">struct PhaseFieldFracture{C, T}
+    G::T    # Elastic shear modulus
+    K::T    # Elastic bulk modulus
+    Gc::T   # Fracture energy
+    l::T    # Length parameter
+    α::T    # Micromorphic penalty factor
+    model::Symbol # Fracture model
+end
+function PhaseFieldFracture(;E, ν, Gc, l, β, model = :AT2)
+    G = E / (2 * (1 + ν))
+    K = E / (3 * (1 - 2ν))
+    α = β * Gc / l
+    T = promote_type(typeof(G), typeof(α))
+    return PhaseFieldFracture{Nothing, T}(G, K, Gc, l, α, model)
+end
+function PhaseFieldFracture{C}(m::PhaseFieldFracture{&lt;:Any, T}) where {C, T}
+    return PhaseFieldFracture{C, T}(m.G, m.K, m.Gc, m.l, m.α, m.model)
+end;</code></pre><h3 id="Elastic-(displacement)-part-(:u)"><a class="docs-heading-anchor" href="#Elastic-(displacement)-part-(:u)">Elastic (displacement) part (:u)</a><a id="Elastic-(displacement)-part-(:u)-1"></a><a class="docs-heading-anchor-permalink" href="#Elastic-(displacement)-part-(:u)" title="Permalink"></a></h3><pre><code class="language-julia hljs">function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{:u}, cv::CellValues, buffer)
+    # Fixed parameters
+    gϕ_min = 1e-10
+    # Values from phase-field problem
+    cb_d = FerriteAssembly.get_coupled_buffer(buffer, :d)
+    phasefields = FerriteAssembly.get_state(cb_d)
+
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        ϵ = function_symmetric_gradient(cv, q_point, ae)
+        ϕ = phasefields[q_point]
+        gϕ = (1 - ϕ)^2 # AT1 and AT2
+        gϕ_reg = (1 - gϕ_min)*gϕ + gϕ_min
+        σ = (gϕ_reg * 2 * m.G) * dev(ϵ) + (gϕ_reg * 3 * m.K) * vol(ϵ)
+        for i in 1:getnbasefunctions(cv)
+            ∇δNu = shape_symmetric_gradient(cv, q_point, i)
+            re[i] += (∇δNu ⊡ σ) * dΩ
+        end
+    end
+end;</code></pre><h3 id="Phase-Field-(damage)-part-(:d)"><a class="docs-heading-anchor" href="#Phase-Field-(damage)-part-(:d)">Phase-Field (damage) part (:d)</a><a id="Phase-Field-(damage)-part-(:d)-1"></a><a class="docs-heading-anchor-permalink" href="#Phase-Field-(damage)-part-(:d)" title="Permalink"></a></h3><pre><code class="language-julia hljs">function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{:d}, cv::CellValues, buffer)
+    # Values from elasticity problem
+    cb_u = FerriteAssembly.get_coupled_buffer(buffer, :u)
+    ae_u = FerriteAssembly.get_ae(cb_u)
+    cv_u = FerriteAssembly.get_values(cb_u)
+
+    # Old phasefield values
+    state_old = FerriteAssembly.get_old_state(buffer)
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        d = function_value(cv, q_point, ae)
+        ∇d = function_gradient(cv, q_point, ae)
+        ⁿϕ = state_old[q_point]
+
+        # Elastic energy (no split)
+        ϵ = function_symmetric_gradient(cv_u, q_point, ae_u)
+        Ψ = 0.5 * (m.K - 2 * m.G / 3) * tr(ϵ)^2 + m.G * (ϵ ⊡ ϵ)
+
+        if m.model === :AT1
+            cw = 8/3
+            ϕ = min(max((2 * Ψ + m.α * d - 3 * m.Gc/(8 * m.l))/(2 * Ψ + m.α), ⁿϕ), 1)
+        else # AT2
+            cw = 2.0
+            ϕ = min(max((2 * Ψ + m.α * d)/(2 * Ψ + m.α + m.Gc / m.l), ⁿϕ), 1)
+        end
+
+        for i in 1:getnbasefunctions(cv)
+            ∇δN = shape_gradient(cv, q_point, i)
+            δN = shape_value(cv, q_point, i)
+            re[i] += ((2 * m.Gc * m.l / cw) * (∇δN ⋅ ∇d) - m.α * (ϕ - d) * δN) * dΩ
+        end
+        state[q_point] = FerriteAssembly.remove_dual(ϕ)
+    end
+end
+
+function FerriteAssembly.create_cell_state(::PhaseFieldFracture{:d}, cv::CellValues, x, ae, args...)
+    return [function_value(cv, i, ae) for i in 1:getnquadpoints(cv)]
+end;</code></pre><h2 id="Simulation-setup"><a class="docs-heading-anchor" href="#Simulation-setup">Simulation setup</a><a id="Simulation-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Simulation-setup" title="Permalink"></a></h2><p>We start by loading the grid (Single Edge Notch Tension)</p><pre><code class="language-julia hljs">gridfile = &quot;sent_fine.inp&quot; # &quot;sent_coarse.inp&quot; also possible
+isfile(gridfile) || download(FerriteAssembly.asset_url(gridfile), gridfile)
+grid = get_ferrite_grid(gridfile)
+mbase = PhaseFieldFracture(;E = 210e3, ν = 0.3, Gc = 2.7, l = 1.5e-2, β = 100.0);</code></pre><p>Before defining the quadrature rules that are the same for both parts</p><pre><code class="language-julia hljs">qr_tri = QuadratureRule{RefTriangle}(2);
+qr_quad = QuadratureRule{RefQuadrilateral}(2);
+
+### Generic setup
+function setup(m, grid, fieldname; qr_tri, qr_quad, ip_tri, ip_quad)
+    dh = DofHandler(grid)
+
+    sdh_tri = SubDofHandler(dh, getcellset(grid, &quot;CPS3&quot;))
+    add!(sdh_tri, fieldname, ip_tri)
+    cv_tri = CellValues(qr_tri, ip_tri)
+
+    sdh_quad = SubDofHandler(dh, getcellset(grid, &quot;CPS4R&quot;))
+    add!(sdh_quad, fieldname, ip_quad)
+    cv_quad = CellValues(qr_quad, ip_quad)
+
+    close!(dh)
+
+    domains = Dict(
+        &quot;tri&quot;  =&gt; DomainSpec(sdh_tri, m, cv_tri),
+        &quot;quad&quot; =&gt; DomainSpec(sdh_quad, m, cv_quad),
+        )
+
+    db = setup_domainbuffers(domains; threading = true, autodiffbuffer = true, a = zeros(ndofs(dh)))
+    K = allocate_matrix(dh)
+    r = zeros(ndofs(dh))
+    return db, K, r, ndofs(dh)
+end
+
+db_u_uc, Ku, ru, ndofs_u = setup(PhaseFieldFracture{:u}(mbase), grid, :u;
+    qr_tri, qr_quad,
+    ip_tri = Lagrange{RefTriangle, 1}()^2,
+    ip_quad = Lagrange{RefQuadrilateral, 1}()^2
+    )
+
+db_d_uc, Kd, rd, ndofs_d = setup(PhaseFieldFracture{:d}(mbase), grid, :d;
+    qr_tri, qr_quad,
+    ip_tri = Lagrange{RefTriangle, 2}(),
+    ip_quad = Lagrange{RefQuadrilateral, 2}()
+    )
+
+sim_u = Simulation(couple_buffers(db_u_uc; d = db_d_uc), zeros(ndofs_u), zeros(ndofs_u))
+sim_d = Simulation(couple_buffers(db_d_uc; u = db_u_uc), zeros(ndofs_d), zeros(ndofs_d));</code></pre><p>Setup loading and boundary conditions</p><pre><code class="language-julia hljs">load_function(t) = 1e-4 * t
+
+ch_u = ConstraintHandler(FerriteAssembly.get_dofhandler(sim_u))
+add!(ch_u, Dirichlet(:u, getfacetset(grid, &quot;bottom&quot;), Returns(zero(Vec{2}))))
+add!(ch_u, Dirichlet(:u, getfacetset(grid, &quot;top&quot;), Returns(0), [1]))
+add!(ch_u, Dirichlet(:u, getfacetset(grid, &quot;top&quot;), (x, t) -&gt; load_function(t), [2]))
+close!(ch_u);</code></pre><p>For postprocessing, we create a function to get the reaction force dofs,</p><pre><code class="language-julia hljs">function get_reaction_dofs(dh)
+    ch_dummy = close!(add!(ConstraintHandler(dh), Dirichlet(:u, getfacetset(dh.grid, &quot;top&quot;), Returns(0), [2])))
+    return ch_dummy.prescribed_dofs
+end;</code></pre><h2 id="Solving"><a class="docs-heading-anchor" href="#Solving">Solving</a><a id="Solving-1"></a><a class="docs-heading-anchor-permalink" href="#Solving" title="Permalink"></a></h2><p>Write function to solve one simulation part, given the other as input.</p><pre><code class="language-julia hljs">function solve_single_part(sim, coupled, K, r, ch; firsttol = 1e-5, tol = 1e-6, maxiter = 100)
+    if ch !== nothing # Displacement part
+        reaction_dofs = get_reaction_dofs(FerriteAssembly.get_dofhandler(sim))
+    else
+        reaction_dofs = Int[]
+    end
+    for i in 1:maxiter
+        assembler = start_assemble(K, r)
+        work!(assembler, sim, coupled)
+        rf = sum(i -&gt; r[i], reaction_dofs; init = zero(eltype(r)))
+        ch === nothing || apply_zero!(K, r, ch)
+        res = norm(r)
+        if i == 1 &amp;&amp; res &lt; firsttol
+            return true, rf  # no modification required, already converged
+        elseif res &lt; tol
+            return false, rf # current part was modified to converge
+        elseif i ≥ maxiter
+            error(&quot;single part iterations didn&#39;t converge&quot;)
+        end
+        sim.a .-= K \ r # Update unknowns
+    end
+end
+
+function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
+    time_vector = collect(1:65)
+    u_history = zeros(length(time_vector) + 1)
+    rf_history = zeros(length(time_vector) + 1)
+    for (n, t) in enumerate(time_vector)
+        update!(ch_u, t)
+        apply!(sim_u.a, ch_u)
+        local num, rf
+        max_staggered = 2500
+        for iter in 1:max_staggered
+            num = iter
+            u_converged, rf = solve_single_part(sim_u, CoupledSimulations(d = sim_d), Ku, ru, ch_u)
+            u_converged &amp;&amp; break # Displacement was converged without updating
+            d_converged, _ = solve_single_part(sim_d, CoupledSimulations(u = sim_u), Kd, rd, nothing)
+            d_converged &amp;&amp; break # Damage was converged without updating
+            iter ≥ max_staggered &amp;&amp; error(&quot;Did not converge in staggered iterations&quot;)
+        end
+        println(n, &quot;: &quot;, num)
+        update_states!(sim_d) # Only d has state variables
+        copyto!(sim_d.aold, sim_d.a)
+        copyto!(sim_u.aold, sim_u.a)
+        # Postprocessing
+        VTKGridFile(&quot;fracture-$n&quot;, grid) do vtk
+            write_solution(vtk, FerriteAssembly.get_dofhandler(sim_d), sim_d.a)
+            write_solution(vtk, FerriteAssembly.get_dofhandler(sim_u), sim_u.a)
+        end
+        u_history[n + 1] = load_function(t)
+        rf_history[n + 1] = rf
+    end
+    return u_history, rf_history
+end;</code></pre><p>Finally, we run the simulation and plot the force-displacement curve</p><pre><code class="language-julia hljs">u_history, rf_history = solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
+import CairoMakie as Plt
+fig = Plt.Figure(size = (400, 200))
+ax = Plt.Axis(fig[1,1]; xlabel = &quot;top displacement [mm]&quot;, ylabel = &quot;reaction force [N]&quot;)
+Plt.lines!(ax, u_history, rf_history)
+display(fig)</code></pre><p><img src="../sent_results.png" alt="force-displacement"/></p><h2 id="phasefield_fracture_plain_program"><a class="docs-heading-anchor" href="#phasefield_fracture_plain_program">Plain program</a><a id="phasefield_fracture_plain_program-1"></a><a class="docs-heading-anchor-permalink" href="#phasefield_fracture_plain_program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../phasefield_fracture.jl"><code>phasefield_fracture.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteAssembly, FerriteMeshParser
+using AppleAccelerate
+using Downloads: download
+
+struct PhaseFieldFracture{C, T}
+    G::T    # Elastic shear modulus
+    K::T    # Elastic bulk modulus
+    Gc::T   # Fracture energy
+    l::T    # Length parameter
+    α::T    # Micromorphic penalty factor
+    model::Symbol # Fracture model
+end
+function PhaseFieldFracture(;E, ν, Gc, l, β, model = :AT2)
+    G = E / (2 * (1 + ν))
+    K = E / (3 * (1 - 2ν))
+    α = β * Gc / l
+    T = promote_type(typeof(G), typeof(α))
+    return PhaseFieldFracture{Nothing, T}(G, K, Gc, l, α, model)
+end
+function PhaseFieldFracture{C}(m::PhaseFieldFracture{&lt;:Any, T}) where {C, T}
+    return PhaseFieldFracture{C, T}(m.G, m.K, m.Gc, m.l, m.α, m.model)
+end;
+
+function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{:u}, cv::CellValues, buffer)
+    # Fixed parameters
+    gϕ_min = 1e-10
+    # Values from phase-field problem
+    cb_d = FerriteAssembly.get_coupled_buffer(buffer, :d)
+    phasefields = FerriteAssembly.get_state(cb_d)
+
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        ϵ = function_symmetric_gradient(cv, q_point, ae)
+        ϕ = phasefields[q_point]
+        gϕ = (1 - ϕ)^2 # AT1 and AT2
+        gϕ_reg = (1 - gϕ_min)*gϕ + gϕ_min
+        σ = (gϕ_reg * 2 * m.G) * dev(ϵ) + (gϕ_reg * 3 * m.K) * vol(ϵ)
+        for i in 1:getnbasefunctions(cv)
+            ∇δNu = shape_symmetric_gradient(cv, q_point, i)
+            re[i] += (∇δNu ⊡ σ) * dΩ
+        end
+    end
+end;
+
+function FerriteAssembly.element_residual!(re, state, ae, m::PhaseFieldFracture{:d}, cv::CellValues, buffer)
+    # Values from elasticity problem
+    cb_u = FerriteAssembly.get_coupled_buffer(buffer, :u)
+    ae_u = FerriteAssembly.get_ae(cb_u)
+    cv_u = FerriteAssembly.get_values(cb_u)
+
+    # Old phasefield values
+    state_old = FerriteAssembly.get_old_state(buffer)
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        d = function_value(cv, q_point, ae)
+        ∇d = function_gradient(cv, q_point, ae)
+        ⁿϕ = state_old[q_point]
+
+        # Elastic energy (no split)
+        ϵ = function_symmetric_gradient(cv_u, q_point, ae_u)
+        Ψ = 0.5 * (m.K - 2 * m.G / 3) * tr(ϵ)^2 + m.G * (ϵ ⊡ ϵ)
+
+        if m.model === :AT1
+            cw = 8/3
+            ϕ = min(max((2 * Ψ + m.α * d - 3 * m.Gc/(8 * m.l))/(2 * Ψ + m.α), ⁿϕ), 1)
+        else # AT2
+            cw = 2.0
+            ϕ = min(max((2 * Ψ + m.α * d)/(2 * Ψ + m.α + m.Gc / m.l), ⁿϕ), 1)
+        end
+
+        for i in 1:getnbasefunctions(cv)
+            ∇δN = shape_gradient(cv, q_point, i)
+            δN = shape_value(cv, q_point, i)
+            re[i] += ((2 * m.Gc * m.l / cw) * (∇δN ⋅ ∇d) - m.α * (ϕ - d) * δN) * dΩ
+        end
+        state[q_point] = FerriteAssembly.remove_dual(ϕ)
+    end
+end
+
+function FerriteAssembly.create_cell_state(::PhaseFieldFracture{:d}, cv::CellValues, x, ae, args...)
+    return [function_value(cv, i, ae) for i in 1:getnquadpoints(cv)]
+end;
+
+gridfile = &quot;sent_fine.inp&quot; # &quot;sent_coarse.inp&quot; also possible
+isfile(gridfile) || download(FerriteAssembly.asset_url(gridfile), gridfile)
+grid = get_ferrite_grid(gridfile)
+mbase = PhaseFieldFracture(;E = 210e3, ν = 0.3, Gc = 2.7, l = 1.5e-2, β = 100.0);
+
+qr_tri = QuadratureRule{RefTriangle}(2);
+qr_quad = QuadratureRule{RefQuadrilateral}(2);
+
+### Generic setup
+function setup(m, grid, fieldname; qr_tri, qr_quad, ip_tri, ip_quad)
+    dh = DofHandler(grid)
+
+    sdh_tri = SubDofHandler(dh, getcellset(grid, &quot;CPS3&quot;))
+    add!(sdh_tri, fieldname, ip_tri)
+    cv_tri = CellValues(qr_tri, ip_tri)
+
+    sdh_quad = SubDofHandler(dh, getcellset(grid, &quot;CPS4R&quot;))
+    add!(sdh_quad, fieldname, ip_quad)
+    cv_quad = CellValues(qr_quad, ip_quad)
+
+    close!(dh)
+
+    domains = Dict(
+        &quot;tri&quot;  =&gt; DomainSpec(sdh_tri, m, cv_tri),
+        &quot;quad&quot; =&gt; DomainSpec(sdh_quad, m, cv_quad),
+        )
+
+    db = setup_domainbuffers(domains; threading = true, autodiffbuffer = true, a = zeros(ndofs(dh)))
+    K = allocate_matrix(dh)
+    r = zeros(ndofs(dh))
+    return db, K, r, ndofs(dh)
+end
+
+db_u_uc, Ku, ru, ndofs_u = setup(PhaseFieldFracture{:u}(mbase), grid, :u;
+    qr_tri, qr_quad,
+    ip_tri = Lagrange{RefTriangle, 1}()^2,
+    ip_quad = Lagrange{RefQuadrilateral, 1}()^2
+    )
+
+db_d_uc, Kd, rd, ndofs_d = setup(PhaseFieldFracture{:d}(mbase), grid, :d;
+    qr_tri, qr_quad,
+    ip_tri = Lagrange{RefTriangle, 2}(),
+    ip_quad = Lagrange{RefQuadrilateral, 2}()
+    )
+
+sim_u = Simulation(couple_buffers(db_u_uc; d = db_d_uc), zeros(ndofs_u), zeros(ndofs_u))
+sim_d = Simulation(couple_buffers(db_d_uc; u = db_u_uc), zeros(ndofs_d), zeros(ndofs_d));
+
+load_function(t) = 1e-4 * t
+
+ch_u = ConstraintHandler(FerriteAssembly.get_dofhandler(sim_u))
+add!(ch_u, Dirichlet(:u, getfacetset(grid, &quot;bottom&quot;), Returns(zero(Vec{2}))))
+add!(ch_u, Dirichlet(:u, getfacetset(grid, &quot;top&quot;), Returns(0), [1]))
+add!(ch_u, Dirichlet(:u, getfacetset(grid, &quot;top&quot;), (x, t) -&gt; load_function(t), [2]))
+close!(ch_u);
+
+function get_reaction_dofs(dh)
+    ch_dummy = close!(add!(ConstraintHandler(dh), Dirichlet(:u, getfacetset(dh.grid, &quot;top&quot;), Returns(0), [2])))
+    return ch_dummy.prescribed_dofs
+end;
+
+function solve_single_part(sim, coupled, K, r, ch; firsttol = 1e-5, tol = 1e-6, maxiter = 100)
+    if ch !== nothing # Displacement part
+        reaction_dofs = get_reaction_dofs(FerriteAssembly.get_dofhandler(sim))
+    else
+        reaction_dofs = Int[]
+    end
+    for i in 1:maxiter
+        assembler = start_assemble(K, r)
+        work!(assembler, sim, coupled)
+        rf = sum(i -&gt; r[i], reaction_dofs; init = zero(eltype(r)))
+        ch === nothing || apply_zero!(K, r, ch)
+        res = norm(r)
+        if i == 1 &amp;&amp; res &lt; firsttol
+            return true, rf  # no modification required, already converged
+        elseif res &lt; tol
+            return false, rf # current part was modified to converge
+        elseif i ≥ maxiter
+            error(&quot;single part iterations didn&#39;t converge&quot;)
+        end
+        sim.a .-= K \ r # Update unknowns
+    end
+end
+
+function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
+    time_vector = collect(1:65)
+    u_history = zeros(length(time_vector) + 1)
+    rf_history = zeros(length(time_vector) + 1)
+    for (n, t) in enumerate(time_vector)
+        update!(ch_u, t)
+        apply!(sim_u.a, ch_u)
+        local num, rf
+        max_staggered = 2500
+        for iter in 1:max_staggered
+            num = iter
+            u_converged, rf = solve_single_part(sim_u, CoupledSimulations(d = sim_d), Ku, ru, ch_u)
+            u_converged &amp;&amp; break # Displacement was converged without updating
+            d_converged, _ = solve_single_part(sim_d, CoupledSimulations(u = sim_u), Kd, rd, nothing)
+            d_converged &amp;&amp; break # Damage was converged without updating
+            iter ≥ max_staggered &amp;&amp; error(&quot;Did not converge in staggered iterations&quot;)
+        end
+        println(n, &quot;: &quot;, num)
+        update_states!(sim_d) # Only d has state variables
+        copyto!(sim_d.aold, sim_d.a)
+        copyto!(sim_u.aold, sim_u.a)
+        # Postprocessing
+        VTKGridFile(&quot;fracture-$n&quot;, grid) do vtk
+            write_solution(vtk, FerriteAssembly.get_dofhandler(sim_d), sim_d.a)
+            write_solution(vtk, FerriteAssembly.get_dofhandler(sim_u), sim_u.a)
+        end
+        u_history[n + 1] = load_function(t)
+        rf_history[n + 1] = rf
+    end
+    return u_history, rf_history
+end;
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../iga/">« Using <code>IGA.jl</code></a><a class="docs-footer-nextpage" href="../../howto/threaded_assembly/">Threaded assembly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.1 on <span class="colophon-date" title="Thursday 2 October 2025 07:27">Thursday 2 October 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
