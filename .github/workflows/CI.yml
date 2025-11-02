@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ['1.11', '1']
+        version: ['1.11', '1', 'pre'] # 'lts' not supported as public is used
         os: ['ubuntu-latest']
         include:
           - os: windows-latest
@@ -70,3 +70,4 @@ jobs:
             DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
             GKSwstype: '100'
           run: julia --project=docs --color=yes docs/make.jl
+
