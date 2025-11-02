@@ -18,7 +18,7 @@ WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 
 [sources]
 FerriteAssembly = {path = ".."}
-IGA = {rev = "kam/reinit_with_cell", url = "https://github.com/KnutAM/IGA.jl"}
+IGA = {url = "https://github.com/lijas/IGA.jl"}
 MaterialModelsBase = {url = "https://github.com/KnutAM/MaterialModelsBase.jl.git"}
 MechanicalMaterialModels = {url = "https://github.com/KnutAM/MechanicalMaterialModels.jl.git"}
 Newton = {url = "https://github.com/KnutAM/Newton.jl.git"}
