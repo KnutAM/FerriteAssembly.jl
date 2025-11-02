@@ -49,7 +49,7 @@ public get_ae, get_aeold, get_time_increment
 public get_user_data, get_user_cache, get_coupled_buffer
 # Domain buffers / Simulation
 public getset, get_dofhandler, get_grid, get_itembuffer
-public replace_material, couple_buffers
+public replace_material
 
 """
     element_routine!(
@@ -116,3 +116,4 @@ include("Utils/MaterialModelsBase.jl")
 include("ExampleElements/ExampleElements.jl")
 
 end
+
