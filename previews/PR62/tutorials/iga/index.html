@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Using IGA.jl · FerriteAssembly.jl</title><meta name="title" content="Using IGA.jl · FerriteAssembly.jl"/><meta property="og:title" content="Using IGA.jl · FerriteAssembly.jl"/><meta property="twitter:title" content="Using IGA.jl · FerriteAssembly.jl"/><meta name="description" content="Documentation for FerriteAssembly.jl."/><meta property="og:description" content="Documentation for FerriteAssembly.jl."/><meta property="twitter:description" content="Documentation for FerriteAssembly.jl."/><meta property="og:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/iga/"/><meta property="twitter:url" content="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/iga/"/><link rel="canonical" href="https://KnutAM.github.io/FerriteAssembly.jl/tutorials/iga/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteAssembly.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Learning by doing</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-2-1" type="checkbox" checked/><label class="tocitem" for="menuitem-2-1"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../heat_equation/">Heat Equation</a></li><li><a class="tocitem" href="../viscoelasticity/">Viscoelasticity with state variables</a></li><li><a class="tocitem" href="../incompressible_elasticity/">Multiple fields</a></li><li><a class="tocitem" href="../mixed_materials/">Multiple materials</a></li><li class="is-active"><a class="tocitem" href>Using <code>IGA.jl</code></a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Assembly-and-solution"><span>Assembly and solution</span></a></li><li><a class="tocitem" href="#Postprocessing"><span>Postprocessing</span></a></li><li><a class="tocitem" href="#iga_plain_program"><span>Plain program</span></a></li></ul></li><li><a class="tocitem" href="../phasefield_fracture/">Phase-field fracture</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-2-2" type="checkbox"/><label class="tocitem" for="menuitem-2-2"><span class="docs-label">How-to</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../howto/threaded_assembly/">Threaded assembly</a></li><li><a class="tocitem" href="../../howto/automatic_differentiation/">Automatic differentiation</a></li><li><a class="tocitem" href="../../howto/local_constraints/">Local constraint application</a></li><li><a class="tocitem" href="../../howto/robin_bc/">Robin boundary conditions</a></li><li><a class="tocitem" href="../../howto/volume_integral/">Volume integration</a></li><li><a class="tocitem" href="../../howto/surface_integral/">Surface integration</a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../design/">Design</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">DomainBuffers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../DomainBuffers/Setup/">DomainBuffers</a></li><li><a class="tocitem" href="../../DomainBuffers/StateVariables/">State variables</a></li><li><a class="tocitem" href="../../DomainBuffers/ItemBuffer/">ItemBuffer</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Workers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Workers/Workers/">Workers</a></li><li><a class="tocitem" href="../../Workers/Assemblers/">Assemblers</a></li><li><a class="tocitem" href="../../Workers/Integrators/">Integrators</a></li><li><a class="tocitem" href="../../Workers/QuadPointEvaluator/">Quadrature point eval</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Convenience</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../Convenience/LoadHandler/">External loads</a></li><li><a class="tocitem" href="../../Convenience/MaterialModelsBase/">Mechanical materials</a></li><li><a class="tocitem" href="../../Convenience/ExampleElements/">Example elements</a></li></ul></li><li><a class="tocitem" href="../../Customization/">Customizations</a></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Learning by doing</a></li><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Using <code>IGA.jl</code></a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Using <code>IGA.jl</code></a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/KnutAM/FerriteAssembly.jl/blob/main/docs/src/literate_tutorials/iga.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Using-IGA.jl"><a class="docs-heading-anchor" href="#Using-IGA.jl">Using <code>IGA.jl</code></a><a id="Using-IGA.jl-1"></a><a class="docs-heading-anchor-permalink" href="#Using-IGA.jl" title="Permalink"></a></h1><p>This tutorial shows how to integrate FerriteAssembly with the isogeometric analysis toolbox IGA.jl, directly based on <code>IGA.jl</code>&#39;s <a href="https://lijas.github.io/IGA.jl/dev/examples/plate_with_hole/">Infinite plate with hole</a> example. Hence, please see there for further documentation details and important remarks regarding IGA.</p><p>The example considers solving a plate with a hole. A quarter of a plate is considered via symmetry boundary conditions, and a tensile load is applied on one edge. The full script without intermediate comments is available at the <a href="#iga_plain_program">bottom of this page</a>.</p><p>Start by loading the necessary packages</p><pre><code class="language-julia hljs">using Ferrite, IGA, LinearAlgebra, FerriteAssembly
+import FerriteAssembly.ExampleElements: ElasticPlaneStrain</code></pre><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>To clarify the differences, we split the setup into <code>IGA.jl</code>, <code>Ferrite.jl</code>, and <code>FerriteAssembly.jl</code> specific parts.</p><h3 id="IGA.jl-setup"><a class="docs-heading-anchor" href="#IGA.jl-setup"><code>IGA.jl</code> setup</a><a id="IGA.jl-setup-1"></a><a class="docs-heading-anchor-permalink" href="#IGA.jl-setup" title="Permalink"></a></h3><p>We begin by generating the mesh by using <code>IGA.jl</code>&#39;s built-in mesh generators, specifically a &quot;plate with hole&quot;.</p><pre><code class="language-julia hljs">function create_mesh(; nels = (20,10), order)
+    nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels, order)
+    grid = BezierGrid(nurbsmesh)
+
+    addfacetset!(grid, &quot;left&quot;, (x) -&gt; x[1] ≈ -4.0)
+    addfacetset!(grid, &quot;bot&quot;, (x) -&gt; x[2] ≈ 0.0)
+    addfacetset!(grid, &quot;right&quot;, (x) -&gt; x[1] ≈ 0.0)
+
+    return grid
+end
+order = 2
+grid = create_mesh(; order);</code></pre><p>Create the <code>IGA.jl</code> cell and facet values for storing the the <code>IGA.jl</code> shape function values and gradients.</p><pre><code class="language-julia hljs">ip = IGAInterpolation{RefQuadrilateral, order}()
+qr_cell = QuadratureRule{RefQuadrilateral}(4)
+qr_face = FacetQuadratureRule{RefQuadrilateral}(3)
+
+cv = BezierCellValues(qr_cell, ip^2);
+fv = BezierFacetValues(qr_face, ip^2);</code></pre><h3 id="Ferrite.jl-setup"><a class="docs-heading-anchor" href="#Ferrite.jl-setup"><code>Ferrite.jl</code> setup</a><a id="Ferrite.jl-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Ferrite.jl-setup" title="Permalink"></a></h3><p>Distribute dofs as normal</p><pre><code class="language-julia hljs">dh = DofHandler(grid)
+add!(dh, :u, ip^2)
+close!(dh);</code></pre><p>And allocate system matrices and vectors</p><pre><code class="language-julia hljs">a = zeros(ndofs(dh))
+r = zeros(ndofs(dh))
+K = allocate_matrix(dh);</code></pre><p>Before adding boundary conditions, starting with Dirichlet:</p><ol><li>Bottom face should only be able to move in x-direction</li><li>Right boundary should only be able to move in y-direction</li></ol><pre><code class="language-julia hljs">ch = ConstraintHandler(dh);
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;bot&quot;), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;right&quot;), Returns(0.0), 1))
+close!(ch)
+update!(ch, 0.0);</code></pre><h3 id="FerriteAssembly.jl-setup"><a class="docs-heading-anchor" href="#FerriteAssembly.jl-setup"><code>FerriteAssembly.jl</code> setup</a><a id="FerriteAssembly.jl-setup-1"></a><a class="docs-heading-anchor-permalink" href="#FerriteAssembly.jl-setup" title="Permalink"></a></h3><p>Neumann boundary conditions are added using <code>FerriteAssembly</code>&#39;s <code>LoadHandler</code>. We apply outwards traction on the left surface, and take the negative value since r = fint - fext.</p><pre><code class="language-julia hljs">traction = Vec((-10.0, 0.0))
+lh = LoadHandler(dh)
+add!(lh, Neumann(:u, fv, getfacetset(grid, &quot;left&quot;), Returns(-traction)));
+
+material = ElasticPlaneStrain(;E=100.0, ν=0.3)
+domain = DomainSpec(dh, material, cv)
+buffer = setup_domainbuffer(domain);</code></pre><h2 id="Assembly-and-solution"><a class="docs-heading-anchor" href="#Assembly-and-solution">Assembly and solution</a><a id="Assembly-and-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Assembly-and-solution" title="Permalink"></a></h2><p>We first assemble the equation system,</p><pre><code class="language-julia hljs">assembler = start_assemble(K, r)
+apply!(a, ch)
+work!(assembler, buffer; a=a)
+apply!(r, lh, 0.0);</code></pre><p>before solving it,</p><pre><code class="language-julia hljs">apply_zero!(K, r, ch)
+a .-= K\r
+apply!(a, ch);</code></pre><h2 id="Postprocessing"><a class="docs-heading-anchor" href="#Postprocessing">Postprocessing</a><a id="Postprocessing-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing" title="Permalink"></a></h2><p>We use the <code>QuadPointEvaluator</code> to calculate stresses in each integration point, The <code>QuadPointEvaluator</code> requires a function with the following input arguments</p><pre><code class="language-julia hljs">function calculate_stress(m, u, ∇u, qp_state)
+    ϵ = symmetric(∇u)
+    return m.C ⊡ ϵ
+end;</code></pre><p>We can then use this to calculate the stress tensor in each integration point</p><pre><code class="language-julia hljs">qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
+work!(qe, buffer; a=a);</code></pre><p>Now we want to export the results to VTK. So we project the stresses at the quadrature points to the nodes using the L2Projector from Ferrite. Currently, however, IGA doesn&#39;t support L2 projection.</p><pre><code class="language-julia hljs"># projector = L2Projector(ip, grid)
+# σ_nodes = IGA.igaproject(projector, qe.data, qr_cell; project_to_nodes=true);</code></pre><p>Output results to VTK</p><pre><code class="language-julia hljs">IGA.VTKIGAFile(&quot;plate_with_hole.vtu&quot;, grid) do vtk
+    write_solution(vtk, dh, a)
+end</code></pre><h2 id="iga_plain_program"><a class="docs-heading-anchor" href="#iga_plain_program">Plain program</a><a id="iga_plain_program-1"></a><a class="docs-heading-anchor-permalink" href="#iga_plain_program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../iga.jl"><code>iga.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, IGA, LinearAlgebra, FerriteAssembly
+import FerriteAssembly.ExampleElements: ElasticPlaneStrain
+
+function create_mesh(; nels = (20,10), order)
+    nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels, order)
+    grid = BezierGrid(nurbsmesh)
+
+    addfacetset!(grid, &quot;left&quot;, (x) -&gt; x[1] ≈ -4.0)
+    addfacetset!(grid, &quot;bot&quot;, (x) -&gt; x[2] ≈ 0.0)
+    addfacetset!(grid, &quot;right&quot;, (x) -&gt; x[1] ≈ 0.0)
+
+    return grid
+end
+order = 2
+grid = create_mesh(; order);
+
+ip = IGAInterpolation{RefQuadrilateral, order}()
+qr_cell = QuadratureRule{RefQuadrilateral}(4)
+qr_face = FacetQuadratureRule{RefQuadrilateral}(3)
+
+cv = BezierCellValues(qr_cell, ip^2);
+fv = BezierFacetValues(qr_face, ip^2);
+
+dh = DofHandler(grid)
+add!(dh, :u, ip^2)
+close!(dh);
+
+a = zeros(ndofs(dh))
+r = zeros(ndofs(dh))
+K = allocate_matrix(dh);
+
+ch = ConstraintHandler(dh);
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;bot&quot;), Returns(0.0), 2))
+add!(ch, Dirichlet(:u, getfacetset(grid, &quot;right&quot;), Returns(0.0), 1))
+close!(ch)
+update!(ch, 0.0);
+
+traction = Vec((-10.0, 0.0))
+lh = LoadHandler(dh)
+add!(lh, Neumann(:u, fv, getfacetset(grid, &quot;left&quot;), Returns(-traction)));
+
+material = ElasticPlaneStrain(;E=100.0, ν=0.3)
+domain = DomainSpec(dh, material, cv)
+buffer = setup_domainbuffer(domain);
+
+assembler = start_assemble(K, r)
+apply!(a, ch)
+work!(assembler, buffer; a=a)
+apply!(r, lh, 0.0);
+
+apply_zero!(K, r, ch)
+a .-= K\r
+apply!(a, ch);
+
+function calculate_stress(m, u, ∇u, qp_state)
+    ϵ = symmetric(∇u)
+    return m.C ⊡ ϵ
+end;
+
+qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
+work!(qe, buffer; a=a);
+
+IGA.VTKIGAFile(&quot;plate_with_hole.vtu&quot;, grid) do vtk
+    write_solution(vtk, dh, a)
+end
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../mixed_materials/">« Multiple materials</a><a class="docs-footer-nextpage" href="../phasefield_fracture/">Phase-field fracture »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Sunday 2 November 2025 11:03">Sunday 2 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
