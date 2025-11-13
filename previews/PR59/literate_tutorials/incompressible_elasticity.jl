@@ -112,7 +112,7 @@ function solve(;ν, ipu, ipp)
     u = Symmetric(K) \ f;          # Solve the equation system
 
     ## Export the results
-    filename = "cook_" * (isa(ipu, Lagrange{2,RefTetrahedron,1}) ? "linear" : "quadratic") *
+    filename = "cook_" * (Ferrite.getorder(ipu) == 1 ? "linear" : "quadratic") *
                          "_linear"
     VTKGridFile(filename, dh) do vtk
         write_solution(vtk, dh, u)
