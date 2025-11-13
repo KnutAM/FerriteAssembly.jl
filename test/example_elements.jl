@@ -73,6 +73,19 @@ end
         test_equality(m, weak, Val(true))
         test_equality(m, mmb, Val(true))
     end
+    @testset "Hyperelasticity" begin
+        G, K = (1 + rand(), 1 + rand())
+        m = MMM.CompressibleNeoHooke(; G, K)
+        function weakform_neohooke(δu, ∇δu, u, ∇u, u_dot, ∇u_dot)
+            F = one(∇u) + ∇u
+            C = tdot(F)
+            S = MMM.compute_stress(m, C)
+            P = F ⋅ S
+            return ∇δu ⊡ P
+        end
+        weak = EE.WeakForm(weakform_neohooke)
+        test_equality(m, weak, Val(true))
+    end
     @testset "J2Plasticity" begin
         E = 1.0 + rand()
         H = 0.1 + 0.9*rand()
