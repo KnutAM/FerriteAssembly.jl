@@ -58,10 +58,9 @@ function mechanical_element_routine!(::Type{<:Tensor{2}},
         H = function_gradient(cellvalues, q_point, ae) # Displacement gradient
         F = H + one(H) # Deformation gradient
         P, D, state[q_point] = MMB.material_response(material, F, state_old[q_point], Δt, cache)
-
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs
-            ∇δN = shape_symmetric_gradient(cellvalues, q_point, i)
+            ∇δN = shape_gradient(cellvalues, q_point, i)
             re[i] += (∇δN ⊡ P) * dΩ # add internal force to residual
             ∇δN_D = ∇δN ⊡ D         # temporary value for speed
             for j in 1:n_basefuncs
@@ -119,7 +118,7 @@ function mechanical_element_residual!(::Type{<:Tensor{2}},
         P, _, state[q_point] = MMB.material_response(material, F, state_old[q_point], Δt, cache)
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs
-            ∇δN = shape_symmetric_gradient(cellvalues, q_point, i)
+            ∇δN = shape_gradient(cellvalues, q_point, i)
             re[i] += (∇δN ⊡ P) * dΩ # add internal force to residual
         end
     end

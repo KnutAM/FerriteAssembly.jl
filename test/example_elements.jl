@@ -75,11 +75,17 @@ end
     end
     @testset "Hyperelasticity" begin
         G, K = (1 + rand(), 1 + rand())
-        m = MMM.CompressibleNeoHooke(; G, K)
-        function weakform_neohooke(δu, ∇δu, u, ∇u, u_dot, ∇u_dot)
+        m_3d = MMM.CompressibleNeoHooke(; G, K)
+        m = MMB.ReducedStressState(MMB.PlaneStrain(), m_3d)
+        function weakform_neohooke(δu, ∇δu::Tensor{2,2}, u, ∇u::Tensor{2,2}, u_dot, ∇u_dot)
+            # 2D, consider as plane strain]
+            make3d(t::Tensor{2,2,T}) where {T} = Tensor{2,3,T}((i,j) -> i ≤ 2 && j ≤ 2 ? t[i,j] : zero(T))
+            return weakform_neohooke(δu, make3d(∇δu), u, make3d(∇u), u_dot, ∇u_dot)
+        end
+        function weakform_neohooke(δu, ∇δu::Tensor{2,3}, u, ∇u::Tensor{2,3}, u_dot, ∇u_dot)
             F = one(∇u) + ∇u
             C = tdot(F)
-            S = MMM.compute_stress(m, C)
+            S = MMM.compute_stress(m_3d, C)
             P = F ⋅ S
             return ∇δu ⊡ P
         end
