@@ -5,6 +5,7 @@ using Test
 import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements as EE
 import MaterialModelsBase as MMB
+import MechanicalMaterialModels as MMM
 using Logging
 
 include("replacements.jl")

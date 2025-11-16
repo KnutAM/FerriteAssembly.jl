@@ -18,6 +18,12 @@ Note that `create_cell_state` is already implemented for `<:AbstractMaterial`.
 function FerriteAssembly.element_routine!(
     Ke, re, state::Vector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
+    return mechanical_element_routine!(MMB.get_tensorbase(material), Ke, re, state, ae, material, cellvalues, buffer)
+end
+
+function mechanical_element_routine!(::Type{<:SymmetricTensor{2}},
+    Ke, re, state::Vector{<:MMB.AbstractMaterialState},
+    ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
     state_old = FerriteAssembly.get_old_state(buffer)
@@ -40,6 +46,31 @@ function FerriteAssembly.element_routine!(
     end
 end
 
+function mechanical_element_routine!(::Type{<:Tensor{2}},
+    Ke, re, state::Vector{<:MMB.AbstractMaterialState},
+    ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
+    cache = FerriteAssembly.get_user_cache(buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
+    state_old = FerriteAssembly.get_old_state(buffer)
+    n_basefuncs = getnbasefunctions(cellvalues)
+    for q_point in 1:getnquadpoints(cellvalues)
+        # For each integration point, compute stress and material stiffness
+        H = function_gradient(cellvalues, q_point, ae) # Displacement gradient
+        F = H + one(H) # Deformation gradient
+        P, D, state[q_point] = MMB.material_response(material, F, state_old[q_point], Δt, cache)
+        dΩ = getdetJdV(cellvalues, q_point)
+        for i in 1:n_basefuncs
+            ∇δN = shape_gradient(cellvalues, q_point, i)
+            re[i] += (∇δN ⊡ P) * dΩ # add internal force to residual
+            ∇δN_D = ∇δN ⊡ D         # temporary value for speed
+            for j in 1:n_basefuncs
+                ∇N = shape_gradient(cellvalues, q_point, j)
+                Ke[i, j] += (∇δN_D ⊡ ∇N) * dΩ
+            end
+        end
+    end
+end
+
 """
     FerriteAssembly.element_residual!(
         re, state::Vector{<:MMB.AbstractMaterialState}, ae, 
@@ -49,6 +80,12 @@ The `element_residual!` implementation corresponding to the `element_routine!` i
 for a `MaterialModelsBase.AbstractMaterial`
 """
 function FerriteAssembly.element_residual!(
+    re, state::Vector{<:MMB.AbstractMaterialState},
+    ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
+    return mechanical_element_residual!(MMB.get_tensorbase(material), re, state, ae, material, cellvalues, buffer)
+end
+
+function mechanical_element_residual!(::Type{<:SymmetricTensor{2}},
     re, state::Vector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
@@ -63,6 +100,26 @@ function FerriteAssembly.element_residual!(
         for i in 1:n_basefuncs
             ∇δN = shape_symmetric_gradient(cellvalues, q_point, i)
             re[i] += (∇δN ⊡ σ) * dΩ # add internal force to residual
+        end
+    end
+end
+
+function mechanical_element_residual!(::Type{<:Tensor{2}},
+    re, state::Vector{<:MMB.AbstractMaterialState},
+    ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
+    cache = FerriteAssembly.get_user_cache(buffer)
+    Δt = FerriteAssembly.get_time_increment(buffer)
+    state_old = FerriteAssembly.get_old_state(buffer)
+    n_basefuncs = getnbasefunctions(cellvalues)
+    for q_point in 1:getnquadpoints(cellvalues)
+        # For each integration point, compute stress and material stiffness
+        H = function_gradient(cellvalues, q_point, ae) # Displacement gradient
+        F = H + one(H) # Deformation gradient
+        P, _, state[q_point] = MMB.material_response(material, F, state_old[q_point], Δt, cache)
+        dΩ = getdetJdV(cellvalues, q_point)
+        for i in 1:n_basefuncs
+            ∇δN = shape_gradient(cellvalues, q_point, i)
+            re[i] += (∇δN ⊡ P) * dΩ # add internal force to residual
         end
     end
 end
