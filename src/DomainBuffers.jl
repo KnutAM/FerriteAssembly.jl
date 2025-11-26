@@ -1,7 +1,5 @@
 abstract type AbstractDomainBuffer end
 
-get_num_tasks(::AbstractDomainBuffer) = Threads.nthreads() # Default for now
-
 const DomainBuffers = Dict{String, <:AbstractDomainBuffer}
 
 # Accessor functions
@@ -147,17 +145,21 @@ end
 struct ThreadedDomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     chunks::Vector{Vector{Vector{I}}}   # I=Int (cell), I=FacetIndex (facet), or
     set::Vector{I}                      # I=NTuple{2,FacetIndex} (interface)
+    num_tasks::Int
     itembuffer::TaskLocals{B,B}         # cell, facet, or interface buffer 
     states::StateVariables{S}
     sdh::SDH
 end
-function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states::StateVariables, sdh::SubDofHandler, colors_or_chunks=nothing)
+function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states::StateVariables, sdh::SubDofHandler, colors_or_chunks=nothing; num_tasks = Threads.nthreads())
     grid = _getgrid(sdh)
     set_vector = collect(set)
     chunks = create_chunks(grid, set_vector, colors_or_chunks)
-    itembuffers = TaskLocals(itembuffer)
-    return ThreadedDomainBuffer(chunks, set_vector, itembuffers, states, sdh)
+    itembuffers = TaskLocals(itembuffer; num_tasks)
+    return ThreadedDomainBuffer(chunks, set_vector, num_tasks, itembuffers, states, sdh)
 end
+
+get_num_tasks(db::ThreadedDomainBuffer) = db.num_tasks
+get_num_tasks(dbs::DomainBuffers) = maximum(get_num_tasks, values(dbs))
 
 get_chunks(db::ThreadedDomainBuffer) = db.chunks
 

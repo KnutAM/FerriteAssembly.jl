@@ -1,7 +1,7 @@
 name = "FerriteAssembly"
 uuid = "fd21fc07-c509-4fe1-9468-19963fd5935d"
-authors = ["Knut Andreas Meyer and contributors"]
 version = "0.3.6"
+authors = ["Knut Andreas Meyer and contributors"]
 
 [deps]
 ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
@@ -9,24 +9,24 @@ Ferrite = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
 
+[sources]
+MaterialModelsBase = {rev = "main", url = "https://github.com/KnutAM/MaterialModelsBase.jl.git"}
+MechanicalMaterialModels = {url = "https://github.com/KnutAM/MechanicalMaterialModels.jl.git"}
+Newton = {url = "https://github.com/KnutAM/Newton.jl.git"}
+
 [compat]
 ConstructionBase = "1.5"
 Ferrite = "1"
 ForwardDiff = "0.10, 1"
-MaterialModelsBase = "0.2"
+MaterialModelsBase = "0.3"
 julia = "1.11"
 
 [extras]
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
-SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 MechanicalMaterialModels = "b3282f9b-607f-4337-ab95-e5488ab5652c"
 Newton = "83aa5b51-0588-403c-85e4-434ec185aae7"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "Logging", "SparseArrays", "MechanicalMaterialModels", "Newton"]
-
-[sources]
-MaterialModelsBase = {url = "https://github.com/KnutAM/MaterialModelsBase.jl.git"}
-MechanicalMaterialModels = {url = "https://github.com/KnutAM/MechanicalMaterialModels.jl.git"}
-Newton = {url = "https://github.com/KnutAM/Newton.jl.git"}

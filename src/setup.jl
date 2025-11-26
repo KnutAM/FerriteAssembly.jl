@@ -90,7 +90,7 @@ function check_input(dbs::DomainBuffers, ::Type) # Unspecified (typically facet 
 end
 
 """
-    setup_domainbuffer(domain::DomainSpec; a=nothing, threading=false, autodiffbuffer=false)
+    setup_domainbuffer(domain::DomainSpec; a=nothing, threading=false, autodiffbuffer=false, num_tasks=Threads.nthreads())
 
 Setup a domain buffer for a single grid domain, `domain`. 
 * `a::Vector`: The global degree of freedom values are used to pass the 
@@ -99,6 +99,7 @@ Setup a domain buffer for a single grid domain, `domain`.
   conditions for the field variables. 
 * `threading`: Should a `ThreadedDomainBuffer` be created to work the grid multithreaded
   if supported by the used `worker`?
+* `num_tasks`: The number of tasks to spawn during threaded assembly. Only applicable for `threading = true`.
 * `autodiffbuffer`: Should a custom itembuffer be used to speed up the automatic 
   differentiation (if supported by the itembuffer)
 """
@@ -118,22 +119,22 @@ function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
     return setup_cellbuffer(adb, domain.sdh, domain.fe_values, domain.material, first(values(states)), dofrange, domain.user_data)
 end
 
-function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false))
+function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false), kwargs...)
     new_states = create_states(domain, a)
     old_states = create_states(domain, a)
     itembuffer = setup_itembuffer(autodiffbuffer, domain, new_states)
-    return _setup_domainbuffer(threaded, domain.set, itembuffer, StateVariables(old_states, new_states), domain.sdh, domain.colors_or_chunks)
+    return _setup_domainbuffer(threaded, domain.set, itembuffer, StateVariables(old_states, new_states), domain.sdh, domain.colors_or_chunks; kwargs...)
 end
 
 # Type-unstable switch
-function _setup_domainbuffer(threaded::Bool, args...)
-    return _setup_domainbuffer(Val(threaded), args...)
+function _setup_domainbuffer(threaded::Bool, args...; kwargs...)
+    return _setup_domainbuffer(Val(threaded), args...; kwargs...)
 end
 # Sequential
-function _setup_domainbuffer(::Val{false}, set, itembuffer, states, sdh, args...)
-    return DomainBuffer(set, itembuffer, states, sdh)
+function _setup_domainbuffer(::Val{false}, set, itembuffer, states, sdh, args...; kwargs...)
+    return DomainBuffer(set, itembuffer, states, sdh; kwargs...)
 end
 # Threaded
-function _setup_domainbuffer(::Val{true}, set, itembuffer, states, sdh, args...)
-    return ThreadedDomainBuffer(set, itembuffer, states, sdh, args...)
+function _setup_domainbuffer(::Val{true}, set, itembuffer, states, sdh, args...; kwargs...)
+    return ThreadedDomainBuffer(set, itembuffer, states, sdh, args...; kwargs...)
 end

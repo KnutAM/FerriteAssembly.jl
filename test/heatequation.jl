@@ -127,13 +127,13 @@
     weak = EE.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> 1.0*(∇δu ⋅ ∇u) - δu*1.0)
     materials = (same=ThermalMaterial(), ad=ThermalMaterialAD(), weak=weak, mixed=Dict("A"=>ThermalMaterial(), "B"=>ThermalMaterialAD()))
     
-    function setup_assembly_test(dh, material, cv; autodiff_cb=false, threaded=false)
+    function setup_assembly_test(dh, material, cv; autodiff_cb=false, threaded=false, kwargs...)
         BufferType = threaded ? FerriteAssembly.ThreadedDomainBuffer : FerriteAssembly.DomainBuffer
         if isa(material, Dict) && length(dh.subdofhandlers) == 1
             setA, setB = (getcellset(dh.grid, name) for name in ("A", "B"))
             ad1 = DomainSpec(dh, material["A"], cv; set=setA)
             ad2 = DomainSpec(dh, material["B"], cv; set=setB)
-            buffer = setup_domainbuffers(Dict("A"=>ad1, "B"=>ad2); autodiffbuffer=autodiff_cb, threading=threaded)
+            buffer = setup_domainbuffers(Dict("A"=>ad1, "B"=>ad2); autodiffbuffer=autodiff_cb, threading=threaded, kwargs...)
             @test isa(buffer, Dict{String,<:BufferType})
             @test isa(FerriteAssembly.get_old_state(buffer, "A"), FerriteAssembly.StateVector)
             @test isa(FerriteAssembly.get_old_state(buffer, "B"), FerriteAssembly.StateVector)
@@ -149,7 +149,7 @@
             # For ad3 and ad4; add the full set to check correct intersection with sdh2's cellset internally. 
             ad3 = DomainSpec(sdh2, material["A"], cv; set=setA) # sdh2A 
             ad4 = DomainSpec(sdh2, material["B"], cv; set=setB) # sdh2B
-            buffer = setup_domainbuffers(Dict("sdh1A"=>ad1, "sdh1B"=>ad2, "sdh2A"=>ad3, "sdh2B"=>ad4); autodiffbuffer=autodiff_cb, threading=threaded)
+            buffer = setup_domainbuffers(Dict("sdh1A"=>ad1, "sdh1B"=>ad2, "sdh2A"=>ad3, "sdh2B"=>ad4); autodiffbuffer=autodiff_cb, threading=threaded, kwargs...)
             @test isa(buffer, Dict{String,<:BufferType})
             @test isa(FerriteAssembly.get_old_state(buffer, "sdh1A"), FerriteAssembly.StateVector)
             return buffer
@@ -159,12 +159,12 @@
             set1 = sdh1.cellset; set2 = sdh2.cellset
             ad1 = DomainSpec(sdh1, material, cv; set=set1)
             ad2 = DomainSpec(sdh2, material, cv; set=set2)
-            buffer = setup_domainbuffers(Dict("sdh1"=>ad1, "sdh2"=>ad2); autodiffbuffer=autodiff_cb, threading=threaded)
+            buffer = setup_domainbuffers(Dict("sdh1"=>ad1, "sdh2"=>ad2); autodiffbuffer=autodiff_cb, threading=threaded, kwargs...)
             @test isa(buffer, Dict{String,<:BufferType})
             @test isa(FerriteAssembly.get_old_state(buffer, "sdh1"), FerriteAssembly.StateVector)
             return buffer
         else
-            buffer = setup_domainbuffer(DomainSpec(dh, material, cv); autodiffbuffer=autodiff_cb, threading=threaded)
+            buffer = setup_domainbuffer(DomainSpec(dh, material, cv); autodiffbuffer=autodiff_cb, threading=threaded, kwargs...)
             @test isa(buffer, BufferType)
             @test isa(FerriteAssembly.get_old_state(buffer), FerriteAssembly.StateVector)
             return buffer
@@ -211,32 +211,45 @@
                 @testset "$DH, $mattype, threaded" begin
                     autdiff_cbs = isa(material,ThermalMaterial) ? (false,) : (false, true)
                     for autodiff_cb in autdiff_cbs
-                        fill!(K, 0); 
-                        r .= rand(length(r)) # To ensure that it is actually changed
-                        reset_scaling!(scaling)
-                        ferrite_assembler = start_assemble(K, r)
-                        assembler = isa(scaling, FerriteAssembly.NoScaling) ? ferrite_assembler : FerriteAssembly.KeReAssembler(ferrite_assembler; scaling=scaling)
-                        buffer = setup_assembly_test(dh, material, cv; autodiff_cb=autodiff_cb, threaded=true)
-                        # Quick check that test script works and that it is actually colored
-                        TDB = FerriteAssembly.ThreadedDomainBuffer
-                        @test isa(buffer, Union{Dict{String,<:TDB}, TDB})
-
-                        work!(assembler, buffer; a=a)
-                        if isa(scaling, ElementResidualScaling)
-                            @test scaling.factors[:u] ≈ sum(abs, r)
-                        end
-                        @test K_ref ≈ K
-                        @test r_ref ≈ r
-                        
-                        if mattype == :ad
+                        for num_tasks in (2, :default, Threads.maxthreadid() + 10)
+                            fill!(K, 0); 
                             r .= rand(length(r)) # To ensure that it is actually changed
                             reset_scaling!(scaling)
-                            assembler = FerriteAssembly.ReAssembler(r; scaling=scaling)
+                            ferrite_assembler = start_assemble(K, r)
+                            assembler = isa(scaling, FerriteAssembly.NoScaling) ? ferrite_assembler : FerriteAssembly.KeReAssembler(ferrite_assembler; scaling=scaling)
+                            buffer = if num_tasks == :default
+                                setup_assembly_test(dh, material, cv; autodiff_cb=autodiff_cb, threaded=true)
+                            else
+                                _buffer = setup_assembly_test(dh, material, cv; autodiff_cb=autodiff_cb, threaded=true, num_tasks)
+                                @test FerriteAssembly.get_num_tasks(_buffer) == num_tasks
+                                if isa(_buffer, FerriteAssembly.AbstractDomainBuffer)
+                                    @test length(FerriteAssembly.get_locals(_buffer.itembuffer)) == num_tasks
+                                elseif isa(_buffer, FerriteAssembly.DomainBuffers)
+                                    @test all(b -> length(FerriteAssembly.get_locals(b.itembuffer)) == num_tasks, values(_buffer))
+                                end
+                                _buffer
+                            end
+                            # Quick check that test script works and that it is actually colored
+                            TDB = FerriteAssembly.ThreadedDomainBuffer
+                            @test isa(buffer, Union{Dict{String,<:TDB}, TDB})
+
                             work!(assembler, buffer; a=a)
                             if isa(scaling, ElementResidualScaling)
                                 @test scaling.factors[:u] ≈ sum(abs, r)
                             end
+                            @test K_ref ≈ K
                             @test r_ref ≈ r
+
+                            if mattype == :ad
+                                r .= rand(length(r)) # To ensure that it is actually changed
+                                reset_scaling!(scaling)
+                                assembler = FerriteAssembly.ReAssembler(r; scaling=scaling)
+                                work!(assembler, buffer; a=a)
+                                if isa(scaling, ElementResidualScaling)
+                                    @test scaling.factors[:u] ≈ sum(abs, r)
+                                end
+                                @test r_ref ≈ r
+                            end
                         end
                     end
                 end

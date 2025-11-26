@@ -30,7 +30,7 @@ function work!(worker, sim::SingleDomainSim, coupled_simulations = CoupledSimula
 end
 function work!(worker, multisim::MultiDomainThreadedSim, coupled_simulations = CoupledSimulations())
     if can_thread(worker)
-        workers = TaskLocals(worker)
+        workers = TaskLocals(worker, num_tasks = get_num_tasks(multisim))
         for (name, sim) in multisim
             skip_this_domain(worker, name) && continue
             coupled = get_domain_simulation(coupled_simulations, name)
@@ -46,7 +46,7 @@ function work!(worker, multisim::MultiDomainThreadedSim, coupled_simulations = C
 end
 function work!(worker, sim::SingleDomainThreadedSim, coupled_simulations = CoupledSimulations())
     if can_thread(worker)
-        workers = TaskLocals(worker)
+        workers = TaskLocals(worker; num_tasks = get_num_tasks(sim))
         work_domain_threaded!(workers, sim, coupled_simulations)
     else
         work_domain_sequential!(worker, sim, coupled_simulations)

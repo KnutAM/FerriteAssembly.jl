@@ -34,7 +34,7 @@ update_states!(sim::Simulation) = update_states!(sim.db)
 set_time_increment!(sim::Simulation, Δt) = set_time_increment!(sim.db, Δt)
 
 # Forwarding for internal API
-get_num_tasks(sim::Simulation{<:AbstractDomainBuffer}) = get_num_tasks(sim.db)
+get_num_tasks(sim::Simulation) = get_num_tasks(sim.db)
 get_chunks(sim::Simulation{<:AbstractDomainBuffer}) = get_chunks(sim.db)
 get_itembuffer(sim::Simulation, args::Vararg{Any, N}) where {N} = get_itembuffer(sim.db, args...)
 
