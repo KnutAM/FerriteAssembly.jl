@@ -14,7 +14,7 @@ struct TaskLocals{TB,TL}
     base::TB
     locals::Vector{TL}
 end
-function TaskLocals(base; num_tasks=Threads.nthreads())
+function TaskLocals(base; num_tasks)
     locals = [create_local(base) for _ in 1:num_tasks]
     return TaskLocals(base, locals)
 end
