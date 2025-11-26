@@ -27,6 +27,8 @@ MechanicalMaterialModels = "b3282f9b-607f-4337-ab95-e5488ab5652c"
 Newton = "83aa5b51-0588-403c-85e4-434ec185aae7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+MechanicalMaterialModels = "b3282f9b-607f-4337-ab95-e5488ab5652c"
+Newton = "83aa5b51-0588-403c-85e4-434ec185aae7"
 
 [targets]
 test = ["Test", "Logging", "SparseArrays", "MechanicalMaterialModels", "Newton"]
