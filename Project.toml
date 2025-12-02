@@ -1,6 +1,6 @@
 name = "FerriteAssembly"
 uuid = "fd21fc07-c509-4fe1-9468-19963fd5935d"
-version = "0.3.6"
+version = "0.3.7"
 authors = ["Knut Andreas Meyer and contributors"]
 
 [deps]
