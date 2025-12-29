@@ -6,7 +6,7 @@ module TestStateModule
         quadnr::Int
     end
     FerriteAssembly.create_cell_state(::MatA, cv, args...) = [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
-    function FerriteAssembly.element_residual!(re, states::Vector{StateA}, ae, ::MatA, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateA}, ae, ::MatA, cv, buffer)
         cellnr = cellid(buffer)
         for i in 1:getnquadpoints(cv)
             states[i] = StateA(cellnr, i)
@@ -33,7 +33,7 @@ module TestStateModule
         counter::Int
     end
     FerriteAssembly.create_cell_state(::MatC, cv, args...) = [StateC(0) for _ in 1:getnquadpoints(cv)]
-    function FerriteAssembly.element_residual!(re, states::Vector{StateC}, ae, ::MatC, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateC}, ae, ::MatC, cv, buffer)
         old_states = FerriteAssembly.get_old_state(buffer)
         for i in 1:getnquadpoints(cv)
             states[i] = StateC(old_states[i].counter + 1)
@@ -69,7 +69,7 @@ end
             buffer = setup_domainbuffer(DomainSpec(dh, MatA(), cv))
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
-            @test isa(old_states, FerriteAssembly.StateVector{Vector{StateA}})
+            @test isa(old_states, FerriteAssembly.StateVector{<:AbstractVector{StateA}})
             @test old_states == states
             @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
             work!(r_assembler, buffer)
@@ -119,7 +119,7 @@ end
             buffer = setup_domainbuffer(DomainSpec(dh, MatC(), cv; colors=colors))
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
-            @test isa(old_states, FerriteAssembly.StateVector{Vector{StateC}})
+            @test isa(old_states, FerriteAssembly.StateVector{<:AbstractVector{StateC}})
             @test old_states == states
             @test old_states[1][1] == StateC(0)
             work!(kr_assembler, buffer)
@@ -145,7 +145,7 @@ end
     # Smoke-test of update_states! for nothing states (and check no allocations)
     cv = CellValues(QuadratureRule{RefTriangle}(2), ip)
     buffer = setup_domainbuffer(DomainSpec(dh, nothing, cv))
-    @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{Vector{Nothing}})
+    @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{<:AbstractVector{Nothing}})
     update_states!(buffer) # Compile
     allocs = @allocated update_states!(buffer)
     @test allocs == 0
