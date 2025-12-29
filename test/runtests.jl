@@ -8,6 +8,12 @@ import MaterialModelsBase as MMB
 import MechanicalMaterialModels as MMM
 using Logging
 
+# Sometimes calling `@allocated f(args...)` allocates when called in global scope,
+# calling inside a function using local variables solves this
+function get_allocations(f::F, args::Vararg{N}) where {F, N}
+    @allocated f(args...)
+end
+
 include("replacements.jl")
 include("states.jl") 
 include("threading_utils.jl")

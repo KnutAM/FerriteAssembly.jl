@@ -83,8 +83,8 @@ end
                 @test old_states == states_dc          # Correctly updated values
                 states[1][1] = StateA(0,0)
                 @test old_states[1][1] == StateA(1,1)   # But not aliased
-                allocs = @allocated update_states!(container)
-                @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
+                # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
+                @test get_allocations(update_states!, container) == 0
             end
 
             # MatB (not bitstype)
@@ -111,8 +111,8 @@ end
             x_values = [spatial_coordinate(cv, i, coords) for i in 1:getnquadpoints(cv)]
             states[cellnr] = StateB(0, -x_values)
             @test old_states[cellnr] == StateB(cellnr, x_values)   # But not aliased
-            allocs = @allocated update_states!(buffer)
-            @test allocs == 0 # Vector{T} where !isbitstype(T) should no longer allocate
+            # Vector{T} where !isbitstype(T) should no longer allocate
+            @test get_allocations(update_states!, buffer) == 0 
 
             # MatC (accumulation), using threading as well
             colors = create_coloring(grid)
@@ -134,8 +134,8 @@ end
             for cellnr in 1:getncells(grid)
                 @test states[cellnr][2] == StateC(2) # Check that all are updated
             end
-            allocs = @allocated update_states!(buffer)
-            @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
+            # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
+            @test get_allocations(update_states!, buffer) == 0
         end
     end
 
@@ -147,13 +147,11 @@ end
     buffer = setup_domainbuffer(DomainSpec(dh, nothing, cv))
     @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{<:AbstractVector{Nothing}})
     update_states!(buffer) # Compile
-    allocs = @allocated update_states!(buffer)
-    @test allocs == 0
+    @test get_allocations(update_states!, buffer) == 0
 
     gda = DomainSpec(dh, nothing, cv; set=1:getncells(dh.grid)÷2)
     gdb = DomainSpec(dh, nothing, cv; set=setdiff!(Set(1:getncells(dh.grid)), gda.set))
     buffers = setup_domainbuffers(Dict("a"=>gda, "b"=>gdb))
     update_states!(buffers) # Compile
-    allocs = @allocated update_states!(buffers)
-    @test allocs == 0
+    @test get_allocations(update_states!, buffer) == 0
 end
