@@ -1,16 +1,57 @@
 # Minimal interface for a vector, storage format will probably be updated later. 
-mutable struct StateVector{SV}
-    vals::Dict{Int, SV}
+mutable struct StateVector{SV, VV <: AbstractVector{SV}}
+    vals::VV
+    inds::Vector{Int} # Can as an optimization be shared between all `StateVectors` (also across domains)
 end
-Base.getindex(s::StateVector, cellnum::Int) = s.vals[cellnum]
-Base.setindex!(s::StateVector, v, cellnum::Int) = setindex!(s.vals, v, cellnum)
+Base.getindex(s::StateVector, cellnum::Int) = s.vals[s.inds[cellnum]]
+Base.setindex!(s::StateVector, v, cellnum::Int) = setindex!(s.vals, v, s.inds[cellnum])
 Base.:(==)(a::StateVector, b::StateVector) = (a.vals == b.vals)
-
-struct StateVariables{SV}
-    old::StateVector{SV} # Rule: Referenced during assembly, not changed (ever)
-    new::StateVector{SV} # Rule: Updated during assembly, not referenced (before updated)
+function Base.iterate(s::StateVector, i::Int = 1)
+    i > length(s.vals) && return nothing
+    return s.vals[i], i + 1
 end
-StateVariables(old::Dict, new::Dict) = StateVariables(StateVector(old), StateVector(new))
+
+struct StateVariables{SV, VV}
+    old::StateVector{SV, VV} # Rule: Referenced during assembly, not changed (ever)
+    new::StateVector{SV, VV} # Rule: Updated during assembly, not referenced (before updated)
+end
+function StateVariables(inds::Vector{Int}, old::Dict{K, SV}, new::Dict{K, SV}) where {K, T, SV <: Vector{T}}
+    # if eltype(old) isa Vector => ArrayOfVectorViews
+    # else => Vector{eltype(old)}
+    num = length(old)
+    num_total = sum(length, values(old))
+    old_data = Vector{T}(undef, num_total)
+    new_data = Vector{T}(undef, num_total)
+    indices = Vector{Int}(undef, num + 1)
+    i = 1
+    j = 1
+    for key in sort(collect(keys(old)))
+        indices[i] = j
+        inds[key] = i
+        for (oldval, newval) in zip(old[key], new[key])
+            old_data[j] = oldval
+            new_data[j] = newval
+            j += 1
+        end
+        i += 1
+    end
+    indices[i] = j
+    oldvals = ArrayOfVectorViews(indices, old_data, LinearIndices((num,)))
+    newvals = ArrayOfVectorViews(indices, new_data, LinearIndices((num,)))
+    StateVariables(StateVector(oldvals, inds), StateVector(newvals, inds))
+end
+function StateVariables(inds::Vector{Int}, old::Dict{K, SV}, new::Dict{K, SV}) where {K, SV}
+    oldvals = Vector{SV}(undef, length(old))
+    newvals = Vector{SV}(undef, length(new))
+    i = 1
+    for key in sort(collect(keys(old)))
+        oldvals[i] = old[key]
+        newvals[i] = new[key]
+        inds[key] = i
+        i += 1
+    end
+    StateVariables(StateVector(oldvals, inds), StateVector(newvals, inds))
+end
 
 function update_states!(sv::StateVariables)
     tmp = sv.old.vals
@@ -66,7 +107,12 @@ define the [`create_cell_state`](@ref) function for their `material` (and corres
 """
 function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
     ae = zeros(ndofs_per_cell(sdh))
-    coords = getcoordinates(_getgrid(sdh), first(cellset))
+    grid = _getgrid(sdh)
+    coords = getcoordinates(grid, first(cellset))
     dofs = zeros(Int, ndofs_per_cell(sdh))
-    return Dict(cellnr => _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr) for cellnr in cellset)
+    # Could make construction more efficient by doing this when creating the ArrayOfVectorViews
+    old = Dict(cellnr => _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr) for cellnr in cellset)
+    new = Dict(cellnr => _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr) for cellnr in cellset)
+    inds = zeros(Int, getncells(grid)) # Could be moved out and shared between all domains...
+    return StateVariables(inds, old, new)
 end
