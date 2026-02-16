@@ -8,6 +8,12 @@ import MaterialModelsBase as MMB
 import MechanicalMaterialModels as MMM
 using Logging
 
+# Sometimes calling `@allocated f(args...)` allocates when called in global scope,
+# calling inside a function using local variables solves this
+function get_allocations(f::F, args::Vararg{N}) where {F, N}
+    @allocated f(args...)
+end
+
 include("replacements.jl")
 include("states.jl") 
 include("threading_utils.jl")
@@ -45,8 +51,8 @@ include("errors.jl")
         @test FerriteAssembly.get_dofhandler(buffer_threaded) === dh
         @test FerriteAssembly.get_dofhandler(buffers) === dh
 
-        @test isa(FerriteAssembly.get_state(buffer, 1), Vector{Nothing})
-        @test isa(FerriteAssembly.get_old_state(buffer, 1), Vector{Nothing})
+        @test isa(FerriteAssembly.get_state(buffer, 1), AbstractVector{Nothing})
+        @test isa(FerriteAssembly.get_old_state(buffer, 1), AbstractVector{Nothing})
         @test length(FerriteAssembly.get_state(buffer, 1)) == getnquadpoints(cv)
         @test length(FerriteAssembly.get_old_state(buffer, 1)) == getnquadpoints(cv)
 

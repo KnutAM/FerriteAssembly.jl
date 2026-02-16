@@ -6,7 +6,7 @@ module TestStateModule
         quadnr::Int
     end
     FerriteAssembly.create_cell_state(::MatA, cv, args...) = [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
-    function FerriteAssembly.element_residual!(re, states::Vector{StateA}, ae, ::MatA, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateA}, ae, ::MatA, cv, buffer)
         cellnr = cellid(buffer)
         for i in 1:getnquadpoints(cv)
             states[i] = StateA(cellnr, i)
@@ -33,7 +33,7 @@ module TestStateModule
         counter::Int
     end
     FerriteAssembly.create_cell_state(::MatC, cv, args...) = [StateC(0) for _ in 1:getnquadpoints(cv)]
-    function FerriteAssembly.element_residual!(re, states::Vector{StateC}, ae, ::MatC, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateC}, ae, ::MatC, cv, buffer)
         old_states = FerriteAssembly.get_old_state(buffer)
         for i in 1:getnquadpoints(cv)
             states[i] = StateC(old_states[i].counter + 1)
@@ -69,7 +69,7 @@ end
             buffer = setup_domainbuffer(DomainSpec(dh, MatA(), cv))
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
-            @test isa(old_states, FerriteAssembly.StateVector{Vector{StateA}})
+            @test isa(old_states, FerriteAssembly.StateVector{<:AbstractVector{StateA}})
             @test old_states == states
             @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
             work!(r_assembler, buffer)
@@ -83,8 +83,8 @@ end
                 @test old_states == states_dc          # Correctly updated values
                 states[1][1] = StateA(0,0)
                 @test old_states[1][1] == StateA(1,1)   # But not aliased
-                allocs = @allocated update_states!(container)
-                @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
+                # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
+                @test get_allocations(update_states!, container) == 0
             end
 
             # MatB (not bitstype)
@@ -111,15 +111,15 @@ end
             x_values = [spatial_coordinate(cv, i, coords) for i in 1:getnquadpoints(cv)]
             states[cellnr] = StateB(0, -x_values)
             @test old_states[cellnr] == StateB(cellnr, x_values)   # But not aliased
-            allocs = @allocated update_states!(buffer)
-            @test allocs == 0 # Vector{T} where !isbitstype(T) should no longer allocate
+            # Vector{T} where !isbitstype(T) should no longer allocate
+            @test get_allocations(update_states!, buffer) == 0 
 
             # MatC (accumulation), using threading as well
             colors = create_coloring(grid)
             buffer = setup_domainbuffer(DomainSpec(dh, MatC(), cv; colors=colors))
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
-            @test isa(old_states, FerriteAssembly.StateVector{Vector{StateC}})
+            @test isa(old_states, FerriteAssembly.StateVector{<:AbstractVector{StateC}})
             @test old_states == states
             @test old_states[1][1] == StateC(0)
             work!(kr_assembler, buffer)
@@ -134,8 +134,8 @@ end
             for cellnr in 1:getncells(grid)
                 @test states[cellnr][2] == StateC(2) # Check that all are updated
             end
-            allocs = @allocated update_states!(buffer)
-            @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
+            # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
+            @test get_allocations(update_states!, buffer) == 0
         end
     end
 
@@ -145,15 +145,13 @@ end
     # Smoke-test of update_states! for nothing states (and check no allocations)
     cv = CellValues(QuadratureRule{RefTriangle}(2), ip)
     buffer = setup_domainbuffer(DomainSpec(dh, nothing, cv))
-    @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{Vector{Nothing}})
+    @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{<:AbstractVector{Nothing}})
     update_states!(buffer) # Compile
-    allocs = @allocated update_states!(buffer)
-    @test allocs == 0
+    @test get_allocations(update_states!, buffer) == 0
 
     gda = DomainSpec(dh, nothing, cv; set=1:getncells(dh.grid)÷2)
     gdb = DomainSpec(dh, nothing, cv; set=setdiff!(Set(1:getncells(dh.grid)), gda.set))
     buffers = setup_domainbuffers(Dict("a"=>gda, "b"=>gdb))
     update_states!(buffers) # Compile
-    allocs = @allocated update_states!(buffers)
-    @test allocs == 0
+    @test get_allocations(update_states!, buffer) == 0
 end
