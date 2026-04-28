@@ -135,19 +135,19 @@ Get the set of items stored in `db` or `dbs[domain]`
 """
 getset(b::DomainBuffers, domain) = getset(b[domain])
 
-struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
+struct DomainBuffer{I,B,SV<:StateVariables,SDH<:SubDofHandler} <: AbstractDomainBuffer
     set::Vector{I}
     itembuffer::B
-    states::StateVariables{S}
+    states::SV
     sdh::SDH
 end
 
-struct ThreadedDomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
+struct ThreadedDomainBuffer{I,B,SV<:StateVariables,SDH<:SubDofHandler} <: AbstractDomainBuffer
     chunks::Vector{Vector{Vector{I}}}   # I=Int (cell), I=FacetIndex (facet), or
     set::Vector{I}                      # I=NTuple{2,FacetIndex} (interface)
     num_tasks::Int
     itembuffer::TaskLocals{B,B}         # cell, facet, or interface buffer 
-    states::StateVariables{S}
+    states::SV
     sdh::SDH
 end
 function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states::StateVariables, sdh::SubDofHandler, colors_or_chunks=nothing; num_tasks = Threads.nthreads())

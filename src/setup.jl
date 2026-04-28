@@ -108,7 +108,7 @@ function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
 end
 
 create_states(domain::DomainSpec{Int}, a) = create_states(domain.sdh, domain.material, domain.fe_values, a, domain.set, create_dofrange(domain.sdh))
-create_states(::DomainSpec{FacetIndex}, ::Any) = Dict{Int,Nothing}()
+create_states(::DomainSpec{FacetIndex}, ::Any) = (s = Dict{Int,Nothing}(); StateVariables(Int[], s, s))
 
 function setup_itembuffer(adb, domain::DomainSpec{FacetIndex}, args...)
     dofrange = create_dofrange(domain.sdh)
@@ -120,10 +120,9 @@ function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
 end
 
 function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false), kwargs...)
-    new_states = create_states(domain, a)
-    old_states = create_states(domain, a)
-    itembuffer = setup_itembuffer(autodiffbuffer, domain, new_states)
-    return _setup_domainbuffer(threaded, domain.set, itembuffer, StateVariables(old_states, new_states), domain.sdh, domain.colors_or_chunks; kwargs...)
+    statevars = create_states(domain, a)
+    itembuffer = setup_itembuffer(autodiffbuffer, domain, statevars.old)
+    return _setup_domainbuffer(threaded, domain.set, itembuffer, statevars, domain.sdh, domain.colors_or_chunks; kwargs...)
 end
 
 # Type-unstable switch

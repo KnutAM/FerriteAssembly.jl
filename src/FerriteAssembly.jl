@@ -1,5 +1,6 @@
 module FerriteAssembly
 using Ferrite, ForwardDiff
+using Ferrite.CollectionsOfViews: ArrayOfVectorViews
 using ConstructionBase: setproperties
 
 include("Multithreading/TaskLocals.jl") # Task-local storage model 

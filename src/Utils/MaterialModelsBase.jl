@@ -2,7 +2,7 @@ import MaterialModelsBase as MMB
 
 """
     FerriteAssembly.element_routine!(
-        Ke, re, state::Vector{<:MMB.AbstractMaterialState}, ae, 
+        Ke, re, state::AbstractVector{<:MMB.AbstractMaterialState}, ae, 
         m::MMB.AbstractMaterial, cv::AbstractCellValues, buffer)
 
 Solve the weak form 
@@ -16,13 +16,13 @@ where ``\\sigma`` is calculated with the `material_response` function from
 Note that `create_cell_state` is already implemented for `<:AbstractMaterial`. 
 """
 function FerriteAssembly.element_routine!(
-    Ke, re, state::Vector{<:MMB.AbstractMaterialState},
+    Ke, re, state::AbstractVector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
     return mechanical_element_routine!(MMB.get_tensorbase(material), Ke, re, state, ae, material, cellvalues, buffer)
 end
 
 function mechanical_element_routine!(::Type{<:SymmetricTensor{2}},
-    Ke, re, state::Vector{<:MMB.AbstractMaterialState},
+    Ke, re, state::AbstractVector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
@@ -47,7 +47,7 @@ function mechanical_element_routine!(::Type{<:SymmetricTensor{2}},
 end
 
 function mechanical_element_routine!(::Type{<:Tensor{2}},
-    Ke, re, state::Vector{<:MMB.AbstractMaterialState},
+    Ke, re, state::AbstractVector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
@@ -73,20 +73,20 @@ end
 
 """
     FerriteAssembly.element_residual!(
-        re, state::Vector{<:MMB.AbstractMaterialState}, ae, 
+        re, state::AbstractVector{<:MMB.AbstractMaterialState}, ae, 
         m::MMB.AbstractMaterial, cv::AbstractCellValues, buffer)
 
 The `element_residual!` implementation corresponding to the `element_routine!` implementation
 for a `MaterialModelsBase.AbstractMaterial`
 """
 function FerriteAssembly.element_residual!(
-    re, state::Vector{<:MMB.AbstractMaterialState},
+    re, state::AbstractVector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
     return mechanical_element_residual!(MMB.get_tensorbase(material), re, state, ae, material, cellvalues, buffer)
 end
 
 function mechanical_element_residual!(::Type{<:SymmetricTensor{2}},
-    re, state::Vector{<:MMB.AbstractMaterialState},
+    re, state::AbstractVector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)
@@ -105,7 +105,7 @@ function mechanical_element_residual!(::Type{<:SymmetricTensor{2}},
 end
 
 function mechanical_element_residual!(::Type{<:Tensor{2}},
-    re, state::Vector{<:MMB.AbstractMaterialState},
+    re, state::AbstractVector{<:MMB.AbstractMaterialState},
     ae, material::MMB.AbstractMaterial, cellvalues::AbstractCellValues, buffer)
     cache = FerriteAssembly.get_user_cache(buffer)
     Δt = FerriteAssembly.get_time_increment(buffer)

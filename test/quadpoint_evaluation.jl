@@ -79,11 +79,13 @@
             foo(::QEMat{4}, u, ∇u, qp_state) = 3 * qp_state[2]
             qe = QuadPointEvaluator{Float64}(db, foo)
             work!(qe, db)
-            for (i, s) in states["left"].vals # TODO: Using internals here
-                @test qe.data[i] ≈ 3 * s
+            for cellnr in FerriteAssembly.getset(db, "left")
+                s = states["left"][cellnr]
+                @test qe.data[cellnr] ≈ 3 * s
             end
-            for (i, s) in states["right"].vals # TODO: Using internals here
-                @test qe.data[i] ≈ 3 * last.(s)
+            for cellnr in FerriteAssembly.getset(db, "right")
+                s = states["right"][cellnr]
+                @test qe.data[cellnr] ≈ 3 * last.(s)
                 @test all(first.(s) .≥ 0)
                 @test all(last.(s) .≤ 0)
             end
