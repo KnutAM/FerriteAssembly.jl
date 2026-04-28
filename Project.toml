@@ -18,7 +18,7 @@ Newton = {url = "https://github.com/KnutAM/Newton.jl.git"}
 ConstructionBase = "1.5"
 Ferrite = "1"
 ForwardDiff = "0.10, 1"
-MaterialModelsBase = "0.3"
+MaterialModelsBase = "0.3, 0.4"
 julia = "1.11"
 
 [extras]
