@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ['lts', '1', 'pre']
+        version: ['1.11', '1', 'pre'] # 'lts' not supported as public is used
         os: ['ubuntu-latest']
         include:
           - os: windows-latest
