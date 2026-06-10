@@ -18,6 +18,12 @@ function update_states!(sv::StateVariables)
     sv.new.vals = tmp
 end
 
+function set_new_to_old_states!(sv::StateVariables)
+    for key in keys(sv.old.vals)
+        copyto!(sv.new.vals[key], sv.old.vals[key])
+    end
+end
+
 # Experimental, basically copy!, but use separate name for clarity
 function replace_states!(dst::StateVariables, src::StateVariables)
     dst.old.vals = src.old.vals 

@@ -86,6 +86,13 @@ function update_states!(dbs::DomainBuffers)
     end
 end
 
+
+function set_new_to_old_states!(dbs::DomainBuffers)
+    for db in values(dbs)
+        set_new_to_old_states!(db)
+    end
+end
+
 """
     set_time_increment!(db::Dict{String,AbstractDomainBuffer}, Δt)
     set_time_increment!(db::AbstractDomainBuffer, Δt)
@@ -180,6 +187,8 @@ get_material(b::StdDomainBuffer) = get_material(get_base(get_itembuffer(b)))
 
 # Update old_states = new_states after convergence 
 update_states!(b::StdDomainBuffer) = update_states!(b.states)
+
+set_new_to_old_states!(b::StdDomainBuffer) = set_new_to_old_states!(b.states)
 
 function set_time_increment!(b::StdDomainBuffer, Δt)
     set_time_increment!(get_base(get_itembuffer(b)), Δt)
