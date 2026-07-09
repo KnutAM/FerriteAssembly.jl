@@ -63,5 +63,13 @@ end
 CoupledSimulations(; kwargs...) = CoupledSimulations(NamedTuple{keys(kwargs)}(values(kwargs)))
 
 function get_domain_simulation(cs::CoupledSimulations, name::String)
-    return CoupledSimulations(map(s -> get_domain_simulation(s, name), cs.sims))
+    # Need to return a named tuple with only the simulations that have a domain called `name`
+    sims = Pair{Symbol, Simulation}[]
+    for (key, sim) in zip(keys(cs.sims), values(cs.sims))
+        if haskey(sim.db, name)
+            push!(sims, key => get_domain_simulation(sim, name))
+        end
+    end
+    return CoupledSimulations(NamedTuple(sims))
+#    return CoupledSimulations(map(s -> get_domain_simulation(s, name), cs.sims))
 end

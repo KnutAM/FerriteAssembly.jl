@@ -123,7 +123,11 @@ Return new buffer(s) that are coupled with the buffers provided as keyword argum
     match.
 """
 function couple_buffers(dbs::DomainBuffers; kwargs...)
-    return Dict(key => couple_buffers(db; (k => v[key] for (k, v) in kwargs)...) for (key, db) in dbs)
+    return Dict(
+        key => (all(haskey(v, key) for (_, v) in kwargs) ? 
+            couple_buffers(db; (k => v[key] for (k, v) in kwargs)...) :
+            db) for (key, db) in dbs)
+    #return Dict(key => couple_buffers(db; (k => v[key] for (k, v) in kwargs)...) for (key, db) in dbs)
 end
 
 """
