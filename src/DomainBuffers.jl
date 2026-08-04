@@ -100,7 +100,9 @@ reassemble.
 Unlike `update_states!`, this method does not swap references between `old_states`
 and `states`, but overwrites the values in `states` in-place when possible
 (if [`create_cell_state`](@ref) returns an `AbstractArray`). Otherwise,
-a `deepcopy` of the old state is assigned to the new state, which allocates.
+[`FerriteAssembly.copy_state`](@ref) is used to copy the old state into the
+new state, which defaults to `deepcopy` (and hence allocates) unless
+overloaded for the custom cell state type.
 """
 function set_new_to_old_states!(dbs::DomainBuffers)
     for db in values(dbs)

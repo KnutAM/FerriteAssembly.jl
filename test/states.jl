@@ -43,12 +43,32 @@ module TestStateModule
     # With contained vectors, comparison gives false in all cases even with equal values...
     Base.:(==)(a::StateB, b::StateB) = (a.cellnr==b.cellnr && (mapreduce((ax, bx)->ax==bx, *, a.quad_coordinates, b.quad_coordinates)))
 
+    # MatD: single mutable struct per cell (like MatB), but overloads `copy_state`
+    # to avoid the `deepcopy` fallback used by `set_new_to_old_states!`.
+    struct MatD end
+    mutable struct StateD
+        cellnr::Int
+        const data::Vector{Float64}
+    end
+    FerriteAssembly.create_cell_state(::MatD, cv, args...) = StateD(-1, zeros(getnquadpoints(cv)))
+    function FerriteAssembly.element_residual!(re, state::StateD, ae, ::MatD, cv, buffer)
+        state.cellnr = cellid(buffer)
+        fill!(state.data, cellid(buffer))
+    end
+    Base.:(==)(a::StateD, b::StateD) = (a.cellnr == b.cellnr && a.data == b.data)
+
+    const COPY_STATE_CALLS = Ref(0)
+    function FerriteAssembly.copy_state(s::StateD)
+        COPY_STATE_CALLS[] += 1
+        return StateD(s.cellnr, copy(s.data))
+    end
+
 end
 
 @testset "state variables" begin
     # Defs
-    import .TestStateModule: MatA, MatB, MatC, StateA, StateB, StateC
-    
+    import .TestStateModule: MatA, MatB, MatC, MatD, StateA, StateB, StateC, StateD
+
     for (CT, Dim) in ((Line, 1), (QuadraticTriangle, 2), (Hexahedron, 3))
         @testset "$CT" begin
             grid = generate_grid(CT, ntuple(_->3, Dim))
@@ -206,4 +226,30 @@ end
     set_new_to_old_states!(buffers) # Compile
     allocs = @allocated set_new_to_old_states!(buffers)
     @test allocs == 0
+
+    # MatD: single mutable struct per cell, overloading `FerriteAssembly.copy_state`
+    # so that `set_new_to_old_states!` dispatches to the custom method instead of
+    # falling back to `deepcopy` (as MatB does).
+    grid_d = generate_grid(Triangle, (2, 2))
+    dh_d = DofHandler(grid_d); add!(dh_d, :u, ip); close!(dh_d)
+    K_d = allocate_matrix(dh_d)
+    r_d = zeros(ndofs(dh_d))
+    kr_assembler_d = start_assemble(K_d, r_d)
+    buffer_d = setup_domainbuffer(DomainSpec(dh_d, MatD(), cv))
+    states_d = FerriteAssembly.get_state(buffer_d)
+    old_states_d = FerriteAssembly.get_old_state(buffer_d)
+    @test isa(old_states_d, FerriteAssembly.StateVector{StateD})
+
+    old_dc_d = deepcopy(old_states_d)
+    work!(kr_assembler_d, buffer_d)
+    @test states_d != old_dc_d # Sanity check that states were actually changed by work!
+
+    TestStateModule.COPY_STATE_CALLS[] = 0
+    set_new_to_old_states!(buffer_d)
+    @test TestStateModule.COPY_STATE_CALLS[] == getncells(grid_d) # Custom copy_state dispatched for every cell
+    @test states_d == old_dc_d          # states reverted to old values
+    @test old_states_d == old_dc_d      # old_states unaffected
+    cellnr_d = rand(1:getncells(grid_d))
+    states_d[cellnr_d].data[1] = -999.0
+    @test old_states_d[cellnr_d].data[1] != -999.0 # But not aliased
 end

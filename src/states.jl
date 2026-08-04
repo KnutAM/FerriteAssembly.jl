@@ -18,13 +18,28 @@ function update_states!(sv::StateVariables)
     sv.new.vals = tmp
 end
 
+"""
+    copy_state(state)
+
+Return a copy of `state` such that mutating the returned value does not affect `state`.
+
+Used by [`set_new_to_old_states!`](@ref) to copy the old state into the new state, for
+cell states that are not `AbstractArray`s (`AbstractArray` states are copied with
+`copyto!` instead, which avoids allocations).
+
+Defaults to `deepcopy(state)`. Overload this function for a custom cell state type
+to provide a more efficient copy (e.g. by reusing already allocated memory), instead
+of relying on the `deepcopy` fallback.
+"""
+copy_state(state) = deepcopy(state)
+
 function set_new_to_old_states!(sv::StateVariables)
     for key in keys(sv.old.vals)
         old_val = sv.old.vals[key]
         if old_val isa AbstractArray
             copyto!(sv.new.vals[key], old_val)
         else
-            sv.new.vals[key] = deepcopy(old_val)
+            sv.new.vals[key] = copy_state(old_val)
         end
     end
 end
