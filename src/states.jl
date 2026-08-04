@@ -21,25 +21,32 @@ end
 """
     copy_state(state)
 
-Return a copy of `state` such that mutating the returned value does not affect `state`.
+Return a copy of `state` such that the intended mutation of the returned value does not affect `state`.
+Used by [`set_new_to_old_states!`](@ref) to copy the old state into the new state.
 
-Used by [`set_new_to_old_states!`](@ref) to copy the old state into the new state, for
-cell states that are not `AbstractArray`s (`AbstractArray` states are copied with
-`copyto!` instead, which avoids allocations).
+For `isbits(state) == true`, this function defaults to identity. For states that are not `isbits`, it must be
+overloaded. The exception is if the cell state is an `AbstractVector{T}`, where `isbitstype(T) == true`.
 
-Defaults to `deepcopy(state)`. Overload this function for a custom cell state type
-to provide a more efficient copy (e.g. by reusing already allocated memory), instead
-of relying on the `deepcopy` fallback.
+If the cell state is an `AbstractVector{T}`, but `T` is not a bits type, define `copy_state(::T)` for your type
+`T`. If the cell state is not an `AbstractVector` and not a bits type, define `copy_state` for your entire cell state.
 """
-copy_state(state) = deepcopy(state)
+function copy_state end
+
+@inline function _copy_state(s)
+    if isbits(s)
+        return s
+    else
+        return copy_state(s) # Call user-implementable function
+    end
+end
 
 function set_new_to_old_states!(sv::StateVariables)
     for key in keys(sv.old.vals)
         old_val = sv.old.vals[key]
         if old_val isa AbstractArray
-            copyto!(sv.new.vals[key], old_val)
-        else
-            sv.new.vals[key] = copy_state(old_val)
+            map!(_copy_state, sv.new.vals[key], old_val)    # Note
+        else                                                # `copy_state`` should be overloaded,
+            sv.new.vals[key] = _copy_state(old_val)         # not the internal `_copy_state`
         end
     end
 end
