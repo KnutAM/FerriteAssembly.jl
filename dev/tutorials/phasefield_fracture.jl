@@ -184,6 +184,13 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
         end
         println(n, ": ", num)
         update_states!(sim_d) # Only d has state variables
+        # `update_states!` swaps the old and the new state containers, so the new states now
+        # hold the values from the step before the one we just converged. Since the
+        # displacement part reads the *new* phase-field state, `get_state(cb_d)`, and is
+        # assembled first in the staggered loop, the next time step would otherwise start
+        # from an outdated phase field. `set_new_to_old_states!` copies the last converged
+        # values back into the new states, see the note below.
+        set_new_to_old_states!(sim_d)
         copyto!(sim_d.aold, sim_d.a)
         copyto!(sim_u.aold, sim_u.a)
         # Postprocessing

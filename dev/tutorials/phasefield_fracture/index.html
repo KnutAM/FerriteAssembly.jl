@@ -169,6 +169,13 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
         end
         println(n, &quot;: &quot;, num)
         update_states!(sim_d) # Only d has state variables
+        # `update_states!` swaps the old and the new state containers, so the new states now
+        # hold the values from the step before the one we just converged. Since the
+        # displacement part reads the *new* phase-field state, `get_state(cb_d)`, and is
+        # assembled first in the staggered loop, the next time step would otherwise start
+        # from an outdated phase field. `set_new_to_old_states!` copies the last converged
+        # values back into the new states, see the note below.
+        set_new_to_old_states!(sim_d)
         copyto!(sim_d.aold, sim_d.a)
         copyto!(sim_u.aold, sim_u.a)
         # Postprocessing
@@ -180,7 +187,7 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
         rf_history[n + 1] = rf
     end
     return u_history, rf_history
-end;</code></pre><p>Finally, we run the simulation and plot the force-displacement curve</p><pre><code class="language-julia hljs">u_history, rf_history = solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
+end;</code></pre><h3 id="Keeping-the-new-states-in-sync-with-the-old-ones"><a class="docs-heading-anchor" href="#Keeping-the-new-states-in-sync-with-the-old-ones">Keeping the new states in sync with the old ones</a><a id="Keeping-the-new-states-in-sync-with-the-old-ones-1"></a><a class="docs-heading-anchor-permalink" href="#Keeping-the-new-states-in-sync-with-the-old-ones" title="Permalink"></a></h3><p><a href="../../DomainBuffers/Setup/#FerriteAssembly.update_states!-Tuple{Dict{String, &lt;:FerriteAssembly.AbstractDomainBuffer}}"><code>update_states!</code></a> swaps the references to the old and the new state containers, which is cheap but means that directly after the swap, the <em>new</em> states contain the values from the previous time step. That is fine when the new states are <strong>write</strong>-only (never read) during assembly, which is the usual case and the assumption behind the swap.</p><p>Here, however, the <code>:u</code> part <strong>reads</strong> the new phase field, <code>ϕ</code> via <code>get_state(cb_d)</code> to degrade the stiffness. In the first staggered iteration each time step, the displacement solve of a time would use a phase field that is one time step too old. <a href="../../DomainBuffers/Setup/#FerriteAssembly.set_new_to_old_states!-Tuple{Dict{String, &lt;:FerriteAssembly.AbstractDomainBuffer}}"><code>set_new_to_old_states!</code></a> copies the values from the old states back into the new states, so that the displacement part starts each time step from the last converged phase field instead. Note that this is a copy in the opposite direction of <code>update_states!</code> — the states are copied, not swapped, so the old states (used for the irreversibility bound <code>ⁿϕ</code> in the <code>:d</code> part) are unaffected.</p><p>Finally, we run the simulation and plot the force-displacement curve</p><pre><code class="language-julia hljs">u_history, rf_history = solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
 import CairoMakie as Plt
 fig = Plt.Figure(size = (400, 200))
 ax = Plt.Axis(fig[1,1]; xlabel = &quot;top displacement [mm]&quot;, ylabel = &quot;reaction force [N]&quot;)
@@ -371,6 +378,13 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
         end
         println(n, &quot;: &quot;, num)
         update_states!(sim_d) # Only d has state variables
+        # `update_states!` swaps the old and the new state containers, so the new states now
+        # hold the values from the step before the one we just converged. Since the
+        # displacement part reads the *new* phase-field state, `get_state(cb_d)`, and is
+        # assembled first in the staggered loop, the next time step would otherwise start
+        # from an outdated phase field. `set_new_to_old_states!` copies the last converged
+        # values back into the new states, see the note below.
+        set_new_to_old_states!(sim_d)
         copyto!(sim_d.aold, sim_d.a)
         copyto!(sim_u.aold, sim_u.a)
         # Postprocessing
@@ -384,4 +398,4 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
     return u_history, rf_history
 end;
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../iga/">« Using <code>IGA.jl</code></a><a class="docs-footer-nextpage" href="../../howto/threaded_assembly/">Threaded assembly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Thursday 9 July 2026 13:30">Thursday 9 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../iga/">« Using <code>IGA.jl</code></a><a class="docs-footer-nextpage" href="../../howto/threaded_assembly/">Threaded assembly »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Tuesday 4 August 2026 16:53">Tuesday 4 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
