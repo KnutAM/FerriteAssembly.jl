@@ -2,8 +2,9 @@
 import Literate
 
 function clean_output_files(dir)
+    isdir(dir) || return nothing
     num_deleted = 0
-    cd(dir) do 
+    cd(dir) do
         for file in readdir()
             if any(ext -> endswith(file, ext), (".vtu", ".pvd"))
                 rm(file)
@@ -34,8 +35,12 @@ function build_examples(jl_files; type)
     for example in jl_files
         input = abspath(joinpath(EXAMPLEDIR, example))
         isfile(input) || throw(SystemError("$input not found"))
-        script = Literate.script(input, GENERATEDDIR)
-        code = strip(read(script, String))
+        if !draft
+            script = Literate.script(input, GENERATEDDIR)
+            code = strip(read(script, String))
+        else
+            code = "<< no script output when building as draft >>"
+        end
 
         # remove "hidden" lines which are not shown in the markdown
         line_ending_symbol = occursin(code, "\r\n") ? "\r\n" : "\n"
@@ -43,7 +48,9 @@ function build_examples(jl_files; type)
 
         mdpost(str) = replace(str, "@__CODE__" => code_clean)
         Literate.markdown(input, GENERATEDDIR, postprocess = mdpost)
-        Literate.notebook(input, GENERATEDDIR, execute = is_ci) # Don't execute locally
+        if !draft
+            Literate.notebook(input, GENERATEDDIR, execute = is_ci) # Don't execute locally
+        end
     end
     clean_output_files(GENERATEDDIR)
     
