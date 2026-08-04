@@ -4,9 +4,11 @@ overloading the [`create_cell_state`](@ref FerriteAssembly.create_cell_state)
 function. To update old states to the new states, use [`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)).
 To instead reset the new states back to the old (converged) states, e.g. when retrying
 a non-converged increment, use [`set_new_to_old_states!`](@ref set_new_to_old_states!(::FerriteAssembly.DomainBuffers)).
-For cell states that are not `AbstractArray`s, `set_new_to_old_states!` copies the old
-state into the new state via [`FerriteAssembly.copy_state`](@ref), which defaults to
-`deepcopy` but can be overloaded for a custom cell state type to avoid the allocation.
+If [`create_cell_state`](@ref FerriteAssembly.create_cell_state) returns an `AbstractArray`
+(which must be mutable and keep the same axes between calls), each element is copied
+individually; otherwise the whole cell state is copied. `isbits` values are copied by
+identity (no allocation); any other value must have a [`FerriteAssembly.copy_state`](@ref)
+method for its type — otherwise `set_new_to_old_states!` throws a `MethodError`.
 
 ## The state variable datastructure
 The state variables are created when calling [`setup_domainbuffer`](@ref)

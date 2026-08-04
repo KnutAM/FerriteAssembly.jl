@@ -24,11 +24,11 @@ end
 Return a copy of `state` such that the intended mutation of the returned value does not affect `state`.
 Used by [`set_new_to_old_states!`](@ref) to copy the old state into the new state.
 
-For `isbits(state) == true`, this function defaults to identity. For states that are not `isbits`, it must be
-overloaded. The exception is if the cell state is an `AbstractVector{T}`, where `isbitstype(T) == true`.
-
-If the cell state is an `AbstractVector{T}`, but `T` is not a bits type, define `copy_state(::T)` for your type
-`T`. If the cell state is not an `AbstractVector` and not a bits type, define `copy_state` for your entire cell state.
+For a cell state that is an `AbstractArray`, [`set_new_to_old_states!`](@ref) applies this check
+element-wise; for any other cell state, it applies to the whole state. In both cases, values for
+which `isbits(value) == true` are copied by identity internally, without calling `copy_state`.
+This function has no default method, so it must be overloaded for the type of any value
+(the whole cell state, or an array element) for which `isbits(value) == false`.
 """
 function copy_state end
 

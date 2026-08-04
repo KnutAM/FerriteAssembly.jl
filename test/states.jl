@@ -43,8 +43,12 @@ module TestStateModule
     # With contained vectors, comparison gives false in all cases even with equal values...
     Base.:(==)(a::StateB, b::StateB) = (a.cellnr==b.cellnr && (mapreduce((ax, bx)->ax==bx, *, a.quad_coordinates, b.quad_coordinates)))
 
-    # MatD: single mutable struct per cell (like MatB), but overloads `copy_state`
-    # to avoid the `deepcopy` fallback used by `set_new_to_old_states!`.
+    # StateB is not `isbits` and not an `AbstractArray`, so `copy_state` must be overloaded
+    # for the whole cell state (`set_new_to_old_states!` has no default to fall back on).
+    FerriteAssembly.copy_state(s::StateB) = deepcopy(s)
+
+    # MatD: single mutable struct per cell (like MatB), but with a `copy_state` overload
+    # that reuses the state's own copy logic instead of plain `deepcopy`.
     struct MatD end
     mutable struct StateD
         cellnr::Int
@@ -63,11 +67,47 @@ module TestStateModule
         return StateD(s.cellnr, copy(s.data))
     end
 
+    # MatE: cell state is a `Vector{StateE}` (an `AbstractArray`) of non-bits elements, so
+    # `set_new_to_old_states!` calls `copy_state` once per array element (via `map!`),
+    # rather than once per cell as for MatD.
+    struct MatE end
+    mutable struct StateE
+        cellnr::Int
+        quadnr::Int
+        const marker::Vector{Int}
+    end
+    FerriteAssembly.create_cell_state(::MatE, cv, args...) = [StateE(-1, i, [0]) for i in 1:getnquadpoints(cv)]
+    function FerriteAssembly.element_residual!(re, states::Vector{StateE}, ae, ::MatE, cv, buffer)
+        cellnr = cellid(buffer)
+        for i in 1:getnquadpoints(cv)
+            states[i] = StateE(cellnr, i, [cellnr])
+        end
+    end
+    Base.:(==)(a::StateE, b::StateE) = (a.cellnr == b.cellnr && a.quadnr == b.quadnr && a.marker == b.marker)
+
+    const COPY_STATE_ELEM_CALLS = Ref(0)
+    function FerriteAssembly.copy_state(s::StateE)
+        COPY_STATE_ELEM_CALLS[] += 1
+        return StateE(s.cellnr, s.quadnr, copy(s.marker))
+    end
+
+    # MatF: single mutable struct per cell, like MatB/MatD, but deliberately does NOT
+    # overload `copy_state`, to verify that `set_new_to_old_states!` has no fallback and
+    # throws a `MethodError` instead of silently `deepcopy`-ing the state.
+    struct MatF end
+    mutable struct StateF
+        cellnr::Int
+    end
+    FerriteAssembly.create_cell_state(::MatF, cv, args...) = StateF(-1)
+    function FerriteAssembly.element_residual!(re, state::StateF, ae, ::MatF, cv, buffer)
+        state.cellnr = cellid(buffer)
+    end
+
 end
 
 @testset "state variables" begin
     # Defs
-    import .TestStateModule: MatA, MatB, MatC, MatD, StateA, StateB, StateC, StateD
+    import .TestStateModule: MatA, MatB, MatC, MatD, MatE, MatF, StateA, StateB, StateC, StateD, StateE, StateF
 
     for (CT, Dim) in ((Line, 1), (QuadraticTriangle, 2), (Hexahedron, 3))
         @testset "$CT" begin
@@ -149,8 +189,8 @@ end
             @test allocs == 0 # Vector{T} where !isbitstype(T) should no longer allocate
 
             # set_new_to_old_states!: states (new) should revert to old_states, old_states unaffected
-            # MatB's state is a single mutable struct per cell (not an AbstractArray), so this falls
-            # back to `deepcopy` and allocates, unlike the Vector{T} cases above.
+            # MatB's state is a single mutable struct per cell (not an AbstractArray), so this uses
+            # the `copy_state(::StateB) = deepcopy(s)` overload defined above, and allocates.
             old_dc = deepcopy(old_states)
             work!(kr_assembler, buffer)
             @test states != old_dc # Sanity check that states were actually changed by work!
@@ -161,7 +201,7 @@ end
             states[cellnr].cellnr = -999
             @test old_states[cellnr].cellnr != -999 # But not aliased
             allocs = @allocated set_new_to_old_states!(buffer)
-            @test allocs > 0 # Falls back to deepcopy for non-AbstractArray states
+            @test allocs > 0 # Uses the deepcopy-based copy_state overload for non-AbstractArray states
 
             # MatC (accumulation), using threading as well
             colors = create_coloring(grid)
@@ -197,6 +237,25 @@ end
             @test old_states[1][1] == old_dc[1][1] # But not aliased
             allocs = @allocated set_new_to_old_states!(buffer)
             @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
+
+            # MatE: Vector{StateE} with non-bits elements, exercising the per-element
+            # `copy_state` dispatch inside `set_new_to_old_states!`'s `map!` call.
+            buffer = setup_domainbuffer(DomainSpec(dh, MatE(), cv))
+            states = FerriteAssembly.get_state(buffer)
+            old_states = FerriteAssembly.get_old_state(buffer)
+            @test isa(old_states, FerriteAssembly.StateVector{Vector{StateE}})
+            old_dc = deepcopy(old_states)
+            work!(r_assembler, buffer)
+            @test states != old_dc # Sanity check that states were actually changed by work!
+
+            TestStateModule.COPY_STATE_ELEM_CALLS[] = 0
+            set_new_to_old_states!(buffer)
+            nqp = getnquadpoints(cv)
+            @test TestStateModule.COPY_STATE_ELEM_CALLS[] == getncells(grid) * nqp # copy_state dispatched per array element
+            @test states == old_dc          # states reverted to old values
+            @test old_states == old_dc      # old_states unaffected
+            states[1][1].marker[1] = -999
+            @test old_states[1][1].marker[1] != -999 # But not aliased (element-wise copy, not shared)
         end
     end
 
@@ -228,8 +287,7 @@ end
     @test allocs == 0
 
     # MatD: single mutable struct per cell, overloading `FerriteAssembly.copy_state`
-    # so that `set_new_to_old_states!` dispatches to the custom method instead of
-    # falling back to `deepcopy` (as MatB does).
+    # with logic other than plain `deepcopy` (contrast with MatB above).
     grid_d = generate_grid(Triangle, (2, 2))
     dh_d = DofHandler(grid_d); add!(dh_d, :u, ip); close!(dh_d)
     K_d = allocate_matrix(dh_d)
@@ -252,4 +310,11 @@ end
     cellnr_d = rand(1:getncells(grid_d))
     states_d[cellnr_d].data[1] = -999.0
     @test old_states_d[cellnr_d].data[1] != -999.0 # But not aliased
+
+    # MatF: single mutable struct per cell, like MatB/MatD, but with no `copy_state`
+    # overload at all. `set_new_to_old_states!` has no default (deepcopy) fallback to
+    # rely on, so it must throw a `MethodError` instead of silently succeeding.
+    buffer_f = setup_domainbuffer(DomainSpec(dh_d, MatF(), cv))
+    work!(kr_assembler_d, buffer_f)
+    @test_throws MethodError set_new_to_old_states!(buffer_f)
 end

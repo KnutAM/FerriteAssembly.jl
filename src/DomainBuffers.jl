@@ -98,11 +98,17 @@ retrying a time increment after a non-converged solution, without having to
 reassemble.
 
 Unlike `update_states!`, this method does not swap references between `old_states`
-and `states`, but overwrites the values in `states` in-place when possible
-(if [`create_cell_state`](@ref) returns an `AbstractArray`). Otherwise,
-[`FerriteAssembly.copy_state`](@ref) is used to copy the old state into the
-new state, which defaults to `deepcopy` (and hence allocates) unless
-overloaded for the custom cell state type.
+and `states`, but copies values from `old_states` into the existing `states` containers.
+If [`create_cell_state`](@ref) returns an `AbstractArray`, each element is copied
+individually; otherwise the whole cell state is copied. In both cases, values for which
+`isbits(value) == true` are copied by identity (no allocation); any other value is copied
+with [`FerriteAssembly.copy_state`](@ref), which has no default method and must be
+overloaded for that value's type — otherwise a `MethodError` is thrown.
+
+!!! note
+    When [`create_cell_state`](@ref) returns an `AbstractArray`, that array in `states` is
+    updated in-place: it must be mutable (support `setindex!`) and have the same axes as
+    the corresponding array in `old_states`.
 """
 function set_new_to_old_states!(dbs::DomainBuffers)
     for db in values(dbs)
