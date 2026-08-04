@@ -18,6 +18,43 @@ function update_states!(sv::StateVariables)
     sv.new.vals = tmp
 end
 
+"""
+    copy_state(state)
+
+Return a copy of `state` such that the intended mutation of the returned value does not affect `state`.
+Used by [`set_new_to_old_states!`](@ref) to copy the old state into the new state.
+
+For a cell state that is a *mutable* `AbstractArray` (`ismutable(state) == true`),
+[`set_new_to_old_states!`](@ref) applies this check element-wise; for any other cell state
+(including an immutable `AbstractArray`, e.g. built from `NTuple`s or `StaticArrays`), it
+applies to the whole state. In both cases, values for which `isbits(value) == true` are copied
+by identity internally, without calling `copy_state`. This function has no default method, so
+it must be overloaded for the type of any value (the whole cell state, a whole immutable array,
+or a mutable array's element) for which `isbits(value) == false`.
+"""
+function copy_state end
+
+@inline function _copy_state(s)
+    if isbits(s)
+        return s
+    else
+        return copy_state(s) # Call user-implementable function
+    end
+end
+
+function set_new_to_old_states!(sv::StateVariables)
+    for key in keys(sv.old.vals)
+        old_val = sv.old.vals[key]
+        if isa(old_val, AbstractArray) && ismutable(old_val)
+            new_val = sv.new.vals[key]
+            axes(new_val) == axes(old_val) || throw(ArgumentError("Dimension mismatch between old and new cell states"))
+            map!(_copy_state, new_val, old_val)             # Note
+        else                                                # `copy_state`` should be overloaded,
+            sv.new.vals[key] = _copy_state(old_val)         # not the internal `_copy_state`
+        end
+    end
+end
+
 # Experimental, basically copy!, but use separate name for clarity
 function replace_states!(dst::StateVariables, src::StateVariables)
     dst.old.vals = src.old.vals 

@@ -87,6 +87,40 @@ function update_states!(dbs::DomainBuffers)
 end
 
 """
+    set_new_to_old_states!(db::Dict{String,AbstractDomainBuffer})
+    set_new_to_old_states!(db::AbstractDomainBuffer)
+    set_new_to_old_states!(sim::Simulation)
+
+Update the states such that `states = old_states` for the states stored in `db`,
+i.e. the opposite direction of [`update_states!`](@ref). This is useful for
+resetting the current (new) state to the last converged (old) state, e.g. when
+retrying a time increment after a non-converged solution, without having to
+reassemble.
+
+Unlike `update_states!`, this method does not swap references between `old_states`
+and `states`, but copies values from `old_states` into the existing `states` containers.
+If [`create_cell_state`](@ref) returns a *mutable* `AbstractArray` (`ismutable(state) ==
+true`), each element is copied individually; otherwise (including an immutable
+`AbstractArray`) the whole cell state is copied. In both cases, values for which
+`isbits(value) == true` are copied by identity (no allocation); any other value is copied
+with [`FerriteAssembly.copy_state`](@ref), which has no default method and must be
+overloaded for that value's type — otherwise a `MethodError` is thrown.
+
+!!! note
+    When [`create_cell_state`](@ref) returns a mutable `AbstractArray`, that array in
+    `states` is updated in-place and must therefore have the same axes as the corresponding
+    array in `old_states` — an `ArgumentError` is thrown otherwise. An immutable
+    `AbstractArray` cell state (e.g. built from `NTuple`s or `StaticArrays`) is instead
+    replaced wholesale, like any other non-array
+    cell state.
+"""
+function set_new_to_old_states!(dbs::DomainBuffers)
+    for db in values(dbs)
+        set_new_to_old_states!(db)
+    end
+end
+
+"""
     set_time_increment!(db::Dict{String,AbstractDomainBuffer}, Δt)
     set_time_increment!(db::AbstractDomainBuffer, Δt)
     set_time_increment!(sim::Simulation, Δt)
@@ -184,6 +218,8 @@ get_material(b::StdDomainBuffer) = get_material(get_base(get_itembuffer(b)))
 
 # Update old_states = new_states after convergence 
 update_states!(b::StdDomainBuffer) = update_states!(b.states)
+
+set_new_to_old_states!(b::StdDomainBuffer) = set_new_to_old_states!(b.states)
 
 function set_time_increment!(b::StdDomainBuffer, Δt)
     set_time_increment!(get_base(get_itembuffer(b)), Δt)

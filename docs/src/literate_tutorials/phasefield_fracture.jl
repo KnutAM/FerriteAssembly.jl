@@ -220,6 +220,13 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
         end
         println(n, ": ", num)
         update_states!(sim_d) # Only d has state variables
+        ## `update_states!` swaps the old and the new state containers, so the new states now
+        ## hold the values from the step before the one we just converged. Since the
+        ## displacement part reads the *new* phase-field state, `get_state(cb_d)`, and is
+        ## assembled first in the staggered loop, the next time step would otherwise start
+        ## from an outdated phase field. `set_new_to_old_states!` copies the last converged
+        ## values back into the new states, see the note below.
+        set_new_to_old_states!(sim_d)
         copyto!(sim_d.aold, sim_d.a)
         copyto!(sim_u.aold, sim_u.a)
         ## Postprocessing
@@ -232,6 +239,24 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
     end
     return u_history, rf_history
 end;
+
+#=
+### Keeping the new states in sync with the old ones
+[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)) swaps the
+references to the old and the new state containers, which is cheap but means that
+directly after the swap, the *new* states contain the values from the previous time step.
+That is fine when the new states are **write**-only (never read) during assembly,
+which is the usual case and the assumption behind the swap.
+
+Here, however, the `:u` part **reads** the new phase field, `ϕ` via `get_state(cb_d)`
+to degrade the stiffness. In the first staggered iteration each time step, the displacement
+solve of a time would use a phase field that is one time step too old.
+[`set_new_to_old_states!`](@ref set_new_to_old_states!(::FerriteAssembly.DomainBuffers))
+copies the values from the old states back into the new states, so that the displacement
+part starts each time step from the last converged phase field instead. Note that this is
+a copy in the opposite direction of `update_states!` — the states are copied, not swapped,
+so the old states (used for the irreversibility bound `ⁿϕ` in the `:d` part) are unaffected.
+=#
 
 #=
 Finally, we run the simulation and plot the force-displacement curve

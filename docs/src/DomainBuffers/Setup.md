@@ -19,6 +19,7 @@ FerriteAssembly.get_state(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.get_old_state(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.getset
 update_states!(::FerriteAssembly.DomainBuffers)
+set_new_to_old_states!(::FerriteAssembly.DomainBuffers)
 set_time_increment!(::FerriteAssembly.DomainBuffers, ::Any)
 ```
 
