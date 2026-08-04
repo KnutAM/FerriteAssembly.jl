@@ -26,36 +26,30 @@ struct QuadPointEvaluator{VT, QEType}
 end
 QuadPointEvaluator(data::ArrayOfVectorViews, qe_type::Symbol) = QuadPointEvaluator(data, Val(qe_type))
 
+
 function QuadPointEvaluator{VT}(domainbuffer::AbstractDomainBuffer, qe_type::Union{Symbol, Function}) where {VT}
-    cv = get_values(get_base(get_itembuffer(domainbuffer)))
-    nqp = if cv isa Ferrite.AbstractCellValues
-        getnquadpoints(cv)
-    elseif cv isa NamedTuple
-        tmp = getnquadpoints.(values(cv))
-        @assert allequal(tmp)
-        tmp[1]
-    else
-        error("Only CellValues are supported")
-    end
-    ncells = getncells(get_dofhandler(domainbuffer).grid)
-    data = Vector{VT}(undef, nqp * ncells)
-    indices = [1 + i * nqp for i in 0:ncells]
-    return QuadPointEvaluator(ArrayOfVectorViews(indices, data, LinearIndices((ncells,))), qe_type)
+    domain_buffers = Dict("_" => domainbuffer)
+    return QuadPointEvaluator{VT}(domain_buffers, qe_type)
 end
 
 function QuadPointEvaluator{VT}(domainbuffers::DomainBuffers, qe_type::Union{Symbol, Function}) where {VT}
     ncells = getncells(get_dofhandler(first(values(domainbuffers))).grid)
-    nqps = Vector{Int}(undef, ncells)
-    nqp_total = 0
+    nqps = zeros(Int, ncells)
     for (_, db) in domainbuffers
         cv = get_values(get_base(get_itembuffer(db)))
-        @assert cv isa CellValues # For now, only CellValues supported
-        nqp = getnquadpoints(cv)
+        nqp = if cv isa Ferrite.AbstractCellValues
+            getnquadpoints(cv)
+        elseif cv isa NamedTuple
+            tmp = getnquadpoints.(values(cv))
+            @assert allequal(tmp)
+            tmp[1]
+        else
+            error("Only CellValues are supported")
+        end
         set = getset(db)
         map(i -> (nqps[i] = nqp), set)
-        nqp_total += nqp * length(set)
     end
-
+    nqp_total = sum(nqps)
     data = Vector{VT}(undef, nqp_total)
     indices = Vector{Int}(undef, ncells + 1)
     indices[1] = 1
