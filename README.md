@@ -49,6 +49,14 @@ and provides a structured way to solve various `Ferrite.jl` problems.
 
 See the [documentation](https://KnutAM.github.io/FerriteAssembly.jl/dev) for more details.
 
+## Building the documentation locally
+Run `make -C docs` (or `julia --project=docs docs/liveserver.jl`) to build the
+complete documentation and serve it at `http://localhost:8000`, rebuilding
+automatically when files in `docs/` or `src/` change. This executes all tutorials
+and how-tos, just like `julia --project=docs docs/make.jl`. Run `make -C docs draft`
+(or pass `draft` to `docs/liveserver.jl`) to serve draft documentation without
+executing the tutorials and how-tos. `make -C docs clean` removes the generated files.
+
 ## Using with `Ferrite.jl`'s master branch
 This badge shows if `FerriteAssembly#main` is compatible with `Ferrite#master`.
 
