@@ -86,7 +86,22 @@ function update_states!(dbs::DomainBuffers)
     end
 end
 
+"""
+    set_new_to_old_states!(db::Dict{String,AbstractDomainBuffer})
+    set_new_to_old_states!(db::AbstractDomainBuffer)
+    set_new_to_old_states!(sim::Simulation)
 
+Update the states such that `states = old_states` for the states stored in `db`,
+i.e. the opposite direction of [`update_states!`](@ref). This is useful for
+resetting the current (new) state to the last converged (old) state, e.g. when
+retrying a time increment after a non-converged solution, without having to
+reassemble.
+
+Unlike `update_states!`, this method does not swap references between `old_states`
+and `states`, but overwrites the values in `states` in-place when possible
+(if [`create_cell_state`](@ref) returns an `AbstractArray`). Otherwise,
+a `deepcopy` of the old state is assigned to the new state, which allocates.
+"""
 function set_new_to_old_states!(dbs::DomainBuffers)
     for db in values(dbs)
         set_new_to_old_states!(db)

@@ -87,6 +87,20 @@ end
                 @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
             end
 
+            # set_new_to_old_states!: states (new) should revert to old_states, old_states unaffected
+            for container in (buffer, Simulation(buffer))
+                work!(r_assembler, container) # Ensure states holds a known, freshly assembled value
+                old_dc = deepcopy(old_states)
+                @test states != old_dc # Sanity check that states differ from old_states after work!
+                set_new_to_old_states!(container)
+                @test states == old_dc          # states reverted to old values
+                @test old_states == old_dc      # old_states unaffected
+                states[1][1] = StateA(0, 0)
+                @test old_states[1][1] == old_dc[1][1] # But not aliased
+                allocs = @allocated set_new_to_old_states!(container)
+                @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
+            end
+
             # MatB (not bitstype)
             # - Check correct values before and after update
             # - Check unaliased old and new after update_states!
@@ -114,6 +128,21 @@ end
             allocs = @allocated update_states!(buffer)
             @test allocs == 0 # Vector{T} where !isbitstype(T) should no longer allocate
 
+            # set_new_to_old_states!: states (new) should revert to old_states, old_states unaffected
+            # MatB's state is a single mutable struct per cell (not an AbstractArray), so this falls
+            # back to `deepcopy` and allocates, unlike the Vector{T} cases above.
+            old_dc = deepcopy(old_states)
+            work!(kr_assembler, buffer)
+            @test states != old_dc # Sanity check that states were actually changed by work!
+            set_new_to_old_states!(buffer)
+            @test states == old_dc          # states reverted to old values
+            @test old_states == old_dc      # old_states unaffected
+            cellnr = rand(1:getncells(grid))
+            states[cellnr].cellnr = -999
+            @test old_states[cellnr].cellnr != -999 # But not aliased
+            allocs = @allocated set_new_to_old_states!(buffer)
+            @test allocs > 0 # Falls back to deepcopy for non-AbstractArray states
+
             # MatC (accumulation), using threading as well
             colors = create_coloring(grid)
             buffer = setup_domainbuffer(DomainSpec(dh, MatC(), cv; colors=colors))
@@ -136,6 +165,18 @@ end
             end
             allocs = @allocated update_states!(buffer)
             @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
+
+            # set_new_to_old_states!: states (new) should revert to old_states, old_states unaffected
+            old_dc = deepcopy(old_states)
+            work!(kr_assembler, buffer)
+            @test states != old_dc # Sanity check that states were actually changed by work!
+            set_new_to_old_states!(buffer)
+            @test states == old_dc          # states reverted to old values
+            @test old_states == old_dc      # old_states unaffected
+            states[1][1] = StateC(999)
+            @test old_states[1][1] == old_dc[1][1] # But not aliased
+            allocs = @allocated set_new_to_old_states!(buffer)
+            @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
         end
     end
 
@@ -150,10 +191,19 @@ end
     allocs = @allocated update_states!(buffer)
     @test allocs == 0
 
+    # Smoke-test of set_new_to_old_states! for nothing states (and check no allocations)
+    set_new_to_old_states!(buffer) # Compile
+    allocs = @allocated set_new_to_old_states!(buffer)
+    @test allocs == 0
+
     gda = DomainSpec(dh, nothing, cv; set=1:getncells(dh.grid)÷2)
     gdb = DomainSpec(dh, nothing, cv; set=setdiff!(Set(1:getncells(dh.grid)), gda.set))
     buffers = setup_domainbuffers(Dict("a"=>gda, "b"=>gdb))
     update_states!(buffers) # Compile
     allocs = @allocated update_states!(buffers)
+    @test allocs == 0
+
+    set_new_to_old_states!(buffers) # Compile
+    allocs = @allocated set_new_to_old_states!(buffers)
     @test allocs == 0
 end

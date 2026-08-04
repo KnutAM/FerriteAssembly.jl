@@ -20,7 +20,12 @@ end
 
 function set_new_to_old_states!(sv::StateVariables)
     for key in keys(sv.old.vals)
-        copyto!(sv.new.vals[key], sv.old.vals[key])
+        old_val = sv.old.vals[key]
+        if old_val isa AbstractArray
+            copyto!(sv.new.vals[key], old_val)
+        else
+            sv.new.vals[key] = deepcopy(old_val)
+        end
     end
 end
 

@@ -2,6 +2,8 @@
 The state variable for a given cell is determined by the material type, via 
 overloading the [`create_cell_state`](@ref FerriteAssembly.create_cell_state)
 function. To update old states to the new states, use [`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)).
+To instead reset the new states back to the old (converged) states, e.g. when retrying
+a non-converged increment, use [`set_new_to_old_states!`](@ref set_new_to_old_states!(::FerriteAssembly.DomainBuffers)).
 
 ## The state variable datastructure
 The state variables are created when calling [`setup_domainbuffer`](@ref)
@@ -17,5 +19,6 @@ by its cell number. (The output from the mentioned functions are `Dict{Int}`)
 ```@docs
 FerriteAssembly.create_cell_state
 update_states!
+set_new_to_old_states!
 FerriteAssembly.remove_dual
 ```
