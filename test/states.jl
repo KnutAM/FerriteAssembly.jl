@@ -103,11 +103,67 @@ module TestStateModule
         state.cellnr = cellid(buffer)
     end
 
+    # StateG: mutable per-quadpoint state, referenced from (not owned by) an *immutable*
+    # `AbstractVector` wrapper below. Mutating a `StateG` fetched via `getindex` still
+    # mutates the shared object, even though the wrapper itself can't be `setindex!`-ed.
+    mutable struct StateG
+        cellnr::Int
+        quadnr::Int
+    end
+    Base.:(==)(a::StateG, b::StateG) = (a.cellnr == b.cellnr && a.quadnr == b.quadnr)
+
+    # ImmutableStates: an immutable `AbstractVector{StateG}` (e.g. backed by an `NTuple`,
+    # like `StaticArrays.SVector` would be). `ismutable(::ImmutableStates) == false`, so
+    # `set_new_to_old_states!` must treat it as a single whole-cell-state value (going
+    # through `copy_state` for the whole array) rather than element-wise via `map!`.
+    struct ImmutableStates{N} <: AbstractVector{StateG}
+        data::NTuple{N,StateG}
+    end
+    Base.size(x::ImmutableStates) = (length(x.data),)
+    Base.getindex(x::ImmutableStates, i::Int) = x.data[i]
+    Base.IndexStyle(::Type{<:ImmutableStates}) = IndexLinear()
+
+    # MatG: has a `copy_state` overload for the whole `ImmutableStates` array.
+    struct MatG end
+    FerriteAssembly.create_cell_state(::MatG, cv, args...) = ImmutableStates(ntuple(i -> StateG(-1, i), getnquadpoints(cv)))
+    function FerriteAssembly.element_residual!(re, states::ImmutableStates, ae, ::MatG, cv, buffer)
+        cellnr = cellid(buffer)
+        for s in states # mutate the elements in place; `states` itself is never `setindex!`-ed
+            s.cellnr = cellnr
+        end
+    end
+
+    const COPY_STATE_WHOLE_ARRAY_CALLS = Ref(0)
+    function FerriteAssembly.copy_state(s::ImmutableStates)
+        COPY_STATE_WHOLE_ARRAY_CALLS[] += 1
+        return ImmutableStates(map(x -> StateG(x.cellnr, x.quadnr), s.data))
+    end
+
+    # MatH: same immutable-array state shape as MatG, but deliberately has NO `copy_state`
+    # overload, to verify `set_new_to_old_states!` throws `MethodError` for an immutable
+    # `AbstractArray` cell state just as it does for a non-array one (MatF).
+    struct ImmutableStatesNoOverload{N} <: AbstractVector{StateG}
+        data::NTuple{N,StateG}
+    end
+    Base.size(x::ImmutableStatesNoOverload) = (length(x.data),)
+    Base.getindex(x::ImmutableStatesNoOverload, i::Int) = x.data[i]
+    Base.IndexStyle(::Type{<:ImmutableStatesNoOverload}) = IndexLinear()
+
+    struct MatH end
+    FerriteAssembly.create_cell_state(::MatH, cv, args...) = ImmutableStatesNoOverload(ntuple(i -> StateG(-1, i), getnquadpoints(cv)))
+    function FerriteAssembly.element_residual!(re, states::ImmutableStatesNoOverload, ae, ::MatH, cv, buffer)
+        cellnr = cellid(buffer)
+        for s in states
+            s.cellnr = cellnr
+        end
+    end
+
 end
 
 @testset "state variables" begin
     # Defs
-    import .TestStateModule: MatA, MatB, MatC, MatD, MatE, MatF, StateA, StateB, StateC, StateD, StateE, StateF
+    import .TestStateModule: MatA, MatB, MatC, MatD, MatE, MatF, MatG, MatH,
+        StateA, StateB, StateC, StateD, StateE, StateF, StateG
 
     for (CT, Dim) in ((Line, 1), (QuadraticTriangle, 2), (Hexahedron, 3))
         @testset "$CT" begin
@@ -317,4 +373,42 @@ end
     buffer_f = setup_domainbuffer(DomainSpec(dh_d, MatF(), cv))
     work!(kr_assembler_d, buffer_f)
     @test_throws MethodError set_new_to_old_states!(buffer_f)
+
+    # MatG: cell state is an *immutable* `AbstractVector{StateG}`. Since `ismutable` is
+    # false for it, `set_new_to_old_states!` must copy it as a whole (once per cell, via
+    # the `copy_state(::ImmutableStates)` overload above) rather than element-wise via
+    # `map!` (which requires a mutable destination).
+    buffer_g = setup_domainbuffer(DomainSpec(dh_d, MatG(), cv))
+    states_g = FerriteAssembly.get_state(buffer_g)
+    old_states_g = FerriteAssembly.get_old_state(buffer_g)
+    @test !ismutable(old_states_g[1]) # Sanity check: this is the scenario being tested
+
+    old_dc_g = deepcopy(old_states_g)
+    work!(kr_assembler_d, buffer_g)
+    @test states_g != old_dc_g # Sanity check that states were actually changed by work!
+
+    TestStateModule.COPY_STATE_WHOLE_ARRAY_CALLS[] = 0
+    set_new_to_old_states!(buffer_g)
+    @test TestStateModule.COPY_STATE_WHOLE_ARRAY_CALLS[] == getncells(grid_d) # Whole array copied once per cell, not per element
+    @test states_g == old_dc_g          # states reverted to old values
+    @test old_states_g == old_dc_g      # old_states unaffected
+    states_g[1][1].cellnr = -999
+    @test old_states_g[1][1].cellnr != -999 # But not aliased
+
+    # MatH: same immutable-array cell state shape as MatG, but with no `copy_state`
+    # overload, to verify that an immutable `AbstractArray` cell state without an overload
+    # throws `MethodError` just like a non-array one (MatF), rather than erroring inside
+    # `map!` from trying to mutate an immutable destination.
+    buffer_h = setup_domainbuffer(DomainSpec(dh_d, MatH(), cv))
+    work!(kr_assembler_d, buffer_h)
+    @test_throws MethodError set_new_to_old_states!(buffer_h)
+
+    # Regression test: a mutable AbstractArray cell state (MatA's Vector{StateA}) whose
+    # "new" array has drifted to a different size than the corresponding "old" array must
+    # raise a clear `ArgumentError` instead of `map!` silently copying only the common
+    # prefix (or erroring obscurely).
+    buffer_mismatch = setup_domainbuffer(DomainSpec(dh_d, MatA(), cv))
+    states_mismatch = FerriteAssembly.get_state(buffer_mismatch)
+    push!(states_mismatch[1], StateA(-1, 0)) # "new" for cell 1 is now longer than "old"
+    @test_throws ArgumentError set_new_to_old_states!(buffer_mismatch)
 end

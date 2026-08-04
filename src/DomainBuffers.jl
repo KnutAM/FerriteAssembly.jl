@@ -99,16 +99,20 @@ reassemble.
 
 Unlike `update_states!`, this method does not swap references between `old_states`
 and `states`, but copies values from `old_states` into the existing `states` containers.
-If [`create_cell_state`](@ref) returns an `AbstractArray`, each element is copied
-individually; otherwise the whole cell state is copied. In both cases, values for which
+If [`create_cell_state`](@ref) returns a *mutable* `AbstractArray` (`ismutable(state) ==
+true`), each element is copied individually; otherwise (including an immutable
+`AbstractArray`) the whole cell state is copied. In both cases, values for which
 `isbits(value) == true` are copied by identity (no allocation); any other value is copied
 with [`FerriteAssembly.copy_state`](@ref), which has no default method and must be
 overloaded for that value's type — otherwise a `MethodError` is thrown.
 
 !!! note
-    When [`create_cell_state`](@ref) returns an `AbstractArray`, that array in `states` is
-    updated in-place: it must be mutable (support `setindex!`) and have the same axes as
-    the corresponding array in `old_states`.
+    When [`create_cell_state`](@ref) returns a mutable `AbstractArray`, that array in
+    `states` is updated in-place and must therefore have the same axes as the corresponding
+    array in `old_states` — an `ArgumentError` is thrown otherwise. An immutable
+    `AbstractArray` cell state (e.g. built from `NTuple`s or `StaticArrays`) is instead
+    replaced wholesale, like any other non-array
+    cell state.
 """
 function set_new_to_old_states!(dbs::DomainBuffers)
     for db in values(dbs)
