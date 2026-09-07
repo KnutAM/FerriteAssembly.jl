@@ -234,8 +234,6 @@ end
                 @test old_states == old_dc      # old_states unaffected
                 states[1][1] = StateA(0, 0)
                 @test old_states[1][1] == old_dc[1][1] # But not aliased
-                allocs = @allocated set_new_to_old_states!(container)
-                @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
             end
 
             # MatB (not bitstype)
@@ -276,20 +274,19 @@ end
             allocs = @allocated _flip!(buffer)
             @test allocs == 0
 
-            # set_new_to_old_states!: states (new) should revert to old_states, old_states unaffected
-            # MatB's state is a single mutable struct per cell (not an AbstractArray), so this uses
-            # the `copy_state(::StateB) = deepcopy(s)` overload defined above, and allocates.
+            # set_new_to_old_states! (deprecated): states (new) should revert to old_states,
+            # old_states unaffected. MatB's state is a single mutable struct per cell (not an
+            # AbstractArray), so this uses the `copy_state(::StateB) = deepcopy(s)` overload
+            # defined above.
             old_dc = deepcopy(old_states)
             work!(kr_assembler, buffer)
             @test states != old_dc # Sanity check that states were actually changed by work!
-            set_new_to_old_states!(buffer)
+            @test_deprecated set_new_to_old_states!(buffer)
             @test states == old_dc          # states reverted to old values
             @test old_states == old_dc      # old_states unaffected
             cellnr = rand(1:getncells(grid))
             states[cellnr].cellnr = -999
             @test old_states[cellnr].cellnr != -999 # But not aliased
-            allocs = @allocated set_new_to_old_states!(buffer)
-            @test allocs > 0 # Uses the deepcopy-based copy_state overload for non-AbstractArray states
 
             # MatC (accumulation), using threading as well
             colors = create_coloring(grid)
@@ -323,8 +320,6 @@ end
             @test old_states == old_dc      # old_states unaffected
             states[1][1] = StateC(999)
             @test old_states[1][1] == old_dc[1][1] # But not aliased
-            allocs = @allocated set_new_to_old_states!(buffer)
-            @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
 
             # MatE: Vector{StateE} with non-bits elements, exercising the per-element
             # `copy_state` dispatch inside `set_new_to_old_states!`'s `map!` call.
@@ -362,14 +357,8 @@ end
     @test allocs == 0
     @test_throws ArgumentError update_states!(buffer; mode=:bogus)
 
-    # Smoke-test of set_new_to_old_states! / set_old_to_new_states! for nothing states
-    # (and check no allocations)
+    # Smoke-test of (deprecated) set_new_to_old_states! for nothing states
     set_new_to_old_states!(buffer) # Compile
-    allocs = @allocated set_new_to_old_states!(buffer)
-    @test allocs == 0
-    set_old_to_new_states!(buffer) # Compile
-    allocs = @allocated set_old_to_new_states!(buffer)
-    @test allocs == 0
 
     gda = DomainSpec(dh, nothing, cv; set=1:getncells(dh.grid)÷2)
     gdb = DomainSpec(dh, nothing, cv; set=setdiff!(Set(1:getncells(dh.grid)), gda.set))
@@ -378,20 +367,15 @@ end
     allocs = @allocated update_states!(buffers)
     @test allocs == 0
 
-    # `mode` and `set_old_to_new_states!` must thread through the multi-domain `Dict` layer
-    # and the `Simulation` wrapper too (the layers the reported issue's regression went through).
+    # `mode` must thread through the multi-domain `Dict` layer and the `Simulation` wrapper
+    # too (the layers the reported issue's regression went through).
     for container in (buffers, Simulation(buffers))
         _flip!(container) # Compile
         allocs = @allocated _flip!(container)
         @test allocs == 0
-        set_old_to_new_states!(container) # Compile
-        allocs = @allocated set_old_to_new_states!(container)
-        @test allocs == 0
     end
 
     set_new_to_old_states!(buffers) # Compile
-    allocs = @allocated set_new_to_old_states!(buffers)
-    @test allocs == 0
 
     # MatD: single mutable struct per cell, overloading `FerriteAssembly.copy_state`
     # with logic other than plain `deepcopy` (contrast with MatB above).
@@ -418,27 +402,12 @@ end
     states_d[cellnr_d].data[1] = -999.0
     @test old_states_d[cellnr_d].data[1] != -999.0 # But not aliased
 
-    # set_old_to_new_states!: mirror of the above, copying in the opposite direction
-    # (old := new instead of new := old). This is what `update_states!`'s default
-    # `mode = :copy` uses internally.
-    work!(kr_assembler_d, buffer_d)
-    states_dc_d = deepcopy(states_d)
-    @test old_states_d != states_dc_d # Sanity check that states differ from old_states after work!
-    TestStateModule.COPY_STATE_CALLS[] = 0
-    set_old_to_new_states!(buffer_d)
-    @test TestStateModule.COPY_STATE_CALLS[] == getncells(grid_d) # Custom copy_state dispatched for every cell
-    @test old_states_d == states_dc_d   # old_states updated to the (just-converged) states
-    @test states_d == states_dc_d       # states themselves untouched
-    old_states_d[cellnr_d].data[1] = -999.0
-    @test states_d[cellnr_d].data[1] != -999.0 # But not aliased
-
     # MatF: single mutable struct per cell, like MatB/MatD, but with no `copy_state`
     # overload at all. `set_new_to_old_states!` has no default (deepcopy) fallback to
     # rely on, so it must throw a `MethodError` instead of silently succeeding.
     buffer_f = setup_domainbuffer(DomainSpec(dh_d, MatF(), cv))
     work!(kr_assembler_d, buffer_f)
     @test_throws MethodError set_new_to_old_states!(buffer_f)
-    @test_throws MethodError set_old_to_new_states!(buffer_f)
     # ...and therefore also the default `mode = :copy` of `update_states!`; `mode = :flip`
     # has no `copy_state` requirement and keeps working for such a state type.
     @test_throws MethodError update_states!(buffer_f)
@@ -472,7 +441,6 @@ end
     buffer_h = setup_domainbuffer(DomainSpec(dh_d, MatH(), cv))
     work!(kr_assembler_d, buffer_h)
     @test_throws MethodError set_new_to_old_states!(buffer_h)
-    @test_throws MethodError set_old_to_new_states!(buffer_h)
 
     # Regression test: a mutable AbstractArray cell state (MatA's Vector{StateA}) whose
     # "new" array has drifted to a different size than the corresponding "old" array must
@@ -482,7 +450,6 @@ end
     states_mismatch = FerriteAssembly.get_state(buffer_mismatch)
     push!(states_mismatch[1], StateA(-1, 0)) # "new" for cell 1 is now longer than "old"
     @test_throws ArgumentError set_new_to_old_states!(buffer_mismatch)
-    @test_throws ArgumentError set_old_to_new_states!(buffer_mismatch)
     @test_throws ArgumentError update_states!(buffer_mismatch) # default mode = :copy
     update_states!(buffer_mismatch; mode=:flip) # mode = :flip never touches individual elements
 end

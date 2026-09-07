@@ -76,14 +76,14 @@ Update the states such that `old_states = states` (the just-converged values) fo
 states stored in `db`.
 
 `mode` selects how this is done:
-* `mode = :copy` (default): copies the values from `states` into `old_states`
-  ([`set_old_to_new_states!`](@ref)); `states` itself is left untouched. This means both
-  `old_states` and `states` correctly hold the just-converged values directly after the
-  call — safe to read (e.g. for postprocessing) immediately afterwards. If
-  [`create_cell_state`](@ref) returns a *mutable* `AbstractArray`, this reuses that array's
-  own storage (no allocation for the array itself, though copying non-`isbits` elements into
-  it may still allocate via `copy_state`), and it must therefore keep the same axes between
-  calls (`ArgumentError` otherwise). Any other non-`isbits` cell state must have a
+* `mode = :copy` (default): copies the values from `states` into `old_states`; `states`
+  itself is left untouched. This means both `old_states` and `states` correctly hold the
+  just-converged values directly after the call — safe to read (e.g. for postprocessing)
+  immediately afterwards. If [`create_cell_state`](@ref) returns a *mutable*
+  `AbstractArray`, this reuses that array's own storage (no allocation for the array
+  itself, though copying non-`isbits` elements into it may still allocate via
+  `copy_state`), and it must therefore keep the same axes between calls (`ArgumentError`
+  otherwise). Any other non-`isbits` cell state must have a
   [`FerriteAssembly.copy_state`](@ref) method — otherwise a `MethodError` is thrown. This is
   a **breaking change** from previous releases (which behaved like `mode = :flip`): a
   mutable, non-array cell state without a `copy_state` overload that used to work now
@@ -98,9 +98,7 @@ states stored in `db`.
       [`QuadPointEvaluator`](@ref) reading `get_state`/`s` during postprocessing right after
       `update_states!`. Reading it earlier silently observes the previous step's data. If you
       need to read the just-converged state after updating (e.g. for postprocessing), use the
-      default `mode = :copy` instead, or call [`set_new_to_old_states!`](@ref) right after
-      (which copies `old_states` — the just-converged values after the flip — back into
-      `states`).
+      default `mode = :copy` instead.
 """
 function update_states!(dbs::DomainBuffers; kwargs...)
     for db in values(dbs)
@@ -112,6 +110,9 @@ end
     set_new_to_old_states!(db::Dict{String,AbstractDomainBuffer})
     set_new_to_old_states!(db::AbstractDomainBuffer)
     set_new_to_old_states!(sim::Simulation)
+
+!!! warning "Deprecated"
+    `set_new_to_old_states!` is deprecated and may be removed in a future release.
 
 Update the states such that `states = old_states` for the states stored in `db`,
 i.e. the opposite direction of [`update_states!`](@ref). This is useful for
@@ -139,28 +140,6 @@ overloaded for that value's type — otherwise a `MethodError` is thrown.
 function set_new_to_old_states!(dbs::DomainBuffers)
     for db in values(dbs)
         set_new_to_old_states!(db)
-    end
-end
-
-"""
-    set_old_to_new_states!(db::Dict{String,AbstractDomainBuffer})
-    set_old_to_new_states!(db::AbstractDomainBuffer)
-    set_old_to_new_states!(sim::Simulation)
-
-Update the states such that `old_states = states` for the states stored in `db`, without
-swapping references. This is the copy-based, opposite direction of
-[`set_new_to_old_states!`](@ref), and is what `mode = :copy` (the default) uses internally
-in [`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)).
-
-The value-copying semantics (mutable `AbstractArray`s copied element-wise in-place,
-requiring matching axes; other non-`isbits` values requiring a
-[`FerriteAssembly.copy_state`](@ref) overload) are identical to
-[`set_new_to_old_states!`](@ref), just applied in the opposite direction (`old_states` is the
-destination here, `states` is the source).
-"""
-function set_old_to_new_states!(dbs::DomainBuffers)
-    for db in values(dbs)
-        set_old_to_new_states!(db)
     end
 end
 
@@ -264,7 +243,6 @@ get_material(b::StdDomainBuffer) = get_material(get_base(get_itembuffer(b)))
 update_states!(b::StdDomainBuffer; kwargs...) = update_states!(b.states; kwargs...)
 
 set_new_to_old_states!(b::StdDomainBuffer) = set_new_to_old_states!(b.states)
-set_old_to_new_states!(b::StdDomainBuffer) = set_old_to_new_states!(b.states)
 
 function set_time_increment!(b::StdDomainBuffer, Δt)
     set_time_increment!(get_base(get_itembuffer(b)), Δt)

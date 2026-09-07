@@ -16,7 +16,7 @@ StateVariables(old::Dict, new::Dict) = StateVariables(StateVector(old), StateVec
 # `AbstractDomainBuffer`/`DomainBuffers` method for the meaning of `mode`.
 function update_states!(sv::StateVariables; mode::Symbol = :copy)
     if mode === :copy
-        set_old_to_new_states!(sv)
+        _copy_states!(sv.old, sv.new)
     elseif mode === :flip
         _flip_states!(sv)
     else
@@ -36,9 +36,8 @@ end
     copy_state(state)
 
 Return a copy of `state` such that the intended mutation of the returned value does not affect `state`.
-Used by [`set_new_to_old_states!`](@ref), [`set_old_to_new_states!`](@ref), and
-[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers))'s default `mode = :copy`
-to copy one state into the other.
+Used by [`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers))'s default
+`mode = :copy` and by [`set_new_to_old_states!`](@ref) to copy one state into the other.
 
 For a cell state that is a *mutable* `AbstractArray` (`ismutable(state) == true`), these functions
 apply this check element-wise; for any other cell state (including an immutable `AbstractArray`,
@@ -71,8 +70,13 @@ function _copy_states!(dst::StateVector, src::StateVector)
     end
 end
 
-set_new_to_old_states!(sv::StateVariables) = _copy_states!(sv.new, sv.old)
-set_old_to_new_states!(sv::StateVariables) = _copy_states!(sv.old, sv.new)
+function set_new_to_old_states!(sv::StateVariables)
+    Base.depwarn(
+        "`set_new_to_old_states!` is deprecated and may be removed in a future release.",
+        :set_new_to_old_states!,
+    )
+    _copy_states!(sv.new, sv.old)
+end
 
 # Experimental, basically copy!, but use separate name for clarity
 function replace_states!(dst::StateVariables, src::StateVariables)

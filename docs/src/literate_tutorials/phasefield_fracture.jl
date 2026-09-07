@@ -219,9 +219,7 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
             iter ≥ max_staggered && error("Did not converge in staggered iterations")
         end
         println(n, ": ", num)
-        ## Only `:d` has state variables. `update_states!`'s default `mode = :copy` copies the
-        ## converged values into the old states and leaves the new states untouched, see the
-        ## note below for why that matters here.
+        ## Only `:d` has state variables.
         update_states!(sim_d)
         copyto!(sim_d.aold, sim_d.a)
         copyto!(sim_u.aold, sim_u.a)
@@ -235,27 +233,6 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
     end
     return u_history, rf_history
 end;
-
-#=
-### Keeping the new states in sync with the old ones
-[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)) defaults to
-`mode = :copy`: it copies the converged values into the old states and leaves the new
-states untouched, so directly after the call both the old *and* the new states correctly
-hold the just-converged values.
-
-This matters here because the `:u` part **reads** the new phase field, `ϕ`, via
-`get_state(cb_d)` to degrade the stiffness, in the first staggered iteration of *every*
-time step. With the cheaper `mode = :flip` (which swaps the old/new state containers by
-reference instead of copying, the behavior of `update_states!` prior to this default
-change), the new states would hold the values from the time step *before* the one we just
-converged until the next `work!(sim_d, ...)` overwrites them - so the first displacement
-solve of each time step would use a phase field that is one time step too old. The default
-`mode = :copy` avoids that gotcha automatically, at the cost of copying the state (here a
-`Vector{Float64}`, so a cheap, allocation-free element-wise copy - see
-[`FerriteAssembly.copy_state`](@ref) for state types where this needs a bit more care). The
-old states (used for the irreversibility bound `ⁿϕ` in the `:d` part) are of course
-unaffected either way.
-=#
 
 #=
 Finally, we run the simulation and plot the force-displacement curve
