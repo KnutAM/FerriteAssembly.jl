@@ -98,4 +98,27 @@
             @test evaluate_at_grid_nodes(dh1, a, :u) ≈ evaluate_at_grid_nodes(proj, ap)
         end
     end
+
+    @testset "QuadPointEvaluator right after update_states! (issue #86)" begin
+        # Regression test for https://github.com/KnutAM/FerriteAssembly.jl/issues/86:
+        # a `QuadPointEvaluator` reading the state right after `update_states!` must observe
+        # the values it just converged to, not a stale/swapped-out value from before the step.
+        struct RecordingMat86 end
+        FerriteAssembly.create_cell_state(::RecordingMat86, cv, args...) = [0.0 for _ in 1:getnquadpoints(cv)]
+        function FerriteAssembly.element_residual!(re, state, ae, ::RecordingMat86, cv, buffer)
+            for q in 1:getnquadpoints(cv)
+                state[q] = function_value(cv, q, ae)
+            end
+        end
+        dh86 = dofhandler(grid, :u => ipu)
+        db86 = setup_domainbuffer(DomainSpec(dh86, RecordingMat86(), cvu))
+        a86 = rand(ndofs(dh86))
+        work!(ReAssembler(zeros(ndofs(dh86))), db86; a=a86)
+        qe86 = QuadPointEvaluator{Float64}(db86, (m, u, ∇u, s) -> s)
+        work!(qe86, db86; a=a86)
+        before = deepcopy(qe86.data)
+        update_states!(db86) # default mode = :copy: safe to read the new states right after
+        work!(qe86, db86; a=a86)
+        @test qe86.data == before # `mode = :flip` would silently give the previous step's values here
+    end
 end

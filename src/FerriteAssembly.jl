@@ -31,7 +31,7 @@ include("LoadHandler/LoadHandler.jl")
 export DomainSpec, setup_domainbuffer, setup_domainbuffers
 export Simulation, CoupledSimulations, couple_buffers
 # Main functions to use during simulations
-export work!, update_states!, set_new_to_old_states!, set_time_increment!
+export work!, update_states!, set_new_to_old_states!, set_old_to_new_states!, set_time_increment!
 # Workers
 export ReAssembler, KeReAssembler   # Assemblers
 export Integrator, SimpleIntegrator # Integrators

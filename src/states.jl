@@ -12,25 +12,41 @@ struct StateVariables{SV}
 end
 StateVariables(old::Dict, new::Dict) = StateVariables(StateVector(old), StateVector(new))
 
-function update_states!(sv::StateVariables)
+# Internal implementation for `update_states!`, see the docstring on the
+# `AbstractDomainBuffer`/`DomainBuffers` method for the meaning of `mode`.
+function update_states!(sv::StateVariables; mode::Symbol = :copy)
+    if mode === :copy
+        set_old_to_new_states!(sv)
+    elseif mode === :flip
+        _flip_states!(sv)
+    else
+        throw(ArgumentError("Unknown mode=$(repr(mode)) for update_states!, use :copy or :flip"))
+    end
+    return sv
+end
+
+function _flip_states!(sv::StateVariables)
     tmp = sv.old.vals
     sv.old.vals = sv.new.vals
     sv.new.vals = tmp
+    return sv
 end
 
 """
     copy_state(state)
 
 Return a copy of `state` such that the intended mutation of the returned value does not affect `state`.
-Used by [`set_new_to_old_states!`](@ref) to copy the old state into the new state.
+Used by [`set_new_to_old_states!`](@ref), [`set_old_to_new_states!`](@ref), and
+[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers))'s default `mode = :copy`
+to copy one state into the other.
 
-For a cell state that is a *mutable* `AbstractArray` (`ismutable(state) == true`),
-[`set_new_to_old_states!`](@ref) applies this check element-wise; for any other cell state
-(including an immutable `AbstractArray`, e.g. built from `NTuple`s or `StaticArrays`), it
-applies to the whole state. In both cases, values for which `isbits(value) == true` are copied
-by identity internally, without calling `copy_state`. This function has no default method, so
-it must be overloaded for the type of any value (the whole cell state, a whole immutable array,
-or a mutable array's element) for which `isbits(value) == false`.
+For a cell state that is a *mutable* `AbstractArray` (`ismutable(state) == true`), these functions
+apply this check element-wise; for any other cell state (including an immutable `AbstractArray`,
+e.g. built from `NTuple`s or `StaticArrays`), it applies to the whole state. In both cases, values
+for which `isbits(value) == true` are copied by identity internally, without calling `copy_state`.
+This function has no default method, so it must be overloaded for the type of any value (the whole
+cell state, a whole immutable array, or a mutable array's element) for which `isbits(value) ==
+false`.
 """
 function copy_state end
 
@@ -42,18 +58,21 @@ function copy_state end
     end
 end
 
-function set_new_to_old_states!(sv::StateVariables)
-    for key in keys(sv.old.vals)
-        old_val = sv.old.vals[key]
-        if isa(old_val, AbstractArray) && ismutable(old_val)
-            new_val = sv.new.vals[key]
-            axes(new_val) == axes(old_val) || throw(ArgumentError("Dimension mismatch between old and new cell states"))
-            map!(_copy_state, new_val, old_val)             # Note
+function _copy_states!(dst::StateVector, src::StateVector)
+    for key in keys(src.vals)
+        src_val = src.vals[key]
+        if isa(src_val, AbstractArray) && ismutable(src_val)
+            dst_val = dst.vals[key]
+            axes(dst_val) == axes(src_val) || throw(ArgumentError("Dimension mismatch between old and new cell states"))
+            map!(_copy_state, dst_val, src_val)             # Note
         else                                                # `copy_state`` should be overloaded,
-            sv.new.vals[key] = _copy_state(old_val)         # not the internal `_copy_state`
+            dst.vals[key] = _copy_state(src_val)             # not the internal `_copy_state`
         end
     end
 end
+
+set_new_to_old_states!(sv::StateVariables) = _copy_states!(sv.new, sv.old)
+set_old_to_new_states!(sv::StateVariables) = _copy_states!(sv.old, sv.new)
 
 # Experimental, basically copy!, but use separate name for clarity
 function replace_states!(dst::StateVariables, src::StateVariables)

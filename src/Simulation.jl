@@ -30,9 +30,10 @@ get_grid(sim::Simulation) = get_grid(sim.db)
 get_state(sim::Simulation, args::Vararg{Any, N}) where N = get_state(sim.db, args...)
 get_old_state(sim::Simulation, args::Vararg{Any, N}) where N = get_old_state(sim.db, args...)
 getset(sim::Simulation, args::Vararg{Any, N}) where N = getset(sim.db, args...)
-update_states!(sim::Simulation) = update_states!(sim.db)
+update_states!(sim::Simulation; kwargs...) = update_states!(sim.db; kwargs...)
 set_time_increment!(sim::Simulation, Δt) = set_time_increment!(sim.db, Δt)
 set_new_to_old_states!(sim::Simulation) = set_new_to_old_states!(sim.db)
+set_old_to_new_states!(sim::Simulation) = set_old_to_new_states!(sim.db)
 
 # Forwarding for internal API
 get_num_tasks(sim::Simulation) = get_num_tasks(sim.db)

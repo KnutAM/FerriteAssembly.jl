@@ -219,14 +219,10 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
             iter ≥ max_staggered && error("Did not converge in staggered iterations")
         end
         println(n, ": ", num)
-        update_states!(sim_d) # Only d has state variables
-        ## `update_states!` swaps the old and the new state containers, so the new states now
-        ## hold the values from the step before the one we just converged. Since the
-        ## displacement part reads the *new* phase-field state, `get_state(cb_d)`, and is
-        ## assembled first in the staggered loop, the next time step would otherwise start
-        ## from an outdated phase field. `set_new_to_old_states!` copies the last converged
-        ## values back into the new states, see the note below.
-        set_new_to_old_states!(sim_d)
+        ## Only `:d` has state variables. `update_states!`'s default `mode = :copy` copies the
+        ## converged values into the old states and leaves the new states untouched, see the
+        ## note below for why that matters here.
+        update_states!(sim_d)
         copyto!(sim_d.aold, sim_d.a)
         copyto!(sim_u.aold, sim_u.a)
         ## Postprocessing
@@ -242,20 +238,23 @@ end;
 
 #=
 ### Keeping the new states in sync with the old ones
-[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)) swaps the
-references to the old and the new state containers, which is cheap but means that
-directly after the swap, the *new* states contain the values from the previous time step.
-That is fine when the new states are **write**-only (never read) during assembly,
-which is the usual case and the assumption behind the swap.
+[`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers)) defaults to
+`mode = :copy`: it copies the converged values into the old states and leaves the new
+states untouched, so directly after the call both the old *and* the new states correctly
+hold the just-converged values.
 
-Here, however, the `:u` part **reads** the new phase field, `ϕ` via `get_state(cb_d)`
-to degrade the stiffness. In the first staggered iteration each time step, the displacement
-solve of a time would use a phase field that is one time step too old.
-[`set_new_to_old_states!`](@ref set_new_to_old_states!(::FerriteAssembly.DomainBuffers))
-copies the values from the old states back into the new states, so that the displacement
-part starts each time step from the last converged phase field instead. Note that this is
-a copy in the opposite direction of `update_states!` — the states are copied, not swapped,
-so the old states (used for the irreversibility bound `ⁿϕ` in the `:d` part) are unaffected.
+This matters here because the `:u` part **reads** the new phase field, `ϕ`, via
+`get_state(cb_d)` to degrade the stiffness, in the first staggered iteration of *every*
+time step. With the cheaper `mode = :flip` (which swaps the old/new state containers by
+reference instead of copying, the behavior of `update_states!` prior to this default
+change), the new states would hold the values from the time step *before* the one we just
+converged until the next `work!(sim_d, ...)` overwrites them - so the first displacement
+solve of each time step would use a phase field that is one time step too old. The default
+`mode = :copy` avoids that gotcha automatically, at the cost of copying the state (here a
+`Vector{Float64}`, so a cheap, allocation-free element-wise copy - see
+[`FerriteAssembly.copy_state`](@ref) for state types where this needs a bit more care). The
+old states (used for the irreversibility bound `ⁿϕ` in the `:d` part) are of course
+unaffected either way.
 =#
 
 #=

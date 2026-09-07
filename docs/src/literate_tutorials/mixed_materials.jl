@@ -127,7 +127,14 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
             apply!(a, ch)
         end
         
-        ## If converged, update the old state variables to the current. 
+        ## If converged, update the old state variables to the current.
+        ## By default (`mode = :copy`), `update_states!` copies the converged values into the
+        ## old states and leaves the current ("new") states untouched, so it is safe to read
+        ## them below via `qp_evaluator`. Passing `mode = :flip` instead swaps the old/new
+        ## containers by reference (cheaper, no allocation), but then the "new" states hold
+        ## the *previous* step's values until the next `work!` call - reading them for
+        ## postprocessing right after `update_states!(buffer; mode = :flip)` would silently
+        ## give stale results.
         update_states!(buffer)
 
         ## Postprocess
