@@ -32,8 +32,6 @@ export DomainSpec, setup_domainbuffer, setup_domainbuffers
 export Simulation, CoupledSimulations, couple_buffers
 # Main functions to use during simulations
 export work!, update_states!, revert_states!, set_time_increment!
-# `set_new_to_old_states!` is a deprecated alias for `revert_states!` (see DomainBuffers.jl);
-# `Base.@deprecate` already exports it, no separate `export` statement needed here.
 # Workers
 export ReAssembler, KeReAssembler   # Assemblers
 export Integrator, SimpleIntegrator # Integrators
