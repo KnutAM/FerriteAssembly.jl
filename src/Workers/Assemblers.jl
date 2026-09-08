@@ -107,6 +107,7 @@ struct KeReAssembler{A<:Ferrite.AbstractAssembler, CH, SC}
     ch::CH # Union{Nothing, Ferrite.ConstraintHandler}
     apply_zero::Bool
     scaling::SC
+    can_thread::Bool
 end
 function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, kwargs...)
     a = start_assemble(K, r; fillzero=fillzero)
@@ -117,15 +118,20 @@ function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=noth
     if !isnothing(ch) && isnothing(apply_zero)
          throw(ArgumentError("apply_zero must be specified when `ch` is given"))
     end
+    if !isnothing(ch) && !Ferrite.isclosed(ch)
+        throw(ArgumentError("`ch` must be closed (via `close!`) before constructing a `KeReAssembler`"))
+    end
     _apply_zero = isnothing(apply_zero) ? false : apply_zero
-    KeReAssembler(a, ch, _apply_zero, scaling)
+    # `ch` is required closed above, so its constraints (and hence whether local application
+    # can race on shared master dofs) are fixed for this assembler's lifetime.
+    KeReAssembler(a, ch, _apply_zero, scaling, !has_nontrivial_affine_constraints(ch))
 end
 
 # TaskLocals interface:
 function create_local(ra::KeReAssembler)
     a = create_local(ra.a)
     scaling = create_local(ra.scaling)
-    return KeReAssembler(a, ra.ch, ra.apply_zero, scaling)
+    return KeReAssembler(a, ra.ch, ra.apply_zero, scaling, ra.can_thread)
 end
 function scatter!(task::KeReAssembler, base::KeReAssembler)
     scatter!(task.a, base.a)
@@ -136,7 +142,7 @@ function gather!(base::KeReAssembler, task::KeReAssembler)
     gather!(base.scaling, task.scaling)
 end
 
-can_thread(a::KeReAssembler) = !has_nontrivial_affine_constraints(a.ch)
+can_thread(a::KeReAssembler) = a.can_thread
 
 has_nontrivial_affine_constraints(::Nothing) = false
 function has_nontrivial_affine_constraints(ch::ConstraintHandler)

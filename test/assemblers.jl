@@ -83,6 +83,13 @@
         @test FA.can_thread(KeReAssembler(Kd, rd; ch=ch_dbc, apply_zero=true))
         @test !FA.can_thread(KeReAssembler(Kd, rd; ch=ch_affine, apply_zero=true))
 
+        # can_thread is cached at construction, so an open (not-yet-closed) `ch` must be
+        # rejected: otherwise constraints added after construction wouldn't be reflected.
+        ch_open = ConstraintHandler(dh_line)
+        add!(ch_open, AffineConstraint(2, [1 => 1.0], 0.0))
+        @test !Ferrite.isclosed(ch_open)
+        @test_throws ArgumentError KeReAssembler(Kd, rd; ch=ch_open, apply_zero=true)
+
         db_seq = setup_domainbuffer(DomainSpec(dh_line, OnesMaterial(), cv_line); threading=false)
         db_thr = setup_domainbuffer(DomainSpec(dh_line, OnesMaterial(), cv_line); threading=true, num_tasks=4)
 
