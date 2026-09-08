@@ -28,7 +28,7 @@ cases when the state consists of large data structures such as with ``\mathrm{FE
 If the current (new) state is used in the element routines (e.g. as initial guess),
 the function [`revert_states!`](@ref revert_states!(::FerriteAssembly.DomainBuffers))
 can be used to update the states such that `states = old_states` before retrying to find 
-the solution after a failed time step
+the solution after a failed time step.
 
 ## The state variable datastructure
 The state variables are created when calling [`setup_domainbuffer`](@ref)

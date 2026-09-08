@@ -116,9 +116,9 @@ Update the states such that `states = old_states` for the states stored in `db`,
 i.e. the opposite direction of [`update_states!`](@ref). This is useful when 
 retrying a time increment after a non-converged solution, when the current (new) 
 state is used as an initial guess (typical in staggered solution schemes). Requires
-[`FerriteAssembly.copy_state`](@ref) or [`FerriteAssembly.copy_state!`](@ref) for 
-non `isbits` with the same requirements as stated in 
-[`FerriteAssembly.update_states`](@ref) with `mode = :copy`.
+[`FerriteAssembly.copy_state`](@ref) or [`FerriteAssembly.copy_state!`](@ref) for
+non `isbits` with the same requirements as stated in
+[`update_states!`](@ref) with `mode = :copy`.
 """
 function revert_states!(dbs::DomainBuffers)
     for db in values(dbs)
