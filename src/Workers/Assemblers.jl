@@ -136,7 +136,12 @@ function gather!(base::KeReAssembler, task::KeReAssembler)
     gather!(base.scaling, task.scaling)
 end
 
-can_thread(::KeReAssembler) = true
+can_thread(a::KeReAssembler) = !has_nontrivial_affine_constraints(a.ch)
+
+has_nontrivial_affine_constraints(::Nothing) = false
+function has_nontrivial_affine_constraints(ch::ConstraintHandler)
+    return any(c -> !(c === nothing || isempty(c)), ch.dofcoefficients)
+end
 
 # assemble! routines
 # # No constraint handler - no local application of constraints
