@@ -68,57 +68,65 @@ get_material(db::DomainBuffers, domain::String) = get_material(db[domain])
 
 # Update functions
 """
-    update_states!(db::Dict{String,AbstractDomainBuffer})
-    update_states!(db::AbstractDomainBuffer)
-    update_states!(sim::Simulation)
+    update_states!(db::Dict{String,AbstractDomainBuffer}; mode::Symbol = :copy)
+    update_states!(db::AbstractDomainBuffer; mode::Symbol = :copy)
+    update_states!(sim::Simulation; mode::Symbol = :copy)
 
-Update the states such that `old_states = states` for the states 
-stored in `db`.
+Update the states such that `old_states = states` (the just-converged values) for the
+states stored in `db`.
 
-This method tries to avoid allocating new values where possible. 
-Currently, if [`create_cell_state`](@ref) returns `T` or `Vector{T}` where `isbitstype(T)`, this works.
-If needed/wanted, it should be relatively easy to provide an interface to make it possible to have allocation free 
-for custom cell states.
+`mode` selects how this is done:
+* `mode = :copy` (default): copies the values from `states` into `old_states`; `states`
+  itself is left untouched. This means both `old_states` and `states` correctly hold the
+  just-converged values directly after the call — safe to read (e.g. for postprocessing)
+  immediately afterwards. If [`create_cell_state`](@ref) returns a *mutable*
+  `AbstractArray`, this reuses that array's own storage (no allocation for the array
+  itself, though copying non-`isbits` elements into it may still allocate — unless
+  [`FerriteAssembly.copy_state!`](@ref) is overloaded for the element type, see below), and
+  it must therefore keep the same axes between calls (`ArgumentError` otherwise). Any other
+  non-`isbits` cell state must have a [`FerriteAssembly.copy_state`](@ref) or
+  [`FerriteAssembly.copy_state!`](@ref) method — otherwise a `MethodError` is thrown. This is
+  a **breaking change** from previous releases (which behaved like `mode = :flip`): a
+  mutable, non-array cell state without a `copy_state`/`copy_state!` overload that used to
+  work now throws; use `mode = :flip` to keep the old behavior for such states.
+* `mode = :flip`: cheaply swaps the references of `old_states` and `states` (no copying, no
+  allocation, and no `copy_state` requirement — this is the behavior of `update_states!` in
+  releases prior to this change). After the call, `states` (the "new" container) holds the
+  *stale* values from before this step, not the just-converged ones.
+  !!! warning
+      Under `mode = :flip`, `states` must not be read again until it has been overwritten by
+      the next call to `work!` — including implicitly, e.g. via a default
+      [`QuadPointEvaluator`](@ref) reading `get_state`/`s` during postprocessing right after
+      `update_states!`. Reading it earlier silently observes the previous step's data. If you
+      need to read the just-converged state after updating (e.g. for postprocessing), use the
+      default `mode = :copy` instead.
 """
-function update_states!(dbs::DomainBuffers)
+function update_states!(dbs::DomainBuffers; kwargs...)
     for db in values(dbs)
-        update_states!(db)
+        update_states!(db; kwargs...)
     end
 end
 
 """
-    set_new_to_old_states!(db::Dict{String,AbstractDomainBuffer})
-    set_new_to_old_states!(db::AbstractDomainBuffer)
-    set_new_to_old_states!(sim::Simulation)
+    revert_states!(db::Dict{String,AbstractDomainBuffer})
+    revert_states!(db::AbstractDomainBuffer)
+    revert_states!(sim::Simulation)
 
 Update the states such that `states = old_states` for the states stored in `db`,
-i.e. the opposite direction of [`update_states!`](@ref). This is useful for
-resetting the current (new) state to the last converged (old) state, e.g. when
-retrying a time increment after a non-converged solution, without having to
-reassemble.
-
-Unlike `update_states!`, this method does not swap references between `old_states`
-and `states`, but copies values from `old_states` into the existing `states` containers.
-If [`create_cell_state`](@ref) returns a *mutable* `AbstractArray` (`ismutable(state) ==
-true`), each element is copied individually; otherwise (including an immutable
-`AbstractArray`) the whole cell state is copied. In both cases, values for which
-`isbits(value) == true` are copied by identity (no allocation); any other value is copied
-with [`FerriteAssembly.copy_state`](@ref), which has no default method and must be
-overloaded for that value's type — otherwise a `MethodError` is thrown.
-
-!!! note
-    When [`create_cell_state`](@ref) returns a mutable `AbstractArray`, that array in
-    `states` is updated in-place and must therefore have the same axes as the corresponding
-    array in `old_states` — an `ArgumentError` is thrown otherwise. An immutable
-    `AbstractArray` cell state (e.g. built from `NTuple`s or `StaticArrays`) is instead
-    replaced wholesale, like any other non-array
-    cell state.
+i.e. the opposite direction of [`update_states!`](@ref). This is useful when 
+retrying a time increment after a non-converged solution, when the current (new) 
+state is used as an initial guess (typical in staggered solution schemes). Requires
+[`FerriteAssembly.copy_state`](@ref) or [`FerriteAssembly.copy_state!`](@ref) for
+non `isbits` with the same requirements as stated in
+[`update_states!`](@ref) with `mode = :copy`.
 """
-function set_new_to_old_states!(dbs::DomainBuffers)
+function revert_states!(dbs::DomainBuffers)
     for db in values(dbs)
-        set_new_to_old_states!(db)
+        revert_states!(db)
     end
 end
+
+Base.@deprecate set_new_to_old_states! revert_states!
 
 """
     set_time_increment!(db::Dict{String,AbstractDomainBuffer}, Δt)
@@ -216,10 +224,10 @@ get_state(b::StdDomainBuffer) = b.states.new
 get_old_state(b::StdDomainBuffer) = b.states.old
 get_material(b::StdDomainBuffer) = get_material(get_base(get_itembuffer(b)))
 
-# Update old_states = new_states after convergence 
-update_states!(b::StdDomainBuffer) = update_states!(b.states)
+# Update old_states = new_states after convergence
+update_states!(b::StdDomainBuffer; kwargs...) = update_states!(b.states; kwargs...)
 
-set_new_to_old_states!(b::StdDomainBuffer) = set_new_to_old_states!(b.states)
+revert_states!(b::StdDomainBuffer) = revert_states!(b.states)
 
 function set_time_increment!(b::StdDomainBuffer, Δt)
     set_time_increment!(get_base(get_itembuffer(b)), Δt)

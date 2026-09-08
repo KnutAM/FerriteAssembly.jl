@@ -127,7 +127,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
             apply!(a, ch)
         end
         
-        ## If converged, update the old state variables to the current. 
+        ## If converged, update the old state variables to the current.
         update_states!(buffer)
 
         ## Postprocess
