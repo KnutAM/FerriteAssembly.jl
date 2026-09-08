@@ -44,7 +44,7 @@ module TestStateModule
     Base.:(==)(a::StateB, b::StateB) = (a.cellnr==b.cellnr && (mapreduce((ax, bx)->ax==bx, *, a.quad_coordinates, b.quad_coordinates)))
 
     # StateB is not `isbits` and not an `AbstractArray`, so `copy_state` must be overloaded
-    # for the whole cell state (`set_new_to_old_states!` has no default to fall back on).
+    # for the whole cell state (`revert_states!` has no default to fall back on).
     FerriteAssembly.copy_state(s::StateB) = deepcopy(s)
 
     # MatD: single mutable struct per cell (like MatB), but with a `copy_state` overload
@@ -68,7 +68,7 @@ module TestStateModule
     end
 
     # MatE: cell state is a `Vector{StateE}` (an `AbstractArray`) of non-bits elements, so
-    # `set_new_to_old_states!` calls `copy_state` once per array element (via `map!`),
+    # `revert_states!` calls `copy_state` once per array element (via `map!`),
     # rather than once per cell as for MatD.
     struct MatE end
     mutable struct StateE
@@ -92,7 +92,7 @@ module TestStateModule
     end
 
     # MatF: single mutable struct per cell, like MatB/MatD, but deliberately does NOT
-    # overload `copy_state`, to verify that `set_new_to_old_states!` has no fallback and
+    # overload `copy_state`, to verify that `revert_states!` has no fallback and
     # throws a `MethodError` instead of silently `deepcopy`-ing the state.
     struct MatF end
     mutable struct StateF
@@ -114,7 +114,7 @@ module TestStateModule
 
     # ImmutableStates: an immutable `AbstractVector{StateG}` (e.g. backed by an `NTuple`,
     # like `StaticArrays.SVector` would be). `ismutable(::ImmutableStates) == false`, so
-    # `set_new_to_old_states!` must treat it as a single whole-cell-state value (going
+    # `revert_states!` must treat it as a single whole-cell-state value (going
     # through `copy_state` for the whole array) rather than element-wise via `map!`.
     struct ImmutableStates{N} <: AbstractVector{StateG}
         data::NTuple{N,StateG}
@@ -140,7 +140,7 @@ module TestStateModule
     end
 
     # MatH: same immutable-array state shape as MatG, but deliberately has NO `copy_state`
-    # overload, to verify `set_new_to_old_states!` throws `MethodError` for an immutable
+    # overload, to verify `revert_states!` throws `MethodError` for an immutable
     # `AbstractArray` cell state just as it does for a non-array one (MatF).
     struct ImmutableStatesNoOverload{N} <: AbstractVector{StateG}
         data::NTuple{N,StateG}
@@ -224,16 +224,18 @@ end
             allocs = @allocated _flip!(buffer)
             @test allocs == 0
 
-            # set_new_to_old_states!: states (new) should revert to old_states, old_states unaffected
+            # revert_states!: states (new) should revert to old_states, old_states unaffected
             for container in (buffer, Simulation(buffer))
                 work!(r_assembler, container) # Ensure states holds a known, freshly assembled value
                 old_dc = deepcopy(old_states)
                 @test states != old_dc # Sanity check that states differ from old_states after work!
-                set_new_to_old_states!(container)
+                revert_states!(container)
                 @test states == old_dc          # states reverted to old values
                 @test old_states == old_dc      # old_states unaffected
                 states[1][1] = StateA(0, 0)
                 @test old_states[1][1] == old_dc[1][1] # But not aliased
+                allocs = @allocated revert_states!(container)
+                @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
             end
 
             # MatB (not bitstype)
@@ -274,19 +276,29 @@ end
             allocs = @allocated _flip!(buffer)
             @test allocs == 0
 
-            # set_new_to_old_states! (deprecated): states (new) should revert to old_states,
-            # old_states unaffected. MatB's state is a single mutable struct per cell (not an
-            # AbstractArray), so this uses the `copy_state(::StateB) = deepcopy(s)` overload
-            # defined above.
+            # revert_states!: states (new) should revert to old_states, old_states unaffected.
+            # MatB's state is a single mutable struct per cell (not an AbstractArray), so this
+            # uses the `copy_state(::StateB) = deepcopy(s)` overload defined above, and allocates.
             old_dc = deepcopy(old_states)
             work!(kr_assembler, buffer)
             @test states != old_dc # Sanity check that states were actually changed by work!
-            @test_deprecated set_new_to_old_states!(buffer)
+            revert_states!(buffer)
             @test states == old_dc          # states reverted to old values
             @test old_states == old_dc      # old_states unaffected
             cellnr = rand(1:getncells(grid))
             states[cellnr].cellnr = -999
             @test old_states[cellnr].cellnr != -999 # But not aliased
+            allocs = @allocated revert_states!(buffer)
+            @test allocs > 0 # Uses the deepcopy-based copy_state overload for non-AbstractArray states
+
+            # set_new_to_old_states! is a deprecated alias for revert_states!, kept for
+            # backwards compatibility - check it still works (and warns).
+            old_dc = deepcopy(old_states)
+            work!(kr_assembler, buffer)
+            @test states != old_dc # Sanity check that states were actually changed by work!
+            @test_deprecated set_new_to_old_states!(buffer)
+            @test states == old_dc # still forwards correctly to revert_states!
+            @test old_states == old_dc
 
             # MatC (accumulation), using threading as well
             colors = create_coloring(grid)
@@ -311,18 +323,20 @@ end
             allocs = @allocated update_states!(buffer)
             @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
 
-            # set_new_to_old_states!: states (new) should revert to old_states, old_states unaffected
+            # revert_states!: states (new) should revert to old_states, old_states unaffected
             old_dc = deepcopy(old_states)
             work!(kr_assembler, buffer)
             @test states != old_dc # Sanity check that states were actually changed by work!
-            set_new_to_old_states!(buffer)
+            revert_states!(buffer)
             @test states == old_dc          # states reverted to old values
             @test old_states == old_dc      # old_states unaffected
             states[1][1] = StateC(999)
             @test old_states[1][1] == old_dc[1][1] # But not aliased
+            allocs = @allocated revert_states!(buffer)
+            @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
 
             # MatE: Vector{StateE} with non-bits elements, exercising the per-element
-            # `copy_state` dispatch inside `set_new_to_old_states!`'s `map!` call.
+            # `copy_state` dispatch inside `revert_states!`'s `map!` call.
             buffer = setup_domainbuffer(DomainSpec(dh, MatE(), cv))
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
@@ -332,7 +346,7 @@ end
             @test states != old_dc # Sanity check that states were actually changed by work!
 
             TestStateModule.COPY_STATE_ELEM_CALLS[] = 0
-            set_new_to_old_states!(buffer)
+            revert_states!(buffer)
             nqp = getnquadpoints(cv)
             @test TestStateModule.COPY_STATE_ELEM_CALLS[] == getncells(grid) * nqp # copy_state dispatched per array element
             @test states == old_dc          # states reverted to old values
@@ -357,8 +371,13 @@ end
     @test allocs == 0
     @test_throws ArgumentError update_states!(buffer; mode=:bogus)
 
-    # Smoke-test of (deprecated) set_new_to_old_states! for nothing states
-    set_new_to_old_states!(buffer) # Compile
+    # Smoke-test of revert_states! for nothing states (and check no allocations)
+    revert_states!(buffer) # Compile
+    allocs = @allocated revert_states!(buffer)
+    @test allocs == 0
+
+    # Smoke-test of the deprecated set_new_to_old_states! alias for nothing states
+    @test_deprecated set_new_to_old_states!(buffer)
 
     gda = DomainSpec(dh, nothing, cv; set=1:getncells(dh.grid)÷2)
     gdb = DomainSpec(dh, nothing, cv; set=setdiff!(Set(1:getncells(dh.grid)), gda.set))
@@ -368,14 +387,17 @@ end
     @test allocs == 0
 
     # `mode` must thread through the multi-domain `Dict` layer and the `Simulation` wrapper
-    # too (the layers the reported issue's regression went through).
+    # too (the layers the reported issue's regression went through), and so must revert_states!
+    # and its deprecated `set_new_to_old_states!` alias.
     for container in (buffers, Simulation(buffers))
         _flip!(container) # Compile
         allocs = @allocated _flip!(container)
         @test allocs == 0
+        revert_states!(container) # Compile
+        allocs = @allocated revert_states!(container)
+        @test allocs == 0
+        @test_deprecated set_new_to_old_states!(container)
     end
-
-    set_new_to_old_states!(buffers) # Compile
 
     # MatD: single mutable struct per cell, overloading `FerriteAssembly.copy_state`
     # with logic other than plain `deepcopy` (contrast with MatB above).
@@ -394,7 +416,7 @@ end
     @test states_d != old_dc_d # Sanity check that states were actually changed by work!
 
     TestStateModule.COPY_STATE_CALLS[] = 0
-    set_new_to_old_states!(buffer_d)
+    revert_states!(buffer_d)
     @test TestStateModule.COPY_STATE_CALLS[] == getncells(grid_d) # Custom copy_state dispatched for every cell
     @test states_d == old_dc_d          # states reverted to old values
     @test old_states_d == old_dc_d      # old_states unaffected
@@ -403,18 +425,18 @@ end
     @test old_states_d[cellnr_d].data[1] != -999.0 # But not aliased
 
     # MatF: single mutable struct per cell, like MatB/MatD, but with no `copy_state`
-    # overload at all. `set_new_to_old_states!` has no default (deepcopy) fallback to
+    # overload at all. `revert_states!` has no default (deepcopy) fallback to
     # rely on, so it must throw a `MethodError` instead of silently succeeding.
     buffer_f = setup_domainbuffer(DomainSpec(dh_d, MatF(), cv))
     work!(kr_assembler_d, buffer_f)
-    @test_throws MethodError set_new_to_old_states!(buffer_f)
+    @test_throws MethodError revert_states!(buffer_f)
     # ...and therefore also the default `mode = :copy` of `update_states!`; `mode = :flip`
     # has no `copy_state` requirement and keeps working for such a state type.
     @test_throws MethodError update_states!(buffer_f)
     update_states!(buffer_f; mode=:flip)
 
     # MatG: cell state is an *immutable* `AbstractVector{StateG}`. Since `ismutable` is
-    # false for it, `set_new_to_old_states!` must copy it as a whole (once per cell, via
+    # false for it, `revert_states!` must copy it as a whole (once per cell, via
     # the `copy_state(::ImmutableStates)` overload above) rather than element-wise via
     # `map!` (which requires a mutable destination).
     buffer_g = setup_domainbuffer(DomainSpec(dh_d, MatG(), cv))
@@ -427,7 +449,7 @@ end
     @test states_g != old_dc_g # Sanity check that states were actually changed by work!
 
     TestStateModule.COPY_STATE_WHOLE_ARRAY_CALLS[] = 0
-    set_new_to_old_states!(buffer_g)
+    revert_states!(buffer_g)
     @test TestStateModule.COPY_STATE_WHOLE_ARRAY_CALLS[] == getncells(grid_d) # Whole array copied once per cell, not per element
     @test states_g == old_dc_g          # states reverted to old values
     @test old_states_g == old_dc_g      # old_states unaffected
@@ -440,7 +462,7 @@ end
     # `map!` from trying to mutate an immutable destination.
     buffer_h = setup_domainbuffer(DomainSpec(dh_d, MatH(), cv))
     work!(kr_assembler_d, buffer_h)
-    @test_throws MethodError set_new_to_old_states!(buffer_h)
+    @test_throws MethodError revert_states!(buffer_h)
 
     # Regression test: a mutable AbstractArray cell state (MatA's Vector{StateA}) whose
     # "new" array has drifted to a different size than the corresponding "old" array must
@@ -449,7 +471,7 @@ end
     buffer_mismatch = setup_domainbuffer(DomainSpec(dh_d, MatA(), cv))
     states_mismatch = FerriteAssembly.get_state(buffer_mismatch)
     push!(states_mismatch[1], StateA(-1, 0)) # "new" for cell 1 is now longer than "old"
-    @test_throws ArgumentError set_new_to_old_states!(buffer_mismatch)
+    @test_throws ArgumentError revert_states!(buffer_mismatch)
     @test_throws ArgumentError update_states!(buffer_mismatch) # default mode = :copy
     update_states!(buffer_mismatch; mode=:flip) # mode = :flip never touches individual elements
 end

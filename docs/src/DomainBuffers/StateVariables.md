@@ -9,8 +9,9 @@ directly afterwards (safe to read immediately, e.g. for postprocessing). Pass
 docstring for the gotcha this introduces.
 
 To instead reset the new states back to the old (converged) states, e.g. when retrying
-a non-converged increment, use the deprecated
-[`set_new_to_old_states!`](@ref set_new_to_old_states!(::FerriteAssembly.DomainBuffers)).
+a non-converged increment, use
+[`revert_states!`](@ref revert_states!(::FerriteAssembly.DomainBuffers))
+(`set_new_to_old_states!` is a deprecated alias for this function).
 If [`create_cell_state`](@ref FerriteAssembly.create_cell_state) returns a *mutable*
 `AbstractArray` (which must keep the same axes between calls, otherwise an `ArgumentError`
 is thrown), each element is copied individually; otherwise (including an immutable
@@ -33,6 +34,7 @@ by its cell number. (The output from the mentioned functions are `Dict{Int}`)
 ```@docs
 FerriteAssembly.create_cell_state
 update_states!
+revert_states!
 set_new_to_old_states!
 FerriteAssembly.copy_state
 FerriteAssembly.remove_dual

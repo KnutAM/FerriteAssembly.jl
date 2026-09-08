@@ -37,7 +37,8 @@ end
 
 Return a copy of `state` such that the intended mutation of the returned value does not affect `state`.
 Used by [`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers))'s default
-`mode = :copy` and by [`set_new_to_old_states!`](@ref) to copy one state into the other.
+`mode = :copy` and by [`revert_states!`](@ref revert_states!(::FerriteAssembly.DomainBuffers))
+to copy one state into the other.
 
 For a cell state that is a *mutable* `AbstractArray` (`ismutable(state) == true`), these functions
 apply this check element-wise; for any other cell state (including an immutable `AbstractArray`,
@@ -70,13 +71,7 @@ function _copy_states!(dst::StateVector, src::StateVector)
     end
 end
 
-function set_new_to_old_states!(sv::StateVariables)
-    Base.depwarn(
-        "`set_new_to_old_states!` is deprecated and may be removed in a future release.",
-        :set_new_to_old_states!,
-    )
-    _copy_states!(sv.new, sv.old)
-end
+revert_states!(sv::StateVariables) = _copy_states!(sv.new, sv.old)
 
 # Experimental, basically copy!, but use separate name for clarity
 function replace_states!(dst::StateVariables, src::StateVariables)

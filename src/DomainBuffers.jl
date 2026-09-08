@@ -107,12 +107,9 @@ function update_states!(dbs::DomainBuffers; kwargs...)
 end
 
 """
-    set_new_to_old_states!(db::Dict{String,AbstractDomainBuffer})
-    set_new_to_old_states!(db::AbstractDomainBuffer)
-    set_new_to_old_states!(sim::Simulation)
-
-!!! warning "Deprecated"
-    `set_new_to_old_states!` is deprecated and may be removed in a future release.
+    revert_states!(db::Dict{String,AbstractDomainBuffer})
+    revert_states!(db::AbstractDomainBuffer)
+    revert_states!(sim::Simulation)
 
 Update the states such that `states = old_states` for the states stored in `db`,
 i.e. the opposite direction of [`update_states!`](@ref). This is useful for
@@ -136,12 +133,24 @@ overloaded for that value's type — otherwise a `MethodError` is thrown.
     `AbstractArray` cell state (e.g. built from `NTuple`s or `StaticArrays`) is instead
     replaced wholesale, like any other non-array
     cell state.
+
+!!! compat "Renamed"
+    `revert_states!` was named `set_new_to_old_states!` prior to this release.
+    `set_new_to_old_states!` is kept as a deprecated alias.
 """
-function set_new_to_old_states!(dbs::DomainBuffers)
+function revert_states!(dbs::DomainBuffers)
     for db in values(dbs)
-        set_new_to_old_states!(db)
+        revert_states!(db)
     end
 end
+
+Base.@deprecate set_new_to_old_states! revert_states!
+@doc """
+    set_new_to_old_states!
+
+!!! warning "Deprecated"
+    Deprecated alias for [`revert_states!`](@ref revert_states!(::FerriteAssembly.DomainBuffers)).
+""" set_new_to_old_states!
 
 """
     set_time_increment!(db::Dict{String,AbstractDomainBuffer}, Δt)
@@ -242,7 +251,7 @@ get_material(b::StdDomainBuffer) = get_material(get_base(get_itembuffer(b)))
 # Update old_states = new_states after convergence
 update_states!(b::StdDomainBuffer; kwargs...) = update_states!(b.states; kwargs...)
 
-set_new_to_old_states!(b::StdDomainBuffer) = set_new_to_old_states!(b.states)
+revert_states!(b::StdDomainBuffer) = revert_states!(b.states)
 
 function set_time_increment!(b::StdDomainBuffer, Δt)
     set_time_increment!(get_base(get_itembuffer(b)), Δt)
