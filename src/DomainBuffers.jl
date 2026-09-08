@@ -113,33 +113,12 @@ end
     revert_states!(sim::Simulation)
 
 Update the states such that `states = old_states` for the states stored in `db`,
-i.e. the opposite direction of [`update_states!`](@ref). This is useful for
-resetting the current (new) state to the last converged (old) state, e.g. when
-retrying a time increment after a non-converged solution, without having to
-reassemble.
-
-Unlike `update_states!(db; mode=:flip)`, this method does not swap references between
-`old_states` and `states`, but copies values from `old_states` into the existing `states`
-containers. If [`create_cell_state`](@ref) returns a *mutable* `AbstractArray`
-(`ismutable(state) == true`), each element is copied individually; otherwise (including an
-immutable `AbstractArray`) the whole cell state is copied. In both cases, values for which
-`isbits(value) == true` are copied by identity (no allocation); any other value is copied
-with [`FerriteAssembly.copy_state`](@ref) (allocating a full replacement) or, if overloaded
-for that value's type, [`FerriteAssembly.copy_state!`](@ref) (overwriting the existing
-destination value in place instead) — neither has a default method, so at least one of the
-two must be overloaded, otherwise a `MethodError` is thrown.
-
-!!! note
-    When [`create_cell_state`](@ref) returns a mutable `AbstractArray`, that array in
-    `states` is updated in-place and must therefore have the same axes as the corresponding
-    array in `old_states` — an `ArgumentError` is thrown otherwise. An immutable
-    `AbstractArray` cell state (e.g. built from `NTuple`s or `StaticArrays`) is instead
-    replaced wholesale, like any other non-array
-    cell state.
-
-!!! compat "Renamed"
-    `revert_states!` was named `set_new_to_old_states!` prior to this release.
-    `set_new_to_old_states!` is kept as a deprecated alias.
+i.e. the opposite direction of [`update_states!`](@ref). This is useful when 
+retrying a time increment after a non-converged solution, when the current (new) 
+state is used as an initial guess (typical in staggered solution schemes). Requires
+[`FerriteAssembly.copy_state`](@ref) or [`FerriteAssembly.copy_state!`](@ref) for 
+non `isbits` with the same requirements as stated in 
+[`FerriteAssembly.update_states`](@ref) with `mode = :copy`.
 """
 function revert_states!(dbs::DomainBuffers)
     for db in values(dbs)
@@ -148,12 +127,6 @@ function revert_states!(dbs::DomainBuffers)
 end
 
 Base.@deprecate set_new_to_old_states! revert_states!
-@doc """
-    set_new_to_old_states!
-
-!!! warning "Deprecated"
-    Deprecated alias for [`revert_states!`](@ref revert_states!(::FerriteAssembly.DomainBuffers)).
-""" set_new_to_old_states!
 
 """
     set_time_increment!(db::Dict{String,AbstractDomainBuffer}, Δt)
