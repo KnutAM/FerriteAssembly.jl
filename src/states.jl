@@ -38,23 +38,41 @@ end
 Return a copy of `state` such that the intended mutation of the returned value does not affect `state`.
 Used by [`update_states!`](@ref update_states!(::FerriteAssembly.DomainBuffers))'s default
 `mode = :copy` and by [`revert_states!`](@ref revert_states!(::FerriteAssembly.DomainBuffers))
-to copy one state into the other.
+to copy one state into the other, when [`copy_state!`](@ref) is not applicable for that value.
 
 For a cell state that is a *mutable* `AbstractArray` (`ismutable(state) == true`), these functions
 apply this check element-wise; for any other cell state (including an immutable `AbstractArray`,
 e.g. built from `NTuple`s or `StaticArrays`), it applies to the whole state. In both cases, values
-for which `isbits(value) == true` are copied by identity internally, without calling `copy_state`.
-This function has no default method, so it must be overloaded for the type of any value (the whole
-cell state, a whole immutable array, or a mutable array's element) for which `isbits(value) ==
-false`.
+for which `isbits(value) == true` are copied by identity internally, without calling `copy_state`
+or `copy_state!`. This function has no default method, so it must be overloaded for the type of
+any value (the whole cell state, a whole immutable array, or a mutable array's element) for which
+`isbits(value) == false`, unless [`copy_state!`](@ref) is overloaded for that value's type instead.
 """
 function copy_state end
 
-@inline function _copy_state(s)
-    if isbits(s)
-        return s
+"""
+    copy_state!(dst, src)
+
+Overwrite `dst` in place so that it matches the value of `src`; the return value is ignored.
+
+An optional, allocation-avoiding alternative to [`copy_state`](@ref) for a value that is itself
+immutable (so [`copy_state`](@ref) would otherwise need to allocate a full replacement every
+time) but wraps a mutable payload that can instead be updated in place, e.g.
+`struct MyState; vals::Vector{Float64}; end`. A value's type needs at most one of
+`copy_state!(dst, src)` or `copy_state(src)` overloaded — never both — and if
+`copy_state!(dst, src)` is applicable, it takes precedence over `copy_state(src)`. Neither is
+needed for `isbits` values.
+"""
+function copy_state! end
+
+@inline function _copy_state_into(dst, src)
+    if isbits(src)
+        return src
+    elseif applicable(copy_state!, dst, src)
+        copy_state!(dst, src)
+        return dst
     else
-        return copy_state(s) # Call user-implementable function
+        return copy_state(src) # Call user-implementable function
     end
 end
 
@@ -64,9 +82,20 @@ function _copy_states!(dst::StateVector, src::StateVector)
         if isa(src_val, AbstractArray) && ismutable(src_val)
             dst_val = dst.vals[key]
             axes(dst_val) == axes(src_val) || throw(ArgumentError("Dimension mismatch between old and new cell states"))
-            map!(_copy_state, dst_val, src_val)             # Note
-        else                                                # `copy_state`` should be overloaded,
-            dst.vals[key] = _copy_state(src_val)             # not the internal `_copy_state`
+            @inbounds for i in eachindex(dst_val, src_val)
+                src_i = src_val[i]
+                if isbits(src_i)
+                    dst_val[i] = src_i
+                elseif isassigned(dst_val, i) # otherwise nothing meaningful to mutate via copy_state!
+                    dst_val[i] = _copy_state_into(dst_val[i], src_i)
+                else
+                    dst_val[i] = copy_state(src_i)
+                end
+            end
+        elseif isbits(src_val)
+            dst.vals[key] = src_val
+        else                                                 # `copy_state!`/`copy_state` should
+            dst.vals[key] = _copy_state_into(dst.vals[key], src_val) # be overloaded, not `_copy_state_into`
         end
     end
 end

@@ -16,9 +16,17 @@ If [`create_cell_state`](@ref FerriteAssembly.create_cell_state) returns a *muta
 `AbstractArray` (which must keep the same axes between calls, otherwise an `ArgumentError`
 is thrown), each element is copied individually; otherwise (including an immutable
 `AbstractArray`, e.g. built from `NTuple`s or `StaticArrays`) the whole cell state is
-copied. `isbits` values are copied by identity (no allocation); any other value must have a
-[`FerriteAssembly.copy_state`](@ref) method for its type — otherwise a `MethodError` is
-thrown.
+copied. `isbits` values are copied by identity (no allocation); any other value must have
+either a [`FerriteAssembly.copy_state`](@ref) or a [`FerriteAssembly.copy_state!`](@ref)
+method for its type — neither has a default method, so a type with neither overloaded
+throws a `MethodError`.
+
+[`FerriteAssembly.copy_state!`](@ref) is the allocation-avoiding alternative: for a value
+that is itself immutable but wraps a mutable payload (e.g.
+`struct MyState; vals::Vector{Float64}; end`), it overwrites the existing destination value
+in place (e.g. via `copyto!`) rather than allocating a full replacement, and takes
+precedence over [`FerriteAssembly.copy_state`](@ref) when both are applicable. A value's
+type needs at most one of the two overloaded, never both.
 
 ## The state variable datastructure
 The state variables are created when calling [`setup_domainbuffer`](@ref)
@@ -37,5 +45,6 @@ update_states!
 revert_states!
 set_new_to_old_states!
 FerriteAssembly.copy_state
+FerriteAssembly.copy_state!
 FerriteAssembly.remove_dual
 ```

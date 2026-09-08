@@ -81,13 +81,14 @@ states stored in `db`.
   just-converged values directly after the call — safe to read (e.g. for postprocessing)
   immediately afterwards. If [`create_cell_state`](@ref) returns a *mutable*
   `AbstractArray`, this reuses that array's own storage (no allocation for the array
-  itself, though copying non-`isbits` elements into it may still allocate via
-  `copy_state`), and it must therefore keep the same axes between calls (`ArgumentError`
-  otherwise). Any other non-`isbits` cell state must have a
-  [`FerriteAssembly.copy_state`](@ref) method — otherwise a `MethodError` is thrown. This is
+  itself, though copying non-`isbits` elements into it may still allocate — unless
+  [`FerriteAssembly.copy_state!`](@ref) is overloaded for the element type, see below), and
+  it must therefore keep the same axes between calls (`ArgumentError` otherwise). Any other
+  non-`isbits` cell state must have a [`FerriteAssembly.copy_state`](@ref) or
+  [`FerriteAssembly.copy_state!`](@ref) method — otherwise a `MethodError` is thrown. This is
   a **breaking change** from previous releases (which behaved like `mode = :flip`): a
-  mutable, non-array cell state without a `copy_state` overload that used to work now
-  throws; use `mode = :flip` to keep the old behavior for such states.
+  mutable, non-array cell state without a `copy_state`/`copy_state!` overload that used to
+  work now throws; use `mode = :flip` to keep the old behavior for such states.
 * `mode = :flip`: cheaply swaps the references of `old_states` and `states` (no copying, no
   allocation, and no `copy_state` requirement — this is the behavior of `update_states!` in
   releases prior to this change). After the call, `states` (the "new" container) holds the
@@ -123,8 +124,10 @@ containers. If [`create_cell_state`](@ref) returns a *mutable* `AbstractArray`
 (`ismutable(state) == true`), each element is copied individually; otherwise (including an
 immutable `AbstractArray`) the whole cell state is copied. In both cases, values for which
 `isbits(value) == true` are copied by identity (no allocation); any other value is copied
-with [`FerriteAssembly.copy_state`](@ref), which has no default method and must be
-overloaded for that value's type — otherwise a `MethodError` is thrown.
+with [`FerriteAssembly.copy_state`](@ref) (allocating a full replacement) or, if overloaded
+for that value's type, [`FerriteAssembly.copy_state!`](@ref) (overwriting the existing
+destination value in place instead) — neither has a default method, so at least one of the
+two must be overloaded, otherwise a `MethodError` is thrown.
 
 !!! note
     When [`create_cell_state`](@ref) returns a mutable `AbstractArray`, that array in

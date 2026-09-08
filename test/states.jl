@@ -158,12 +158,80 @@ module TestStateModule
         end
     end
 
+    # StateI: *immutable* wrapper around a mutable `Vector` payload (the motivating case for
+    # `copy_state!`: `ismutable(::StateI) == false`, but `vals` can still be `copyto!`-ed into
+    # in place). Defines *both* `copy_state` and `copy_state!` to verify that `copy_state!`
+    # takes precedence when both are applicable.
+    struct MatI end
+    struct StateI
+        vals::Vector{Float64}
+    end
+    FerriteAssembly.create_cell_state(::MatI, cv, args...) = StateI(fill(-1.0, getnquadpoints(cv)))
+    function FerriteAssembly.element_residual!(re, state::StateI, ae, ::MatI, cv, buffer)
+        fill!(state.vals, Float64(cellid(buffer)))
+    end
+    Base.:(==)(a::StateI, b::StateI) = a.vals == b.vals
+
+    const COPY_STATE_I_CALLS = Ref(0)
+    FerriteAssembly.copy_state(s::StateI) = (COPY_STATE_I_CALLS[] += 1; StateI(copy(s.vals)))
+
+    const COPY_STATE_BANG_I_CALLS = Ref(0)
+    function FerriteAssembly.copy_state!(dst::StateI, src::StateI)
+        COPY_STATE_BANG_I_CALLS[] += 1
+        copyto!(dst.vals, src.vals)
+        return nothing
+    end
+
+    # MatJ: cell state is a `Vector{StateJ}` (a mutable `AbstractArray`) whose *elements* are
+    # themselves immutable wrappers around a mutable `Vector`, exercising `copy_state!` in the
+    # per-array-element branch of `_copy_states!` (as opposed to MatI's whole-cell-state
+    # branch). Defines only `copy_state!` (no `copy_state`).
+    struct MatJ end
+    struct StateJ
+        vals::Vector{Float64}
+    end
+    FerriteAssembly.create_cell_state(::MatJ, cv, args...) = [StateJ([-1.0]) for _ in 1:getnquadpoints(cv)]
+    function FerriteAssembly.element_residual!(re, states::Vector{StateJ}, ae, ::MatJ, cv, buffer)
+        cellnr = cellid(buffer)
+        for s in states
+            fill!(s.vals, Float64(cellnr))
+        end
+    end
+    Base.:(==)(a::StateJ, b::StateJ) = a.vals == b.vals
+
+    const COPY_STATE_BANG_J_CALLS = Ref(0)
+    function FerriteAssembly.copy_state!(dst::StateJ, src::StateJ)
+        COPY_STATE_BANG_J_CALLS[] += 1
+        copyto!(dst.vals, src.vals)
+        return nothing
+    end
+
+    # MatK: cell state is `Vector{StateK}(undef, n)` - deliberately left with unassigned
+    # elements until assembly writes into them. The "old" state is never assembled into
+    # directly, so it is still fully unassigned the first time `update_states!` is called;
+    # `_copy_states!` must not read an unassigned destination array element (only
+    # `copy_state` is defined here, no `copy_state!`).
+    struct MatK end
+    mutable struct StateK
+        cellnr::Int
+        quadnr::Int
+    end
+    FerriteAssembly.create_cell_state(::MatK, cv, args...) = Vector{StateK}(undef, getnquadpoints(cv))
+    function FerriteAssembly.element_residual!(re, states::Vector{StateK}, ae, ::MatK, cv, buffer)
+        cellnr = cellid(buffer)
+        for i in 1:getnquadpoints(cv)
+            states[i] = StateK(cellnr, i)
+        end
+    end
+    Base.:(==)(a::StateK, b::StateK) = (a.cellnr == b.cellnr && a.quadnr == b.quadnr)
+    FerriteAssembly.copy_state(s::StateK) = StateK(s.cellnr, s.quadnr)
+
 end
 
 @testset "state variables" begin
     # Defs
-    import .TestStateModule: MatA, MatB, MatC, MatD, MatE, MatF, MatG, MatH,
-        StateA, StateB, StateC, StateD, StateE, StateF, StateG
+    import .TestStateModule: MatA, MatB, MatC, MatD, MatE, MatF, MatG, MatH, MatI, MatJ, MatK,
+        StateA, StateB, StateC, StateD, StateE, StateF, StateG, StateI, StateJ, StateK
 
     # `update_states!` accepts a keyword argument (`mode`). On Julia versions before 1.12,
     # a bare `@allocated update_states!(x)` (or with `mode=...`) written directly at
@@ -462,6 +530,80 @@ end
     buffer_h = setup_domainbuffer(DomainSpec(dh_d, MatH(), cv))
     work!(kr_assembler_d, buffer_h)
     @test_throws MethodError revert_states!(buffer_h)
+
+    # MatI: whole-cell-state is an *immutable* wrapper around a mutable `Vector` payload
+    # (`ismutable(::StateI) == false`, but `copy_state!` can still `copyto!` into `vals` in
+    # place). Defines both `copy_state` and `copy_state!` - only the latter should be used.
+    buffer_i = setup_domainbuffer(DomainSpec(dh_d, MatI(), cv))
+    states_i = FerriteAssembly.get_state(buffer_i)
+    old_states_i = FerriteAssembly.get_old_state(buffer_i)
+    work!(kr_assembler_d, buffer_i)
+    @test states_i != old_states_i # Sanity check that states were actually changed by work!
+
+    old_vals_i = old_states_i[1].vals # capture the inner Vector's identity before copying
+    TestStateModule.COPY_STATE_I_CALLS[] = 0
+    TestStateModule.COPY_STATE_BANG_I_CALLS[] = 0
+    update_states!(buffer_i) # mode = :copy (default): old := new
+    @test TestStateModule.COPY_STATE_BANG_I_CALLS[] == getncells(grid_d) # copy_state! dispatched once per cell
+    @test TestStateModule.COPY_STATE_I_CALLS[] == 0                     # copy_state not used: copy_state! takes precedence
+    @test old_states_i == states_i          # old_states updated to the (just-converged) states
+    @test old_states_i[1].vals === old_vals_i # not reallocated: same Vector object, mutated in place
+    @test _alloc_update!(buffer_i) == 0     # in-place copyto! (no copy_state allocation) is allocation-free
+
+    # revert_states! (the opposite direction) must also use copy_state! in preference to
+    # copy_state, and stay allocation-free.
+    new_vals_i = states_i[1].vals
+    fill!(new_vals_i, -999.0) # corrupt "new" (in place) so revert_states! has something to fix
+    TestStateModule.COPY_STATE_I_CALLS[] = 0
+    TestStateModule.COPY_STATE_BANG_I_CALLS[] = 0
+    revert_states!(buffer_i)
+    @test TestStateModule.COPY_STATE_BANG_I_CALLS[] == getncells(grid_d)
+    @test TestStateModule.COPY_STATE_I_CALLS[] == 0
+    @test states_i == old_states_i
+    @test states_i[1].vals === new_vals_i # not reallocated: same Vector object, mutated in place
+    allocs = @allocated revert_states!(buffer_i)
+    @test allocs == 0
+
+    # MatJ: cell state is a `Vector{StateJ}` (mutable `AbstractArray`) of elements that are
+    # themselves immutable wrappers around a mutable `Vector`, exercising `copy_state!` in the
+    # per-array-element branch instead of MatI's whole-cell-state branch. Defines only
+    # `copy_state!` (no `copy_state` fallback).
+    buffer_j = setup_domainbuffer(DomainSpec(dh_d, MatJ(), cv))
+    states_j = FerriteAssembly.get_state(buffer_j)
+    old_states_j = FerriteAssembly.get_old_state(buffer_j)
+    work!(kr_assembler_d, buffer_j)
+    @test states_j != old_states_j # Sanity check that states were actually changed by work!
+
+    old_vals_j = old_states_j[1][1].vals # capture the inner Vector's identity before copying
+    nqp_j = getnquadpoints(cv)
+    TestStateModule.COPY_STATE_BANG_J_CALLS[] = 0
+    update_states!(buffer_j) # mode = :copy (default): old := new
+    @test TestStateModule.COPY_STATE_BANG_J_CALLS[] == getncells(grid_d) * nqp_j # copy_state! dispatched per array element
+    @test old_states_j == states_j          # old_states updated to the (just-converged) states
+    @test old_states_j[1][1].vals === old_vals_j # not reallocated: same Vector object, mutated in place
+    @test _alloc_update!(buffer_j) == 0     # in-place copyto! is allocation-free
+
+    # revert_states! (the opposite direction) exercises copy_state! per array element too.
+    new_vals_j = states_j[1][1].vals
+    fill!(new_vals_j, -999.0) # corrupt "new" (in place) so revert_states! has something to fix
+    TestStateModule.COPY_STATE_BANG_J_CALLS[] = 0
+    revert_states!(buffer_j)
+    @test TestStateModule.COPY_STATE_BANG_J_CALLS[] == getncells(grid_d) * nqp_j
+    @test states_j == old_states_j
+    @test states_j[1][1].vals === new_vals_j # not reallocated: same Vector object, mutated in place
+    allocs = @allocated revert_states!(buffer_j)
+    @test allocs == 0
+
+    # MatK: regression test for an initially-unassigned destination array element (the "old"
+    # state is never assembled into, so its Vector{StateK}(undef, n) elements are genuinely
+    # unassigned before the first update_states! call) - must not throw UndefRefError.
+    buffer_k = setup_domainbuffer(DomainSpec(dh_d, MatK(), cv))
+    old_states_k = FerriteAssembly.get_old_state(buffer_k)
+    @test !isassigned(old_states_k[1], 1) # sanity check: this is the scenario being tested
+    work!(kr_assembler_d, buffer_k)
+    update_states!(buffer_k) # must not throw UndefRefError reading the unassigned destination
+    @test isassigned(old_states_k[1], 1)
+    @test old_states_k == FerriteAssembly.get_state(buffer_k)
 
     # Regression test: a mutable AbstractArray cell state (MatA's Vector{StateA}) whose
     # "new" array has drifted to a different size than the corresponding "old" array must
