@@ -165,12 +165,19 @@ end
     import .TestStateModule: MatA, MatB, MatC, MatD, MatE, MatF, MatG, MatH,
         StateA, StateB, StateC, StateD, StateE, StateF, StateG
 
-    # `@allocated` on a bare `f(x; kw=...)` call written directly at top-level/testset scope
-    # can measure spurious keyword-argument boxing overhead unrelated to `f`'s own
-    # allocations (this is a Julia top-level-code-inference quirk, not present when the call
-    # happens inside a compiled function). Route allocation-sensitive `mode = :flip` calls
-    # through this tiny wrapper so `@allocated` measures the actual, function-specialized cost.
+    # `update_states!` accepts a keyword argument (`mode`). On Julia versions before 1.12,
+    # a bare `@allocated update_states!(x)` (or with `mode=...`) written directly at
+    # top-level/testset scope measures a small constant keyword-dispatch overhead unrelated
+    # to `update_states!`'s own allocations - this goes away only when the measured call
+    # happens inside a compiled function. Route all allocation-sensitive `update_states!`
+    # calls through these tiny helpers instead of a bare `allocs = @allocated ...`; as with
+    # the previous `allocs = @allocated ...` pattern, the method must already be compiled
+    # (e.g. by a preceding real call) before the result is meaningful - these helpers make a
+    # single call, exactly like the pattern they replace, so call counts (and thus e.g.
+    # `mode = :flip`'s toggling of old/new) are unaffected.
     _flip!(container) = update_states!(container; mode=:flip)
+    _alloc_update!(container) = @allocated update_states!(container)
+    _alloc_flip!(container) = @allocated update_states!(container; mode=:flip)
 
     for (CT, Dim) in ((Line, 1), (QuadraticTriangle, 2), (Hexahedron, 3))
         @testset "$CT" begin
@@ -208,8 +215,7 @@ end
                 @test states == states_dc              # `states` (new) untouched by default `mode = :copy`
                 states[1][1] = StateA(0,0)
                 @test old_states[1][1] == StateA(1,1)   # But not aliased
-                allocs = @allocated update_states!(container)
-                @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
+                @test _alloc_update!(container) == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
             end
             @test_throws ArgumentError update_states!(buffer; mode=:bogus)
 
@@ -221,8 +227,7 @@ end
             _flip!(buffer)
             @test old_states == states_before_flip # old_states now holds what was `states`
             @test states == old_before_flip        # states now holds what was `old_states` (stale)
-            allocs = @allocated _flip!(buffer)
-            @test allocs == 0
+            @test _alloc_flip!(buffer) == 0
 
             # revert_states!: states (new) should revert to old_states, old_states unaffected
             for container in (buffer, Simulation(buffer))
@@ -273,8 +278,7 @@ end
             _flip!(buffer)
             @test old_states == states_before_flip # old_states now holds what was `states`
             @test states == old_before_flip        # states now holds what was `old_states` (stale)
-            allocs = @allocated _flip!(buffer)
-            @test allocs == 0
+            @test _alloc_flip!(buffer) == 0
 
             # revert_states!: states (new) should revert to old_states, old_states unaffected.
             # MatB's state is a single mutable struct per cell (not an AbstractArray), so this
@@ -320,8 +324,7 @@ end
             for cellnr in 1:getncells(grid)
                 @test states[cellnr][2] == StateC(2) # Check that all are updated
             end
-            allocs = @allocated update_states!(buffer)
-            @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
+            @test _alloc_update!(buffer) == 0 # Vector{T} where isbitstype(T) should not allocate (MatC fulfills this)
 
             # revert_states!: states (new) should revert to old_states, old_states unaffected
             old_dc = deepcopy(old_states)
@@ -364,11 +367,9 @@ end
     buffer = setup_domainbuffer(DomainSpec(dh, nothing, cv))
     @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{Vector{Nothing}})
     update_states!(buffer) # Compile
-    allocs = @allocated update_states!(buffer)
-    @test allocs == 0
+    @test _alloc_update!(buffer) == 0
     _flip!(buffer) # Compile
-    allocs = @allocated _flip!(buffer)
-    @test allocs == 0
+    @test _alloc_flip!(buffer) == 0
     @test_throws ArgumentError update_states!(buffer; mode=:bogus)
 
     # Smoke-test of revert_states! for nothing states (and check no allocations)
@@ -383,16 +384,14 @@ end
     gdb = DomainSpec(dh, nothing, cv; set=setdiff!(Set(1:getncells(dh.grid)), gda.set))
     buffers = setup_domainbuffers(Dict("a"=>gda, "b"=>gdb))
     update_states!(buffers) # Compile
-    allocs = @allocated update_states!(buffers)
-    @test allocs == 0
+    @test _alloc_update!(buffers) == 0
 
     # `mode` must thread through the multi-domain `Dict` layer and the `Simulation` wrapper
     # too (the layers the reported issue's regression went through), and so must revert_states!
     # and its deprecated `set_new_to_old_states!` alias.
     for container in (buffers, Simulation(buffers))
         _flip!(container) # Compile
-        allocs = @allocated _flip!(container)
-        @test allocs == 0
+        @test _alloc_flip!(container) == 0
         revert_states!(container) # Compile
         allocs = @allocated revert_states!(container)
         @test allocs == 0
