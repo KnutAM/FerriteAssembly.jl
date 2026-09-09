@@ -150,7 +150,11 @@ function reinit_coupled!(coupled_buffers::NamedTuple, coupled::CoupledSimulation
     if length(coupled_buffers) != length(coupled.sims)
         throw(ArgumentError("When using coupled simulations, the coupled buffers must match the coupled simulations"))
     end
-    tuple((reinit_buffer!(cb, coupled.sims[k], CoupledSimulations(), cellnum) for (k, cb) in pairs(coupled_buffers))...)
+    for (k, cb) in pairs(coupled_buffers)
+        sim = coupled.sims[k]
+        set_time_increment!(cb, get_time_increment(get_base(get_itembuffer(sim))))
+        reinit_buffer!(cb, sim, CoupledSimulations(), cellnum)
+    end
     return nothing
 end
 
