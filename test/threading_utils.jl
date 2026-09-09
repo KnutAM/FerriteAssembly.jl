@@ -11,12 +11,10 @@
     end
 end
 
-@testset "get_chunk with empty chunks (BUG-002)" begin
-    # A legitimately empty chunk (e.g. supplied by a user via `chunks=...`, or
-    # produced by an unlucky coloring/splitting) must not be mistaken by a
-    # worker for queue exhaustion: only running out of chunks should stop a
-    # worker from asking for more. Every task must therefore be able to reach
-    # chunks with real work located after leading/interspersed empty chunks.
+@testset "get_chunk with empty chunks, PR89" begin
+    # A empty chunk (e.g. supplied by a user via `chunks=...`, or
+    # produced by an unlucky coloring/splitting) could previously be mistaken by a
+    # worker as queue exhaustion. Check that this doesn't occur.
     for num_tasks in (1, 2, 4)
         # `num_tasks` consecutive leading empty chunks guarantee that, under the
         # old (buggy) implementation where an empty chunk was indistinguishable
@@ -41,7 +39,7 @@ end
     end
 end
 
-@testset "work! with empty custom chunks (BUG-002)" begin
+@testset "work! with empty custom chunks (PR89)" begin
     # End-to-end reproduction: a domain whose user-supplied chunks contain
     # empty sub-chunks must still visit every cell during threaded `work!`.
     grid = generate_grid(Quadrilateral, (2, 1))

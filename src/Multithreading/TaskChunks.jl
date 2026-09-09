@@ -22,9 +22,7 @@ Base.unlock(ci::TaskChunks) = unlock(ci.lock)
 #Base.trylock(ci::TaskChunks) = trylock(ci.lock)
 
 # Non-iterator implementation
-# Returns `nothing` when the queue is exhausted, distinct from a legitimate,
-# but empty, chunk (`T[]`), which must still be consumed (as a no-op) rather
-# than being mistaken for exhaustion by the caller.
+# Returns `nothing` when the queue is exhausted
 function get_chunk(ci::TaskChunks{T}) where T
     lock(ci)
     try

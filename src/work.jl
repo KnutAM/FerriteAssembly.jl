@@ -74,7 +74,7 @@ function work_domain_threaded!(workers, sim::SingleDomainThreadedSim, coupled)
                 worker = get_local(workers, taskid)
                 Threads.@spawn begin
                     while true
-                        taskchunk = get_chunk(taskchunks) # Vector{Int}, or `nothing` when exhausted
+                        taskchunk = get_chunk(taskchunks) # Union{Vector{Int}, Nothing}
                         taskchunk === nothing && break
                         for itemnr in taskchunk
                             reinit_buffer!(itembuffer, sim, coupled, itemnr)
