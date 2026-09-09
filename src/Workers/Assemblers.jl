@@ -107,6 +107,7 @@ struct KeReAssembler{A<:Ferrite.AbstractAssembler, CH, SC}
     ch::CH # Union{Nothing, Ferrite.ConstraintHandler}
     apply_zero::Bool
     scaling::SC
+    can_thread::Bool
 end
 function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, kwargs...)
     a = start_assemble(K, r; fillzero=fillzero)
@@ -114,18 +115,25 @@ function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, kwar
 end
 function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=nothing, scaling=NoScaling())
     reset_scaling!(scaling)
-    if !isnothing(ch) && isnothing(apply_zero)
-         throw(ArgumentError("apply_zero must be specified when `ch` is given"))
+    if !isnothing(ch)
+        if isnothing(apply_zero)
+            throw(ArgumentError("apply_zero must be specified when `ch` is given"))
+        end
+        if !Ferrite.isclosed(ch)
+            throw(ArgumentError("`ch` must be closed (via `close!`) before constructing a `KeReAssembler`"))
+        end
+        can_thread = all(c -> (c === nothing || isempty(c)), ch.dofcoefficients)
+        return KeReAssembler(a, ch, apply_zero, scaling, can_thread)
+    else
+        return KeReAssembler(a, nothing, false, scaling, true)
     end
-    _apply_zero = isnothing(apply_zero) ? false : apply_zero
-    KeReAssembler(a, ch, _apply_zero, scaling)
 end
 
 # TaskLocals interface:
 function create_local(ra::KeReAssembler)
     a = create_local(ra.a)
     scaling = create_local(ra.scaling)
-    return KeReAssembler(a, ra.ch, ra.apply_zero, scaling)
+    return KeReAssembler(a, ra.ch, ra.apply_zero, scaling, ra.can_thread)
 end
 function scatter!(task::KeReAssembler, base::KeReAssembler)
     scatter!(task.a, base.a)
@@ -136,7 +144,7 @@ function gather!(base::KeReAssembler, task::KeReAssembler)
     gather!(base.scaling, task.scaling)
 end
 
-can_thread(::KeReAssembler) = true
+can_thread(a::KeReAssembler) = a.can_thread
 
 # assemble! routines
 # # No constraint handler - no local application of constraints
