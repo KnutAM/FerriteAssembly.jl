@@ -59,6 +59,7 @@ end
     FerriteAssembly.create_cell_state(::MA, cv, x, ae, args...) = [function_value(cv, i, ae) for i in 1:getnquadpoints(cv)]
     FerriteAssembly.create_cell_state(::MB, cv, x, ae, args...) = [2 * function_value(cv, i, ae)[1] for i in 1:getnquadpoints(cv)]
 
+    Δt2 = 0.25
     # Test case to check that values have been updated correctly
     function FerriteAssembly.element_routine!(Ke, re, state, ae, m::MA, cv, buffer)
         cb_b = FerriteAssembly.get_coupled_buffer(buffer, :b)
@@ -72,6 +73,8 @@ end
         @test FerriteAssembly.get_aeold(buffer) ≈ FerriteAssembly.get_aeold(cb_b)[2:2:end]
         # Check that state variables have been updated
         @test 6 * state ≈ FerriteAssembly.get_state(cb_b)
+        # Check that the coupled buffer's time increment reflects the partner's current value
+        @test FerriteAssembly.get_time_increment(cb_b) == Δt2
     end
     
     a1 = rand(ndofs(dh1))
@@ -101,7 +104,25 @@ end
                 K = allocate_matrix(dh1)
                 r = zeros(ndofs(dh1))
                 assembler = start_assemble(K, r)
+                Δt2 = 0.25
+                set_time_increment!(d2, Δt2)
                 work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
+                # Change the partner's time increment before the next staggered iteration
+                # and check it isn't stale (BUG-003 regression)
+                Δt2 = 0.75
+                set_time_increment!(d2, Δt2)
+                assembler = start_assemble(K, r)
+                work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
+                # An independently coupled copy (a distinct buffer object from the one
+                # captured by `couple_buffers(d1; b = d2)` above, as occurs e.g. after
+                # `replace_material`, cf. the fracture tutorial) must also give a fresh,
+                # non-stale time increment (BUG-003 regression)
+                d2_indep = FerriteAssembly.replace_material(d2, identity)
+                sim2_indep = Simulation(d2_indep, a2, aold2)
+                Δt2 = 0.4
+                set_time_increment!(d2_indep, Δt2)
+                assembler = start_assemble(K, r)
+                work!(assembler, sim1, CoupledSimulations(b = sim2_indep)) # Test
             end
         end
     end
