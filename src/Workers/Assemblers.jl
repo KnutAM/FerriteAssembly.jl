@@ -115,16 +115,18 @@ function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, kwar
 end
 function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=nothing, scaling=NoScaling())
     reset_scaling!(scaling)
-    if !isnothing(ch) && isnothing(apply_zero)
-         throw(ArgumentError("apply_zero must be specified when `ch` is given"))
+    if !isnothing(ch)
+        if isnothing(apply_zero)
+            throw(ArgumentError("apply_zero must be specified when `ch` is given"))
+        end
+        if !Ferrite.isclosed(ch)
+            throw(ArgumentError("`ch` must be closed (via `close!`) before constructing a `KeReAssembler`"))
+        end
+        can_thread = all(c -> (c === nothing || isempty(c)), ch.dofcoefficients)
+        return KeReAssembler(a, ch, apply_zero, scaling, can_thread)
+    else
+        return KeReAssembler(a, nothing, false, scaling, true)
     end
-    if !isnothing(ch) && !Ferrite.isclosed(ch)
-        throw(ArgumentError("`ch` must be closed (via `close!`) before constructing a `KeReAssembler`"))
-    end
-    _apply_zero = isnothing(apply_zero) ? false : apply_zero
-    # `ch` is required closed above, so its constraints (and hence whether local application
-    # can race on shared master dofs) are fixed for this assembler's lifetime.
-    KeReAssembler(a, ch, _apply_zero, scaling, !has_nontrivial_affine_constraints(ch))
 end
 
 # TaskLocals interface:
@@ -143,11 +145,6 @@ function gather!(base::KeReAssembler, task::KeReAssembler)
 end
 
 can_thread(a::KeReAssembler) = a.can_thread
-
-has_nontrivial_affine_constraints(::Nothing) = false
-function has_nontrivial_affine_constraints(ch::ConstraintHandler)
-    return any(c -> !(c === nothing || isempty(c)), ch.dofcoefficients)
-end
 
 # assemble! routines
 # # No constraint handler - no local application of constraints
