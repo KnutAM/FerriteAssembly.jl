@@ -62,6 +62,31 @@ struct CoupledSimulations{NT <: NamedTuple{<:Any, <:NTuple{<:Any, Simulation}}}
 end
 CoupledSimulations(; kwargs...) = CoupledSimulations(NamedTuple{keys(kwargs)}(values(kwargs)))
 
+"""
+    get_itembuffer(coupled::CoupledSimulations, num_tasks::Int)
+
+Return a `NamedTuple` (same keys as `coupled.sims`) of each coupled partner's own itembuffer
+(its `TaskLocals`, if threaded, or its single buffer, if sequential) - reused directly, so no
+partner buffer content is copied. Each partner's own task count must equal `num_tasks`, the
+primary (coupling) domain's own task count: reusing a partner's per-task buffers is only
+race-free if primary task `i` always maps to partner task `i`, one-to-one, for every task - which
+also means the same partner must not be coupled to by two different, concurrently-running `work!`
+calls (see the warning on [`work!`](@ref)).
+"""
+function get_itembuffer(coupled::CoupledSimulations, num_tasks::Int)
+    ks = keys(coupled.sims)
+    return NamedTuple{ks}(map(ks) do k
+        sim = coupled.sims[k]
+        partner_tasks = get_num_tasks(sim)
+        partner_tasks == num_tasks || throw(ArgumentError(
+            "Coupled simulation `:$k` has $partner_tasks task(s), but the primary domain has " *
+            "$num_tasks. These must match for threaded coupled work: set matching `num_tasks` " *
+            "when setting up both domains (a sequential domain counts as 1 task)."
+        ))
+        get_itembuffer(sim)
+    end)
+end
+
 function get_domain_simulation(cs::CoupledSimulations, name::String)
     # Need to return a named tuple with only the simulations that have a domain called `name`
     sims = Pair{Symbol, Simulation}[]

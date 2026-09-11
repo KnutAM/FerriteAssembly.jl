@@ -172,3 +172,13 @@ function couple_buffers(cb::CellBuffer, coupled::CoupledSimulations)
     vs = map(k -> get_base(get_itembuffer(coupled.sims[k])), ks)
     return setproperties(cb; coupled_buffers = NamedTuple{ks}(vs))
 end
+
+"""
+    couple_buffers(cb::CellBuffer, coupled_buffers::NamedTuple)
+
+Link `cb` directly to the given `coupled_buffers` (already the correct buffer objects - e.g. this
+task's own private per-task copies from [`work_domain_threaded!`](@ref) - no fetching needed).
+"""
+function couple_buffers(cb::CellBuffer, coupled_buffers::NamedTuple)
+    return setproperties(cb; coupled_buffers)
+end

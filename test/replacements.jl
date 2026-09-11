@@ -128,6 +128,39 @@ end
             end
         end
     end
+
+    # Task counts must match between primary and coupled partner: reusing a partner's per-task
+    # buffers directly (no reallocation) is only race-free with a strict 1-to-1 mapping. A
+    # sequential partner counts as having 1 task.
+    d1_mismatch = setup_domainbuffer(DomainSpec(dh1, MA(), cvu); a = a1, threading = true, num_tasks = 3)
+    for d2_mismatch in (
+            setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2), # sequential = 1 task
+            setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2, threading = true, num_tasks = 1),
+        )
+        sim1_mismatch = Simulation(d1_mismatch, a1, aold1)
+        sim2_mismatch = Simulation(d2_mismatch, a2, aold2)
+        Km = allocate_matrix(dh1)
+        rm = zeros(ndofs(dh1))
+        assemblerm = start_assemble(Km, rm)
+        @test_throws ArgumentError work!(assemblerm, sim1_mismatch, CoupledSimulations(b = sim2_mismatch))
+    end
+
+    # Matching task counts (including a sequential partner matched to a 1-task primary) work,
+    # reusing the partner's own buffer(s) directly - no reallocation.
+    for (primary_num_tasks, partner_threading) in ((1, false), (2, true))
+        d1_match = setup_domainbuffer(DomainSpec(dh1, MA(), cvu); a = a1, threading = true, num_tasks = primary_num_tasks)
+        d2_match = partner_threading ?
+            setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2, threading = true, num_tasks = primary_num_tasks) :
+            setup_domainbuffer(DomainSpec(dh2, MB(), cvv); a = a2)
+        sim1_match = Simulation(d1_match, a1, aold1)
+        sim2_match = Simulation(d2_match, a2, aold2)
+        Km = allocate_matrix(dh1)
+        rm = zeros(ndofs(dh1))
+        Δt2 = 0.6
+        set_time_increment!(d2_match, Δt2)
+        assemblerm = start_assemble(Km, rm)
+        work!(assemblerm, sim1_match, CoupledSimulations(b = sim2_match)) # element_routine! asserts under real concurrency
+    end
 end
 
 @testset "couple_buffers allocations" begin
@@ -161,4 +194,78 @@ end
     nalloc_coupled = @allocated work!(assembler, sim1, CoupledSimulations(b = sim2))
     # 900 cells: any per-cell allocation (even tens of bytes) would show up as tens of KB here.
     @test (nalloc_coupled - nalloc_uncoupled) < 10_000
+end
+
+@testset "couple_buffers threaded allocations" begin
+    # Threaded coupling reuses the partner's own per-task buffers directly (no reallocation), so
+    # it should add ~no extra allocation over uncoupled work, and certainly not scale with ncells.
+    ip = Lagrange{RefQuadrilateral,1}()
+    qr = QuadratureRule{RefQuadrilateral}(2)
+    cv = CellValues(qr, ip, ip)
+    struct MD end
+    FerriteAssembly.element_routine!(Ke, re, state, ae, ::MD, cv, buffer) = fill!(Ke, 0)
+
+    function nalloc_work(ncells; coupled)
+        # Coupling assumes matching grids, so both domains share the same grid/cell count.
+        grid = generate_grid(Quadrilateral, (ncells, ncells))
+        dh1 = close!(add!(DofHandler(grid), :u, ip))
+        d1 = setup_domainbuffer(DomainSpec(dh1, MD(), cv); threading = true, num_tasks = 4)
+        a1 = zeros(ndofs(dh1))
+        sim1 = Simulation(d1, a1, a1)
+        K = allocate_matrix(dh1)
+        r = zeros(ndofs(dh1))
+        coupled_sims = if coupled
+            dh2 = close!(add!(DofHandler(grid), :v, ip))
+            d2 = setup_domainbuffer(DomainSpec(dh2, MD(), cv); threading = true, num_tasks = 4)
+            a2 = zeros(ndofs(dh2))
+            CoupledSimulations(b = Simulation(d2, a2, a2))
+        else
+            CoupledSimulations()
+        end
+        assembler = start_assemble(K, r)
+        work!(assembler, sim1, coupled_sims) # compile/warmup
+        assembler = start_assemble(K, r)
+        return @allocated work!(assembler, sim1, coupled_sims)
+    end
+
+    nalloc_uncoupled_30 = nalloc_work(30; coupled = false)
+    nalloc_coupled_30 = nalloc_work(30; coupled = true)
+    nalloc_coupled_60 = nalloc_work(60; coupled = true) # 4x more cells
+
+    @test (nalloc_coupled_30 - nalloc_uncoupled_30) < 10_000 # reuse, not per-cell allocation
+    @test nalloc_coupled_60 < 2 * nalloc_coupled_30 # doesn't scale with ncells
+
+    # AutoDiffCellBuffer coupling: a per-task AutoDiffCellBuffer is (re)constructed each `work!`
+    # call to relink `coupled_buffers` (a small, fixed-size cost - it does NOT recompute the
+    # (expensive) JacobianConfig once the coupling structure is stable, and must not scale with
+    # cell count). Reusing the *same* sim/buffers, unlike the plain-CellBuffer case above, so the
+    # "type didn't change" fast path in `couple_buffers(::AutoDiffCellBuffer, ...)` is exercised.
+    function nalloc_ad_coupled(ncells)
+        grid = generate_grid(Quadrilateral, (ncells, ncells))
+        dh1 = close!(add!(DofHandler(grid), :u, ip))
+        dh2 = close!(add!(DofHandler(grid), :v, ip))
+        d1 = setup_domainbuffer(DomainSpec(dh1, MD(), cv); threading = true, num_tasks = 4, autodiffbuffer = true)
+        d2 = setup_domainbuffer(DomainSpec(dh2, MD(), cv); threading = true, num_tasks = 4, autodiffbuffer = true)
+        a1 = zeros(ndofs(dh1))
+        a2 = zeros(ndofs(dh2))
+        sim1 = Simulation(d1, a1, a1)
+        cs = CoupledSimulations(b = Simulation(d2, a2, a2))
+        K = allocate_matrix(dh1)
+        r = zeros(ndofs(dh1))
+        assembler = start_assemble(K, r)
+        work!(assembler, sim1, cs) # warmup call 1: coupled_buffers type changes empty -> coupled
+        assembler = start_assemble(K, r)
+        work!(assembler, sim1, cs) # warmup call 2: steady state (type already matches)
+        assembler = start_assemble(K, r)
+        n1 = @allocated work!(assembler, sim1, cs)
+        assembler = start_assemble(K, r)
+        n2 = @allocated work!(assembler, sim1, cs)
+        return n1, n2
+    end
+
+    nalloc_ad_30a, nalloc_ad_30b = nalloc_ad_coupled(30)
+    nalloc_ad_60a, _ = nalloc_ad_coupled(60) # 4x more cells
+
+    @test nalloc_ad_30a == nalloc_ad_30b # steady state: no growth/repeated JacobianConfig rebuild
+    @test nalloc_ad_60a < 2 * nalloc_ad_30a # doesn't scale with ncells
 end

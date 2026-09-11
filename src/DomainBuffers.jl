@@ -186,6 +186,7 @@ function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states::State
 end
 
 get_num_tasks(db::ThreadedDomainBuffer) = db.num_tasks
+get_num_tasks(::DomainBuffer) = 1 # A single, shared buffer - conceptually one "task".
 get_num_tasks(dbs::DomainBuffers) = maximum(get_num_tasks, values(dbs))
 
 get_chunks(db::ThreadedDomainBuffer) = db.chunks

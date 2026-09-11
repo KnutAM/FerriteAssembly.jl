@@ -67,16 +67,32 @@ e.g. by calling `get_state(coupled_buffer)`.
 get_coupled_buffers(::AbstractItemBuffer) = NamedTuple() # Default: buffer types that don't support coupling
 
 """
-    couple_buffers(itembuffer::AbstractItemBuffer, coupled::CoupledSimulations)
+    couple_buffers(itembuffer::AbstractItemBuffer, coupled::Union{CoupledSimulations, NamedTuple})
 
-Refresh `itembuffer`'s coupled-buffer links from `coupled` and return `itembuffer`. Called
-internally, once per `work!` call (before the per-item loop). Buffer types that don't support
-coupling (e.g. `FacetBuffer`) use this default: a no-op when `coupled` is empty (the common case),
-or an error if actually asked to couple.
+Refresh `itembuffer`'s coupled-buffer links from `coupled` (either a `CoupledSimulations`, in
+sequential work, or a `NamedTuple` of this task's private per-task buffers, in threaded work) and
+return `itembuffer`. Called internally, once per `work!` call (before the per-item loop) for
+sequential work, or once per task for threaded work. Buffer types that don't support coupling
+(e.g. `FacetBuffer`) use this default: a no-op when `coupled` is empty (the common case), or an
+error if actually asked to couple.
 """
 function couple_buffers(itembuffer::AbstractItemBuffer, coupled)
-    isempty(coupled.sims) && return itembuffer
+    _is_empty_coupled(coupled) && return itembuffer
     throw(ArgumentError("$(typeof(itembuffer)) does not support coupled simulations"))
+end
+
+_is_empty_coupled(coupled::NamedTuple) = isempty(coupled)
+_is_empty_coupled(coupled) = isempty(coupled.sims) # CoupledSimulations
+
+"""
+    couple_buffers_or_reuse(itembuffer::AbstractItemBuffer, coupled)
+
+Like [`couple_buffers`](@ref), but skips touching `itembuffer` entirely when there is nothing to
+do: `coupled` is empty AND `itembuffer` is already uncoupled. Otherwise (re-)establishes the
+links, since `itembuffer` may have been left coupled by a previous, different call.
+"""
+function couple_buffers_or_reuse(itembuffer::AbstractItemBuffer, coupled)
+    (_is_empty_coupled(coupled) && isempty(get_coupled_buffers(itembuffer))) ? itembuffer : couple_buffers(itembuffer, coupled)
 end
 
 """
