@@ -11,7 +11,7 @@
 # [bottom of this page](@ref iga_plain_program).
 
 # Start by loading the necessary packages
-using Ferrite, IGA, LinearAlgebra, FerriteAssembly
+using Ferrite, FerriteIGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
 # ## Setup
@@ -107,7 +107,7 @@ work!(qe, buffer; a=a);
 # ```
 
 # Output results to VTK
-IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
+FerriteIGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
 end
 

@@ -146,20 +146,23 @@ function setup(m, grid, fieldname; qr_tri, qr_quad, ip_tri, ip_quad)
     return db, K, r, ndofs(dh)
 end
 
-db_u_uc, Ku, ru, ndofs_u = setup(PhaseFieldFracture{:u}(mbase), grid, :u; 
+db_u, Ku, ru, ndofs_u = setup(PhaseFieldFracture{:u}(mbase), grid, :u;
     qr_tri, qr_quad, 
     ip_tri = Lagrange{RefTriangle, 1}()^2, 
     ip_quad = Lagrange{RefQuadrilateral, 1}()^2
     )
 
-db_d_uc, Kd, rd, ndofs_d = setup(PhaseFieldFracture{:d}(mbase), grid, :d; 
+db_d, Kd, rd, ndofs_d = setup(PhaseFieldFracture{:d}(mbase), grid, :d;
     qr_tri, qr_quad,
     ip_tri = Lagrange{RefTriangle, 2}(), 
     ip_quad = Lagrange{RefQuadrilateral, 2}()
     )
 
-sim_u = Simulation(couple_buffers(db_u_uc; d = db_d_uc), zeros(ndofs_u), zeros(ndofs_u))
-sim_d = Simulation(couple_buffers(db_d_uc; u = db_u_uc), zeros(ndofs_d), zeros(ndofs_d));
+# No separate setup-time coupling step is needed: `db_u` and `db_d` are used directly, and the
+# coupling below (`CoupledSimulations(d = sim_d)` / `CoupledSimulations(u = sim_u)`) links them
+# fresh on each `work!` call.
+sim_u = Simulation(db_u, zeros(ndofs_u), zeros(ndofs_u))
+sim_d = Simulation(db_d, zeros(ndofs_d), zeros(ndofs_d));
 
 # Setup loading and boundary conditions
 load_function(t) = 1e-4 * t

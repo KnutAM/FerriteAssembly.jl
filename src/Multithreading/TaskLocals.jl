@@ -25,6 +25,8 @@ end
 Get the `i`th `local` variable from `tl`
 """
 get_local(tl::TaskLocals, i::Int) = tl.locals[i]
+get_local(nt::NamedTuple, i::Int) = map(tl -> get_local(tl, i), nt) # e.g. for coupled buffers
+get_local(x, ::Int) = x # e.g. a sequential (non-TaskLocals) coupled partner's single buffer
 
 """
     get_locals(tl::TaskLocals)

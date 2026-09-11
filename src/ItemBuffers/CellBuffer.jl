@@ -12,7 +12,7 @@ function work_single_cell! end
 mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,CB} <: AbstractCellBuffer
     const ae_old::Vector{T}           # Old element dof values
     const ae::Vector{T}               # Current element dof values
-    const re::Vector{T}               # Residual/force vector 
+    const re::Vector{T}               # Residual/force vector
     const Ke::Matrix{T}               # Element stiffness matrix
     const dofs::Vector{Int}           # celldofs
     const coords::CC                  # cellcoords (or what is required to reinit cellvalues)
@@ -26,7 +26,7 @@ mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,CB} <: AbstractCellBuffer
     old_state::ST                     # Old state variables for the cell (updated in reinit!)
     const user_data::UD               # User data for the cell (used for additional information)
     const user_cache::UC              # Cache for the cell (user type) (deepcopy for each thread)
-    const coupled_buffers::CB         # nothing or NamedTuple with staggered coupled `CellBuffer`s. 
+    const coupled_buffers::CB         # NamedTuple with coupled `CellBuffer`s, empty if not coupled.
 end
 
 """
@@ -51,7 +51,7 @@ function CellBuffer(numdofs::Int, coords, cellvalues, material, state, dofrange,
     return CellBuffer(
         zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
         zeros(Int, numdofs), coords, 
-        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache, nothing)
+        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache, NamedTuple())
 end
 
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
@@ -59,10 +59,6 @@ function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange,
     numdofs = ndofs_per_cell(sdh)
     coords = getcoordinates(_getgrid(sdh), first(_getcellset(sdh)))
     return CellBuffer(numdofs, coords, cv, material, cell_state, dofrange, user_data)
-end
-
-function couple_buffers(cb::CellBuffer; kwargs...)
-    return setproperties(cb; coupled_buffers = NamedTuple{keys(kwargs)}(values(kwargs)))
 end
 
 function setup_cellbuffer(::Val{true}, args...)
@@ -73,7 +69,7 @@ end
 # TaskLocals interface (only `create_local` required for other `AbstractCellBuffer`s) (unless gather! is req.)
 function create_local(cb::CellBuffer)
     dcpy = map(deepcopy, (cb.ae_old, cb.ae, cb.re, cb.Ke, cb.dofs, cb.coords, cb.cellvalues, cb.Δt, cb.cellid, cb.dofrange, cb.material, cb.state, cb.old_state))
-    return CellBuffer(dcpy..., cb.user_data, deepcopy(cb.user_cache), create_local(cb.coupled_buffers))
+    return CellBuffer(dcpy..., cb.user_data, deepcopy(cb.user_cache), NamedTuple())
 end
 
 set_time_increment!(cb::CellBuffer, Δt) = (cb.Δt=Δt)
@@ -143,17 +139,46 @@ function reinit_buffer!(cb::CellBuffer, sim::Simulation, coupled, cellnum::Int)
     return nothing  # Ferrite's reinit! doesn't return 
 end
 
-# No coupled buffer, no coupled simulation
-reinit_coupled!(::Nothing, coupled::CoupledSimulations{@NamedTuple{}}, cellnum::Int) = nothing
-
 function reinit_coupled!(coupled_buffers::NamedTuple, coupled::CoupledSimulations, cellnum::Int)
     if length(coupled_buffers) != length(coupled.sims)
         throw(ArgumentError("When using coupled simulations, the coupled buffers must match the coupled simulations"))
     end
-    tuple((reinit_buffer!(cb, coupled.sims[k], CoupledSimulations(), cellnum) for (k, cb) in pairs(coupled_buffers))...)
+    for (k, cb) in pairs(coupled_buffers)
+        reinit_buffer!(cb, coupled.sims[k], CoupledSimulations(), cellnum)
+    end
     return nothing
 end
 
 function _replace_material_with(cb::CellBuffer, new_material)
     return setproperties(cb; material = new_material)
+end
+
+"""
+    couple_buffers(cb::CellBuffer, coupled::CoupledSimulations)
+
+Return a `cb`-like buffer whose coupled-buffer links match `coupled`. For each key in
+`coupled.sims`, links to that partner simulation's base itembuffer (fetched fresh, never a cached
+reference), so it always matches whatever is currently supplied to `work!` - no separate setup-time
+`couple_buffers` call is required or supported anymore.
+
+Since `coupled_buffers` is one of `CellBuffer`'s type parameters, changing it requires
+constructing a new `CellBuffer` (all other fields keep the same references as `cb`, so this is
+cheap - no arrays are copied). Called once per `work!` call (not per cell) by
+[`work_domain_sequential!`](@ref); per-cell content (dofs, state) for the linked partner buffers
+is still refreshed every cell via [`reinit_coupled!`](@ref).
+"""
+function couple_buffers(cb::CellBuffer, coupled::CoupledSimulations)
+    ks = keys(coupled.sims)
+    vs = map(k -> get_base(get_itembuffer(coupled.sims[k])), ks)
+    return setproperties(cb; coupled_buffers = NamedTuple{ks}(vs))
+end
+
+"""
+    couple_buffers(cb::CellBuffer, coupled_buffers::NamedTuple)
+
+Link `cb` directly to the given `coupled_buffers` (already the correct buffer objects - e.g. this
+task's own private per-task copies from [`work_domain_threaded!`](@ref) - no fetching needed).
+"""
+function couple_buffers(cb::CellBuffer, coupled_buffers::NamedTuple)
+    return setproperties(cb; coupled_buffers)
 end
