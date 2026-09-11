@@ -73,7 +73,8 @@ end
 
 function work_domain_sequential!(worker, sim::Simulation{<:AbstractDomainBuffer}, coupled)
     itembuffer = get_base(get_itembuffer(sim)) # get_base if threaded buffer
-    cb = couple_buffers_or_reuse(itembuffer, coupled)
+    coupled_itembuffers = map(get_base, (get_itembuffer(coupled))) # NamedTuple
+    cb = couple_itembuffers(itembuffer, coupled_itembuffers)
     for itemnr in getset(sim)
         reinit_buffer!(cb, sim, coupled, itemnr)
         work_single!(worker, cb)
@@ -83,26 +84,20 @@ end
 function work_domain_threaded!(workers, sim::SingleDomainThreadedSim, coupled)
     itembuffers = get_itembuffer(sim) #::TaskLocals
     num_tasks = get_num_tasks(sim) # Default to Threads.nthreads()
-    # Reuses each coupled partner's own per-task buffers directly (errors if task counts don't
-    # match), so reiniting them concurrently is race-free: primary task i always maps to partner
-    # task i, one-to-one.
-    coupled_itembuffers = get_itembuffer(coupled, num_tasks) #::NamedTuple{keys, <:TaskLocals}
+    for coupled_sim in coupled.sims
+        @assert get_num_tasks(coupled_sim) == num_tasks
+    end
+    coupled_itembuffers = get_itembuffer(coupled) #::NamedTuple{keys, <:TaskLocals}
     scatter!(itembuffers)
     scatter!(workers)
-    # A threaded partner's own task-local copies only get their Δt refreshed by *its own*
-    # scatter!, which only runs when that partner is worked directly - not when it's only used
-    # here as a coupled buffer. Since we reuse those task-locals directly (no copy), refresh them
-    # now too: a plain field write, not a reallocation.
-    foreach(_scatter_coupled!, values(coupled_itembuffers))
-    # Establish each task's coupled view once per `work!` call, not once per color/chunk (meshes
-    # can have several colors): `couple_buffers` may reconstruct the buffer (e.g. rebuild an
-    # AutoDiffCellBuffer's JacobianConfig), so it must not repeat per color.
-    cibs = [couple_buffers_or_reuse(get_local(itembuffers, taskid), get_local(coupled_itembuffers, taskid)) for taskid in 1:num_tasks]
+    scatter!.(values(coupled_itembuffers))
     for chunk_vector in get_chunks(sim)
         taskchunks = TaskChunks(chunk_vector)
         Base.Experimental.@sync begin
             for taskid in 1:num_tasks
-                cib = cibs[taskid]
+                itembuffer = get_local(itembuffers, taskid)
+                coupled_itembuffer = get_local(itembuffers, taskid)
+                cib = couple_itembuffers(itembuffer, coupled_itembuffer)
                 worker = get_local(workers, taskid)
                 Threads.@spawn begin
                     while true
@@ -120,9 +115,6 @@ function work_domain_threaded!(workers, sim::SingleDomainThreadedSim, coupled)
     gather!(itembuffers)
     gather!(workers)
 end
-
-_scatter_coupled!(tl::TaskLocals) = scatter!(tl)
-_scatter_coupled!(::Any) = nothing # A sequential partner's single buffer is already always current.
 
 # Worker interface
 """

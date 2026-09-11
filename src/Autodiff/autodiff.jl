@@ -63,13 +63,12 @@ function _replace_material_with(ad_cb::AutoDiffCellBuffer{CB}, new_material) whe
     end
 end
 
-function couple_buffers(ad_cb::AutoDiffCellBuffer{CB}, coupled) where CB
-    cb = couple_buffers(ad_cb.cb, coupled)
-    if isa(cb, CB) # If type didn't change, no need to recalculate autodiff buffers
-        return setproperties(ad_cb; cb)
-    else
-        return AutoDiffCellBuffer(cb)
+function couple_itembuffers(ad_cb::AutoDiffCellBuffer{CB}, coupled) where CB
+    cb = couple_itembuffers(ad_cb.cb, coupled)
+    if !isa(cb, CB)
+        throw(ArgumentError("An AutoDiffBuffer must be coupled during setup"))
     end
+    return setproperties(ad_cb; cb)
 end
 
 function create_local(c::AutoDiffCellBuffer)

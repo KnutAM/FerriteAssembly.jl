@@ -182,3 +182,5 @@ task's own private per-task copies from [`work_domain_threaded!`](@ref) - no fet
 function couple_buffers(cb::CellBuffer, coupled_buffers::NamedTuple)
     return setproperties(cb; coupled_buffers)
 end
+
+couple_itembuffers(cb::CellBuffer, coupled_buffers::NamedTuple) = setproperties(cb; coupled_buffers)
