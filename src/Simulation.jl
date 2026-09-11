@@ -53,10 +53,9 @@ Base.iterate(sim::Simulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim
 """
     CoupledSimulations(; key1 = sim1::Simulation, key2 = sim2::Simulation, ...)
 
-Setup the collection of coupled simulations to allow values (such as state variables and 
-local dof-values from these simulations to be available when `work!`ing another simulation, 
-if the buffers have been coupled with [`couple_buffers`](@ref). 
-The coupled itembuffer on the local level is accessed with [`get_coupled_buffer`](@ref). 
+Setup the collection of coupled simulations to allow values (such as state variables and
+local dof-values) from these simulations to be available when `work!`ing another simulation.
+The coupled itembuffer on the local level is accessed with [`get_coupled_buffer`](@ref).
 """
 struct CoupledSimulations{NT <: NamedTuple{<:Any, <:NTuple{<:Any, Simulation}}}
     sims::NT

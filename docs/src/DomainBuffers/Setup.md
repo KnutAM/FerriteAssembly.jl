@@ -31,9 +31,10 @@ especially in the case of `CoupledSimulations`.
 
 The idea behind the coupled simulation setup is to give access to values from a different simulation
 at the item level. For example, when solving two separate problems in parallel, and using staggered
-iterations. See the [Phase-field fracture tutorial](@ref Phase-field-fracture) for an example. 
+iterations. No separate setup-time linking is needed: pass the other simulation(s) directly via
+`CoupledSimulations` when calling [`work!`](@ref). See the
+[Phase-field fracture tutorial](@ref Phase-field-fracture) for an example.
 ```@docs
 Simulation
-couple_buffers
 CoupledSimulations
 ```

@@ -58,11 +58,26 @@ function get_user_cache end
 """
     get_coupled_buffer(b::AbstractItemBuffer, key::Symbol)
 
-Get the coupled buffer `key` from `b`. To enable this, use [`couple_buffers`](@ref) on the 
-domain buffers. The coupled buffer can be queried just like a normal item buffer,
+Get the coupled buffer `key` from `b`. To enable this, supply a `coupled_simulations` to
+[`work!`](@ref); the coupled itembuffer can be queried just like a normal item buffer,
 e.g. by calling `get_state(coupled_buffer)`.
-""" 
+"""
 @inline get_coupled_buffer(b::AbstractItemBuffer, key::Symbol) = getfield(get_coupled_buffers(b), key)
+
+get_coupled_buffers(::AbstractItemBuffer) = NamedTuple() # Default: buffer types that don't support coupling
+
+"""
+    couple_buffers(itembuffer::AbstractItemBuffer, coupled::CoupledSimulations)
+
+Refresh `itembuffer`'s coupled-buffer links from `coupled` and return `itembuffer`. Called
+internally, once per `work!` call (before the per-item loop). Buffer types that don't support
+coupling (e.g. `FacetBuffer`) use this default: a no-op when `coupled` is empty (the common case),
+or an error if actually asked to couple.
+"""
+function couple_buffers(itembuffer::AbstractItemBuffer, coupled)
+    isempty(coupled.sims) && return itembuffer
+    throw(ArgumentError("$(typeof(itembuffer)) does not support coupled simulations"))
+end
 
 """
     Ferrite.celldofs(::AbstractItemBuffer)

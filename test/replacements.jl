@@ -59,6 +59,7 @@ end
     FerriteAssembly.create_cell_state(::MA, cv, x, ae, args...) = [function_value(cv, i, ae) for i in 1:getnquadpoints(cv)]
     FerriteAssembly.create_cell_state(::MB, cv, x, ae, args...) = [2 * function_value(cv, i, ae)[1] for i in 1:getnquadpoints(cv)]
 
+    Δt2 = 0.25
     # Test case to check that values have been updated correctly
     function FerriteAssembly.element_routine!(Ke, re, state, ae, m::MA, cv, buffer)
         cb_b = FerriteAssembly.get_coupled_buffer(buffer, :b)
@@ -72,8 +73,10 @@ end
         @test FerriteAssembly.get_aeold(buffer) ≈ FerriteAssembly.get_aeold(cb_b)[2:2:end]
         # Check that state variables have been updated
         @test 6 * state ≈ FerriteAssembly.get_state(cb_b)
+        # Check that the coupled buffer's time increment reflects the partner's current value
+        @test FerriteAssembly.get_time_increment(cb_b) == Δt2
     end
-    
+
     a1 = rand(ndofs(dh1))
     a2 = zeros(ndofs(dh2))
     @assert length(a1) * 2 == length(a2)
@@ -95,14 +98,67 @@ end
                     d1 = setup_domainbuffers(Dict(k => DomainSpec(dh1, MA(), cvu; set) for (k, set) in sets); a = a1, threading, autodiffbuffer)
                     d2 = setup_domainbuffers(Dict(k => DomainSpec(dh2, MB(), cvv; set) for (k, set) in sets); a = a2, threading, autodiffbuffer)
                 end
-                d1 = couple_buffers(d1; b = d2)
+                # No setup-time coupling call: coupling is derived directly from whatever
+                # `CoupledSimulations` is supplied to `work!`, fresh on every call.
                 sim1 = Simulation(d1, a1, aold1)
                 sim2 = Simulation(d2, a2, aold2)
                 K = allocate_matrix(dh1)
                 r = zeros(ndofs(dh1))
                 assembler = start_assemble(K, r)
+                Δt2 = 0.25
+                set_time_increment!(d2, Δt2)
                 work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
+
+                # Changing the partner's time increment before the next staggered iteration
+                # is picked up immediately: no persistent link to go stale (BUG-003 regression)
+                Δt2 = 0.75
+                set_time_increment!(d2, Δt2)
+                assembler = start_assemble(K, r)
+                work!(assembler, sim1, CoupledSimulations(b = sim2)) # Test
+
+                # An independently replaced buffer (a genuinely different object from `d2`, as
+                # occurs e.g. after `replace_material`) works transparently: there's no persistent
+                # link that could go stale or mismatch, since coupling is derived fresh each call.
+                d2_indep = FerriteAssembly.replace_material(d2, identity)
+                sim2_indep = Simulation(d2_indep, a2, aold2)
+                Δt2 = 0.4
+                set_time_increment!(d2_indep, Δt2)
+                assembler = start_assemble(K, r)
+                work!(assembler, sim1, CoupledSimulations(b = sim2_indep)) # Test
             end
         end
     end
+end
+
+@testset "couple_buffers allocations" begin
+    # Coupling should add O(1) allocation per `work!` call, not O(ncells): verify the extra
+    # allocation from adding coupling doesn't scale with the number of cells.
+    grid = generate_grid(Quadrilateral, (30, 30)) # 900 cells
+    ip = Lagrange{RefQuadrilateral,1}()
+    dh1 = close!(add!(DofHandler(grid), :u, ip))
+    dh2 = close!(add!(DofHandler(grid), :v, ip))
+    qr = QuadratureRule{RefQuadrilateral}(2)
+    cv = CellValues(qr, ip, ip)
+    struct MC end
+    FerriteAssembly.element_routine!(Ke, re, state, ae, ::MC, cv, buffer) = fill!(Ke, 0)
+    d1 = setup_domainbuffer(DomainSpec(dh1, MC(), cv))
+    d2 = setup_domainbuffer(DomainSpec(dh2, MC(), cv))
+    a1 = zeros(ndofs(dh1))
+    a2 = zeros(ndofs(dh2))
+    sim1 = Simulation(d1, a1, a1)
+    sim2 = Simulation(d2, a2, a2)
+    K = allocate_matrix(dh1)
+    r = zeros(ndofs(dh1))
+
+    assembler = start_assemble(K, r)
+    work!(assembler, sim1) # compile/warmup, uncoupled
+    assembler = start_assemble(K, r)
+    work!(assembler, sim1, CoupledSimulations(b = sim2)) # compile/warmup, coupled
+
+    assembler = start_assemble(K, r)
+    nalloc_uncoupled = @allocated work!(assembler, sim1)
+    assembler = start_assemble(K, r)
+    nalloc_coupled = @allocated work!(assembler, sim1, CoupledSimulations(b = sim2))
+    # 900 cells: any per-cell allocation (even tens of bytes) would show up as tens of KB here.
+    @test (nalloc_coupled - nalloc_uncoupled) < 10_000
 end

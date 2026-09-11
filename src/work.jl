@@ -7,14 +7,17 @@ end
 
 Perform the work according to `worker` over the domain(s) in `sim`.
 
-**Advance usage:** By passing the optional `coupled_simulations`, values from those simulations 
-(e.g. state variables and local dof-values) become available on the local level via 
-[`get_coupled_buffer`](@ref). This requires that the domainbuffer(s) in `sim` has been coupled 
-using [`couple_buffers`](@ref).
+**Advance usage:** By passing the optional `coupled_simulations`, values from those simulations
+(e.g. state variables and local dof-values) become available on the local level via
+[`get_coupled_buffer`](@ref). The coupled buffer link is established fresh on each `work!` call
+(no separate setup-time coupling step is needed), and always reflects whichever simulation is
+currently supplied. Because linking a coupled partner's buffer is not safe to do concurrently from
+multiple tasks, a domain worked with a non-empty `coupled_simulations` always runs sequentially,
+even if its buffer was set up with `threading=true`.
 
     work!(worker, db::Union{AbstractDomainBuffer, Dict}; a = nothing, aold = nothing)
 
-Simplified interface that doesn't support coupled simulations, directly forwarded to 
+Simplified interface that doesn't support coupled simulations, directly forwarded to
 `work!(worker, Simulation(db, a, aold))`. The global degree of freedom vectors, `a` and `aold`,
 make their corresponding local values available. If not passed, the local values are `NaN`s.
 """
@@ -29,23 +32,19 @@ function work!(worker, sim::SingleDomainSim, coupled_simulations = CoupledSimula
     work_domain_sequential!(worker, sim, coupled_simulations)
 end
 function work!(worker, multisim::MultiDomainThreadedSim, coupled_simulations = CoupledSimulations())
-    if can_thread(worker)
-        workers = TaskLocals(worker, num_tasks = get_num_tasks(multisim))
-        for (name, sim) in multisim
-            skip_this_domain(worker, name) && continue
-            coupled = get_domain_simulation(coupled_simulations, name)
+    workers = can_thread(worker) ? TaskLocals(worker, num_tasks = get_num_tasks(multisim)) : nothing
+    for (name, sim) in multisim
+        skip_this_domain(worker, name) && continue
+        coupled = get_domain_simulation(coupled_simulations, name)
+        if workers !== nothing && isempty(coupled.sims)
             work_domain_threaded!(workers, sim, coupled)
-        end
-    else
-        for (name, sim) in multisim
-            skip_this_domain(worker, name) && continue
-            coupled = get_domain_simulation(coupled_simulations, name)
+        else
             work_domain_sequential!(worker, sim, coupled)
         end
     end
 end
 function work!(worker, sim::SingleDomainThreadedSim, coupled_simulations = CoupledSimulations())
-    if can_thread(worker)
+    if can_thread(worker) && isempty(coupled_simulations.sims)
         workers = TaskLocals(worker; num_tasks = get_num_tasks(sim))
         work_domain_threaded!(workers, sim, coupled_simulations)
     else
@@ -55,9 +54,14 @@ end
 
 function work_domain_sequential!(worker, sim::Simulation{<:AbstractDomainBuffer}, coupled)
     itembuffer = get_base(get_itembuffer(sim)) # get_base if threaded buffer
+    # Skip touching coupling when there is nothing to do: not just when `coupled` is empty (the
+    # common, uncoupled case), but also when `itembuffer` is already uncoupled, so a domain that's
+    # never coupled never pays for `couple_buffers`. Otherwise (re-)establish the links: `itembuffer`
+    # may have been left coupled by a previous, different `work!` call on the same buffer.
+    cb = (isempty(coupled.sims) && isempty(get_coupled_buffers(itembuffer))) ? itembuffer : couple_buffers(itembuffer, coupled)
     for itemnr in getset(sim)
-        reinit_buffer!(itembuffer, sim, coupled, itemnr)
-        work_single!(worker, itembuffer)
+        reinit_buffer!(cb, sim, coupled, itemnr)
+        work_single!(worker, cb)
     end
 end
 

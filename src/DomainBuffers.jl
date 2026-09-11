@@ -154,25 +154,6 @@ function replace_material(dbs::DomainBuffers, replacement_function)
 end
 
 """
-    couple_buffers(dbs::Dict{String, <:AbstractDomainBuffer}; kwargs::Dict{String, <:AbstractDomainBuffer}...)
-    couple_buffers(db::AbstractDomainBuffer; kwargs::AbstractDomainBuffer...)
-
-Return new buffer(s) that are coupled with the buffers provided as keyword arguments. The key is used in 
-[`get_coupled_buffer`](@ref) to get the coupled itembuffer, such that its values may be queried. 
-
-!!! note
-    This functionality assumes that each setup has the same grid, and in case of multiple domains, these should also 
-    match.
-"""
-function couple_buffers(dbs::DomainBuffers; kwargs...)
-    return Dict(
-        key => (all(haskey(v, key) for (_, v) in kwargs) ? 
-            couple_buffers(db; (k => v[key] for (k, v) in kwargs)...) :
-            db) for (key, db) in dbs)
-    #return Dict(key => couple_buffers(db; (k => v[key] for (k, v) in kwargs)...) for (key, db) in dbs)
-end
-
-"""
     getset(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
     getset(db::AbstractDomainBuffer)
     getset(sim::Simulation[, domain::String])
@@ -240,19 +221,6 @@ end
 function replace_material(db::ThreadedDomainBuffer, replacement_function)
     base_ibuf = _replace_material(get_base(db.itembuffer), replacement_function)
     task_ibuf = map(ibuf->_replace_material(ibuf, replacement_function), get_locals(db.itembuffer))
-    return setproperties(db; itembuffer = TaskLocals(base_ibuf, task_ibuf))
-end
-
-function couple_buffers(db::DomainBuffer; kwargs...)
-    itembuffer = couple_buffers(db.itembuffer; (k => v.itembuffer for (k, v) in kwargs)...)
-    return setproperties(db; itembuffer)
-end
-
-function couple_buffers(db::ThreadedDomainBuffer; kwargs...)
-    base_ibuf = couple_buffers(get_base(db.itembuffer); (k => get_base(v.itembuffer) for (k, v) in kwargs)...)
-    task_ibuf = map(enumerate(get_locals(db.itembuffer))) do (i, ibuf)
-        couple_buffers(ibuf; (k => get_local(v.itembuffer, i) for (k, v) in kwargs)...)
-    end
     return setproperties(db; itembuffer = TaskLocals(base_ibuf, task_ibuf))
 end
 
