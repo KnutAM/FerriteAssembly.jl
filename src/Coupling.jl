@@ -82,85 +82,10 @@ function _scatter_all_partners!(csim::CoupledSimulation)
     return nothing
 end
 
-const CoupledSingleDomainSim = CoupledSimulation{<:SingleDomainSim}
-const CoupledMultiDomainSim = CoupledSimulation{<:MultiDomainSim}
-const CoupledSingleDomainThreadedSim = CoupledSimulation{<:SingleDomainThreadedSim}
-const CoupledMultiDomainThreadedSim = CoupledSimulation{<:MultiDomainThreadedSim}
-
-function work!(worker, csim::CoupledMultiDomainSim)
-    _scatter_all_partners!(csim)
-    for (name, dcsim) in csim
-        skip_this_domain(worker, name) && continue
-        work_domain_sequential!(worker, dcsim)
-    end
-end
-function work!(worker, csim::CoupledSingleDomainSim)
-    _scatter_all_partners!(csim)
-    work_domain_sequential!(worker, csim)
-end
-function work!(worker, csim::CoupledMultiDomainThreadedSim)
-    _scatter_all_partners!(csim)
-    if can_thread(worker)
-        workers = TaskLocals(worker, num_tasks = get_num_tasks(csim))
-        for (name, dcsim) in csim
-            skip_this_domain(worker, name) && continue
-            work_domain_threaded!(workers, dcsim)
-        end
-    else
-        for (name, dcsim) in csim
-            skip_this_domain(worker, name) && continue
-            work_domain_sequential!(worker, dcsim)
-        end
-    end
-end
-function work!(worker, csim::CoupledSingleDomainThreadedSim)
-    _scatter_all_partners!(csim)
-    if can_thread(worker)
-        workers = TaskLocals(worker; num_tasks = get_num_tasks(csim))
-        work_domain_threaded!(workers, csim)
-    else
-        work_domain_sequential!(worker, csim)
-    end
-end
-
-# Mirror `work.jl`'s plain-`Simulation` `work_domain_sequential!`/`work_domain_threaded!`,
-# dispatching on `CoupledSimulation` instead so that `reinit_buffer!` receives the full
-# `CoupledSimulation` (and thereby its `.partners`), not just the plain inner `Simulation`.
-function work_domain_sequential!(worker, sim::CoupledSimulation)
-    itembuffer = get_base(get_itembuffer(sim))
-    for itemnr in getset(sim)
-        reinit_buffer!(itembuffer, sim, itemnr)
-        work_single!(worker, itembuffer)
-    end
-end
-
-function work_domain_threaded!(workers, sim::CoupledSimulation)
-    itembuffers = get_itembuffer(sim) #::TaskLocals
-    scatter!(itembuffers)
-    scatter!(workers)
-    num_tasks = get_num_tasks(sim)
-    for chunk_vector in get_chunks(sim)
-        taskchunks = TaskChunks(chunk_vector)
-        Base.Experimental.@sync begin
-            for taskid in 1:num_tasks
-                itembuffer = get_local(itembuffers, taskid)
-                worker = get_local(workers, taskid)
-                Threads.@spawn begin
-                    while true
-                        taskchunk = get_chunk(taskchunks) # Union{Vector{Int}, Nothing}
-                        taskchunk === nothing && break
-                        for itemnr in taskchunk
-                            reinit_buffer!(itembuffer, sim, itemnr)
-                            work_single!(worker, itembuffer)
-                        end # itemnr
-                    end #chunk
-                end #spawn
-            end #taskid
-        end #sync
-    end #chunk_vectors
-    gather!(itembuffers)
-    gather!(workers)
-end
+# Hook hit once at the start of every top-level `work!` call (see `work.jl`); a no-op for a
+# plain `Simulation`, overridden here so a `CoupledSimulation`'s partners are scattered before
+# any per-cell work, without `work.jl` needing to know coupling exists.
+_prepare_work!(csim::CoupledSimulation) = _scatter_all_partners!(csim)
 
 """
     reinit_buffer!(cb::CoupledCellBuffer, sim::CoupledSimulation, cellnum::Int)
