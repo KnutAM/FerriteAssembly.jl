@@ -3,56 +3,177 @@
 # A `CoupledSimulations` group is built once from a set of named `Simulation`s. Each
 # primary member's domain buffer(s) are rebuilt to hold a `CoupledCellBuffer` (or
 # `AutoDiffCellBuffer{<:CoupledCellBuffer}`) itembuffer that references the *actual*
-# mutable buffers/simulations of its declared partners (primaries and refs alike, except
-# itself). No coupling is resolved or discovered during `work!`.
+# mutable buffers of its declared partners (primaries and refs alike, except itself). The
+# partner *Simulation*s needed to reinitialize those buffers are not duplicated into every
+# task-local `CoupledCellBuffer`; they live once on the `CoupledSimulation` handle and are
+# passed down to `reinit_buffer!` at call time. No coupling is resolved or discovered during
+# `work!`.
 
 """
-    CoupledMember(sim, partner_containers)
+    CoupledSimulation(sim, partners)
 
-A handle to one primary member of a [`CoupledSimulations`](@ref) group. `sim` is a
-[`Simulation`](@ref) whose domain buffer(s) have been rebuilt with coupled itembuffers.
-`partner_containers` are the raw itembuffer containers (`TaskLocals` or plain) of every
-partner this member reads from, scattered once at the start of each `work!` call so that
-threaded partners' task-local buffers observe the partner's current base state (e.g. its
-time increment) even if the partner itself has not been `work!`ed since it last changed.
+A handle to one primary member of a [`CoupledSimulations`](@ref) group (e.g. `group.a`).
+`sim` is a [`Simulation`](@ref) whose domain buffer(s) have been rebuilt with coupled
+itembuffers. `partners` holds the resolved partner `Simulation`s this member reads from: a
+`NamedTuple{name}` of partner `Simulation`s for a single-domain member, or a
+`Dict{String,<:NamedTuple}` (one `NamedTuple` of partner `Simulation`s per domain name) for a
+multi-domain member. This is the single, canonical copy of that information — passed into
+[`reinit_buffer!`](@ref) at call time rather than duplicated into every task-local buffer.
 
 Forwards the ordinary [`Simulation`](@ref) accessor API (`.a`, `.aold`, `.db`,
 `get_dofhandler`, `get_state`, `set_time_increment!`, `update_states!`, etc.).
 """
-struct CoupledMember{S<:Simulation, PT<:Tuple}
+struct CoupledSimulation{S<:Simulation, P}
     sim::S
-    partner_containers::PT
+    partners::P
 end
 
-function Base.getproperty(m::CoupledMember, name::Symbol)
-    name === :sim && return getfield(m, :sim)
-    name === :partner_containers && return getfield(m, :partner_containers)
-    return getproperty(getfield(m, :sim), name)
+function Base.getproperty(csim::CoupledSimulation, name::Symbol)
+    name === :sim && return getfield(csim, :sim)
+    name === :partners && return getfield(csim, :partners)
+    return getproperty(getfield(csim, :sim), name)
 end
 
-get_material(m::CoupledMember, args::Vararg{Any,N}) where N = get_material(getfield(m, :sim), args...)
-get_dofhandler(m::CoupledMember) = get_dofhandler(getfield(m, :sim))
-get_grid(m::CoupledMember) = get_grid(getfield(m, :sim))
-get_state(m::CoupledMember, args::Vararg{Any,N}) where N = get_state(getfield(m, :sim), args...)
-get_old_state(m::CoupledMember, args::Vararg{Any,N}) where N = get_old_state(getfield(m, :sim), args...)
-getset(m::CoupledMember, args::Vararg{Any,N}) where N = getset(getfield(m, :sim), args...)
-update_states!(m::CoupledMember; kwargs...) = update_states!(getfield(m, :sim); kwargs...)
-set_time_increment!(m::CoupledMember, Δt) = set_time_increment!(getfield(m, :sim), Δt)
-revert_states!(m::CoupledMember) = revert_states!(getfield(m, :sim))
-get_itembuffer(m::CoupledMember, args::Vararg{Any,N}) where N = get_itembuffer(getfield(m, :sim), args...)
-get_num_tasks(m::CoupledMember) = get_num_tasks(getfield(m, :sim))
-get_chunks(m::CoupledMember) = get_chunks(getfield(m, :sim))
+get_material(csim::CoupledSimulation, args::Vararg{Any,N}) where N = get_material(getfield(csim, :sim), args...)
+get_dofhandler(csim::CoupledSimulation) = get_dofhandler(getfield(csim, :sim))
+get_grid(csim::CoupledSimulation) = get_grid(getfield(csim, :sim))
+get_state(csim::CoupledSimulation, args::Vararg{Any,N}) where N = get_state(getfield(csim, :sim), args...)
+get_old_state(csim::CoupledSimulation, args::Vararg{Any,N}) where N = get_old_state(getfield(csim, :sim), args...)
+getset(csim::CoupledSimulation, args::Vararg{Any,N}) where N = getset(getfield(csim, :sim), args...)
+update_states!(csim::CoupledSimulation; kwargs...) = update_states!(getfield(csim, :sim); kwargs...)
+set_time_increment!(csim::CoupledSimulation, Δt) = set_time_increment!(getfield(csim, :sim), Δt)
+revert_states!(csim::CoupledSimulation) = revert_states!(getfield(csim, :sim))
+get_itembuffer(csim::CoupledSimulation, args::Vararg{Any,N}) where N = get_itembuffer(getfield(csim, :sim), args...)
+get_num_tasks(csim::CoupledSimulation) = get_num_tasks(getfield(csim, :sim))
+get_chunks(csim::CoupledSimulation) = get_chunks(getfield(csim, :sim))
 
-replace_material(::CoupledMember, args...; kwargs...) = throw(ArgumentError(
+replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
     "replace_material on a CoupledSimulations member is not supported; use " *
     "replace_material(group, member_name, f) to rebuild the whole group instead."))
 
-_scatter_partner!(c::TaskLocals) = scatter!(c)
-_scatter_partner!(::Any) = nothing
+# Per-domain iteration for a multi-domain member, mirroring `Simulation{<:DomainBuffers}`'s
+# own iteration but pairing each per-domain `Simulation` with its own slice of `partners`.
+function Base.iterate(csim::CoupledSimulation{<:Simulation{<:DomainBuffers}})
+    it = iterate(getfield(csim, :sim))
+    it === nothing && return nothing
+    ((name, dsim), st) = it
+    return ((name, CoupledSimulation(dsim, getfield(csim, :partners)[name])), st)
+end
+function Base.iterate(csim::CoupledSimulation{<:Simulation{<:DomainBuffers}}, st)
+    it = iterate(getfield(csim, :sim), st)
+    it === nothing && return nothing
+    ((name, dsim), st2) = it
+    return ((name, CoupledSimulation(dsim, getfield(csim, :partners)[name])), st2)
+end
 
-function work!(worker, m::CoupledMember, args...; kwargs...)
-    foreach(_scatter_partner!, getfield(m, :partner_containers))
-    return work!(worker, getfield(m, :sim), args...; kwargs...)
+_scatter_partner_container!(c::TaskLocals) = scatter!(c)
+_scatter_partner_container!(::Any) = nothing
+
+_flatten_partner_sims(partners::NamedTuple) = values(partners)
+_flatten_partner_sims(partners_by_domain::Dict) = (psim for nt in values(partners_by_domain) for psim in values(nt))
+
+# Scatter every reachable partner's task-local buffers from its base once, before any
+# per-cell work, so a threaded reader always observes the partner's *current* state (e.g. its
+# time increment) even if the partner itself has not been `work!`ed since it last changed.
+function _scatter_all_partners!(csim::CoupledSimulation)
+    for psim in _flatten_partner_sims(getfield(csim, :partners))
+        _scatter_partner_container!(get_itembuffer(psim.db))
+    end
+    return nothing
+end
+
+const CoupledSingleDomainSim = CoupledSimulation{<:SingleDomainSim}
+const CoupledMultiDomainSim = CoupledSimulation{<:MultiDomainSim}
+const CoupledSingleDomainThreadedSim = CoupledSimulation{<:SingleDomainThreadedSim}
+const CoupledMultiDomainThreadedSim = CoupledSimulation{<:MultiDomainThreadedSim}
+
+function work!(worker, csim::CoupledMultiDomainSim)
+    _scatter_all_partners!(csim)
+    for (name, dcsim) in csim
+        skip_this_domain(worker, name) && continue
+        work_domain_sequential!(worker, dcsim)
+    end
+end
+function work!(worker, csim::CoupledSingleDomainSim)
+    _scatter_all_partners!(csim)
+    work_domain_sequential!(worker, csim)
+end
+function work!(worker, csim::CoupledMultiDomainThreadedSim)
+    _scatter_all_partners!(csim)
+    if can_thread(worker)
+        workers = TaskLocals(worker, num_tasks = get_num_tasks(csim))
+        for (name, dcsim) in csim
+            skip_this_domain(worker, name) && continue
+            work_domain_threaded!(workers, dcsim)
+        end
+    else
+        for (name, dcsim) in csim
+            skip_this_domain(worker, name) && continue
+            work_domain_sequential!(worker, dcsim)
+        end
+    end
+end
+function work!(worker, csim::CoupledSingleDomainThreadedSim)
+    _scatter_all_partners!(csim)
+    if can_thread(worker)
+        workers = TaskLocals(worker; num_tasks = get_num_tasks(csim))
+        work_domain_threaded!(workers, csim)
+    else
+        work_domain_sequential!(worker, csim)
+    end
+end
+
+# Mirror `work.jl`'s plain-`Simulation` `work_domain_sequential!`/`work_domain_threaded!`,
+# dispatching on `CoupledSimulation` instead so that `reinit_buffer!` receives the full
+# `CoupledSimulation` (and thereby its `.partners`), not just the plain inner `Simulation`.
+function work_domain_sequential!(worker, sim::CoupledSimulation)
+    itembuffer = get_base(get_itembuffer(sim))
+    for itemnr in getset(sim)
+        reinit_buffer!(itembuffer, sim, itemnr)
+        work_single!(worker, itembuffer)
+    end
+end
+
+function work_domain_threaded!(workers, sim::CoupledSimulation)
+    itembuffers = get_itembuffer(sim) #::TaskLocals
+    scatter!(itembuffers)
+    scatter!(workers)
+    num_tasks = get_num_tasks(sim)
+    for chunk_vector in get_chunks(sim)
+        taskchunks = TaskChunks(chunk_vector)
+        Base.Experimental.@sync begin
+            for taskid in 1:num_tasks
+                itembuffer = get_local(itembuffers, taskid)
+                worker = get_local(workers, taskid)
+                Threads.@spawn begin
+                    while true
+                        taskchunk = get_chunk(taskchunks) # Union{Vector{Int}, Nothing}
+                        taskchunk === nothing && break
+                        for itemnr in taskchunk
+                            reinit_buffer!(itembuffer, sim, itemnr)
+                            work_single!(worker, itembuffer)
+                        end # itemnr
+                    end #chunk
+                end #spawn
+            end #taskid
+        end #sync
+    end #chunk_vectors
+    gather!(itembuffers)
+    gather!(workers)
+end
+
+"""
+    reinit_buffer!(cb::CoupledCellBuffer, sim::CoupledSimulation, cellnum::Int)
+
+Reinitialize the reader's own `cb.primary` against `sim.sim`, then reinitialize each partner
+buffer in `cb.partner_buffers` against its own partner `Simulation` stored in `sim.partners`.
+Partner reinitialization does not recurse: partner buffers are plain `CellBuffer`s, so no
+further coupling initialization happens.
+"""
+function reinit_buffer!(cb::CoupledCellBuffer, sim::CoupledSimulation, cellnum::Int)
+    reinit_buffer!(cb.primary, getfield(sim, :sim), cellnum)
+    reinit_partners!(cb.partner_buffers, getfield(sim, :partners), cellnum)
+    return nothing
 end
 
 struct CoupledSimulations{P<:NamedTuple, R<:NamedTuple, M<:NamedTuple}
@@ -96,7 +217,7 @@ function CoupledSimulations(primaries::NamedTuple; refs::NamedTuple = NamedTuple
     validate_storage_identity(all_members)
     validate_task_counts_positive(all_members)
     members = NamedTuple{keys(primaries)}(
-        Tuple(build_coupled_member(name, sim, all_members) for (name, sim) in pairs(primaries))
+        Tuple(build_coupled_simulation(name, sim, all_members) for (name, sim) in pairs(primaries))
     )
     return CoupledSimulations(primaries, refs, members)
 end
@@ -121,11 +242,11 @@ select_partner(p, ::Int) = p
 _is_autodiff(ib::AutoDiffCellBuffer) = true
 _is_autodiff(ib) = ib isa TaskLocals && get_base(ib) isa AutoDiffCellBuffer
 
-function build_coupled_itembuffer(reader_ibuf, partner_containers::NamedTuple, partner_sims::NamedTuple)
+function build_coupled_itembuffer(reader_ibuf, partner_containers::NamedTuple)
     autodiff = _is_autodiff(reader_ibuf)
     wrap(primary_cb, partners_nt) = autodiff ?
-        AutoDiffCellBuffer(CoupledCellBuffer(primary_cb, partners_nt, partner_sims)) :
-        CoupledCellBuffer(primary_cb, partners_nt, partner_sims)
+        AutoDiffCellBuffer(CoupledCellBuffer(primary_cb, partners_nt)) :
+        CoupledCellBuffer(primary_cb, partners_nt)
     if reader_ibuf isa TaskLocals
         n = length(get_locals(reader_ibuf))
         base = wrap(unwrap_cb(get_base(reader_ibuf)), map(unwrap_cb ∘ get_base, partner_containers))
@@ -159,16 +280,19 @@ function validate_domain_pair(reader_db::AbstractDomainBuffer, partner_db::Abstr
     return nothing
 end
 
+# Returns (new_db, partner_sims::NamedTuple): the rebuilt domain buffer with coupled
+# itembuffer(s), and the resolved per-domain partner `Simulation`s (for the caller to store
+# on the owning `CoupledSimulation`, not on the itembuffer itself).
 function build_coupled_domain(reader_db::AbstractDomainBuffer, partners::NamedTuple)
     for (pname, p) in pairs(partners)
         validate_domain_pair(reader_db, p.db, pname)
     end
     reader_ibuf = get_itembuffer(reader_db)
     partner_containers = map(p -> get_itembuffer(p.db), partners)
-    partner_sims = map(p -> p.sim, partners)
-    coupled_ibuf = build_coupled_itembuffer(reader_ibuf, partner_containers, partner_sims)
+    coupled_ibuf = build_coupled_itembuffer(reader_ibuf, partner_containers)
     new_db = setproperties(reader_db; itembuffer = coupled_ibuf)
-    return new_db, values(partner_containers)
+    partner_sims = map(p -> p.sim, partners)
+    return new_db, partner_sims
 end
 
 # Resolve, for a single reader domain (named `dname` when the reader is a `Dict`, or
@@ -192,40 +316,41 @@ function partner_domain_sim(dname::Union{Nothing,String}, partner_name::Symbol, 
     end
 end
 
-function build_coupled_member(name::Symbol, reader_sim::Simulation, all_members::NamedTuple)
+function build_coupled_simulation(name::Symbol, reader_sim::Simulation, all_members::NamedTuple)
     partner_names = Tuple(k for k in keys(all_members) if k != name)
     partner_sims = NamedTuple{partner_names}(Tuple(all_members[k] for k in partner_names))
     reader_db = reader_sim.db
     if reader_db isa DomainBuffers
         if isempty(reader_db)
             new_db = reader_db # nothing to couple; preserves the original (correctly-typed) empty Dict
-            containers = Any[]
+            partners_by_domain = Dict{String, NamedTuple}()
         else
-            containers = Any[]
             built = Any[]
+            partners_by_domain = Dict{String, Any}()
             for (dname, rdb) in reader_db
                 partners = NamedTuple{partner_names}(Tuple(
                     let psim_dom = partner_domain_sim(dname, pname, psim)
                         (sim = psim_dom, db = psim_dom.db)
                     end for (pname, psim) in pairs(partner_sims)
                 ))
-                ndb, conts = build_coupled_domain(rdb, partners)
+                ndb, dpartner_sims = build_coupled_domain(rdb, partners)
                 push!(built, dname => ndb)
-                append!(containers, conts)
+                partners_by_domain[dname] = dpartner_sims
             end
             new_db = Dict(built...) # infers the narrowest common concrete value type, matching MultiDomain(Threaded)Sim dispatch
         end
+        new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
+        return CoupledSimulation(new_sim, partners_by_domain)
     else
         partners = NamedTuple{partner_names}(Tuple(
             let psim_dom = partner_domain_sim(nothing, pname, psim)
                 (sim = psim_dom, db = psim_dom.db)
             end for (pname, psim) in pairs(partner_sims)
         ))
-        new_db, conts = build_coupled_domain(reader_db, partners)
-        containers = collect(conts)
+        new_db, dpartner_sims = build_coupled_domain(reader_db, partners)
+        new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
+        return CoupledSimulation(new_sim, dpartner_sims)
     end
-    new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
-    return CoupledMember(new_sim, Tuple(unique(containers)))
 end
 
 _scratch_identity(cb::CellBuffer) = cb.ae # survives replace_material's setproperties (fields copied by reference)

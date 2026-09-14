@@ -65,7 +65,7 @@
         sim1 = Simulation(d1, a1, aold1)
         sim2 = Simulation(d2, a2, aold2)
         g = CoupledSimulations((a = sim1,); refs = (b = sim2,))
-        @test g.a isa FerriteAssembly.CoupledMember
+        @test g.a isa FerriteAssembly.CoupledSimulation
         @test g.b === sim2 # refs are the plain source Simulation
 
         K = allocate_matrix(dh1)
@@ -117,9 +117,9 @@
         sim2 = Simulation(d2, a2, aold2)
         sim3 = Simulation(d3, a3, aold3)
         g = CoupledSimulations((a = sim1, b = sim2, c = sim3))
-        @test g.a isa FerriteAssembly.CoupledMember
-        @test g.b isa FerriteAssembly.CoupledMember
-        @test g.c isa FerriteAssembly.CoupledMember
+        @test g.a isa FerriteAssembly.CoupledSimulation
+        @test g.b isa FerriteAssembly.CoupledSimulation
+        @test g.c isa FerriteAssembly.CoupledSimulation
         cb_b = FerriteAssembly.get_coupled_buffers(FerriteAssembly.get_base(FerriteAssembly.get_itembuffer(g.a)))
         @test haskey(cb_b, :b) && haskey(cb_b, :c)
         # b and c views from a are nonrecursive: plain CellBuffer, no further coupling
@@ -201,7 +201,7 @@
         work!(start_assemble(K, r), g.a) # exercise before replacement, observes CS_MB
 
         g2 = FerriteAssembly.replace_material(g, :b, m -> CS_MB2()) # changes the material TYPE
-        @test g2.a isa FerriteAssembly.CoupledMember
+        @test g2.a isa FerriteAssembly.CoupledSimulation
         @test FerriteAssembly.get_material(g2.b) isa CS_MB2
         @test FerriteAssembly.get_material(g.b) isa CS_MB # old group/handle untouched
         @test g2.a !== g.a
