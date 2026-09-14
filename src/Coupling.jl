@@ -270,12 +270,12 @@ function validate_domain_pair(reader_db::AbstractDomainBuffer, partner_db::Abstr
         "coupling partner `$partner_name` does not cover all cells read by the reader"))
     reader_threaded = reader_db isa ThreadedDomainBuffer
     if reader_threaded
-        rn = get_num_tasks(reader_db)
-        rn > 0 || throw(ArgumentError("task count must be positive"))
-        pn = partner_db isa ThreadedDomainBuffer ? get_num_tasks(partner_db) : 1
-        rn == pn || throw(ArgumentError(
-            "threaded reader with $rn tasks requires coupling partner `$partner_name` to provide $rn " *
-            "task-local buffers (a sequential partner counts as 1 slot); got $pn"))
+        reader_tasks = get_num_tasks(reader_db)
+        reader_tasks > 0 || throw(ArgumentError("task count must be positive"))
+        partner_tasks = partner_db isa ThreadedDomainBuffer ? get_num_tasks(partner_db) : 1
+        reader_tasks == partner_tasks || throw(ArgumentError(
+            "threaded reader with $reader_tasks tasks requires coupling partner `$partner_name` to provide " *
+            "$reader_tasks task-local buffers (a sequential partner counts as 1 slot); got $partner_tasks"))
     end
     return nothing
 end
