@@ -55,7 +55,9 @@ reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.c
 set_time_increment!(c::AutoDiffCellBuffer, Δt) = set_time_increment!(c.cb, Δt)
 
 function _replace_material_with(ad_cb::AutoDiffCellBuffer{CB}, new_material) where CB
-    cb = setproperties(ad_cb.cb; material = new_material)
+    # A fresh `coupled_cache`: reusing `ad_cb.cb`'s would let a stale wrapper - built with the old
+    # material - be returned from `couple_itembuffers` on the new buffer.
+    cb = setproperties(ad_cb.cb; material = new_material, coupled_cache = Ref{Any}(nothing))
     if isa(cb, CB) # If type didn't change, no need to recalculate autodiff buffers
         return setproperties(ad_cb; cb)
     else
@@ -63,12 +65,32 @@ function _replace_material_with(ad_cb::AutoDiffCellBuffer{CB}, new_material) whe
     end
 end
 
-function couple_itembuffers(ad_cb::AutoDiffCellBuffer{CB}, coupled) where CB
-    cb = couple_itembuffers(ad_cb.cb, coupled)
-    if !isa(cb, CB)
-        throw(ArgumentError("An AutoDiffBuffer must be coupled during setup"))
+"""
+    couple_itembuffers(ad_cb::AutoDiffCellBuffer, coupled::NamedTuple)
+
+Link `ad_cb` to `coupled`. `ad_cb.cb`'s `coupled_buffers` is one of `CellBuffer`'s type
+parameters, so if `coupled` differs in structure from what `ad_cb.cb` currently holds, the whole
+`AutoDiffCellBuffer` - including a new `ForwardDiff.JacobianConfig` - must be rebuilt (the same
+"rebuild only if the type changed" contract [`_replace_material_with`](@ref) already uses).
+
+`ad_cb` is always the domain's own persistent buffer (the same object every `work!` call, never
+itself replaced by this function - see [`couple_itembuffers(::CellBuffer, ...)`](@ref) for why),
+so `ad_cb.cb`'s `coupled_cache` field is used to cache the *result* of this function: repeated
+calls linking to the same buffer objects (the common case, across staggered iterations reusing
+the same partner) return the previously-built `AutoDiffCellBuffer` - JacobianConfig included -
+instead of rebuilding it every `work!` call.
+"""
+function couple_itembuffers(ad_cb::AutoDiffCellBuffer{CB}, coupled::NT) where {T,CC,CV,DR,MT,ST,UD,UC,CB<:CellBuffer{T,CC,CV,DR,MT,ST,UD,UC},NT<:NamedTuple}
+    get_coupled_buffers(ad_cb.cb) === coupled && return ad_cb
+    cache = ad_cb.cb.coupled_cache
+    cached = cache[]
+    if cached !== nothing && cached[1] === coupled
+        return cached[2]::AutoDiffCellBuffer{<:CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,NT}}
     end
-    return setproperties(ad_cb; cb)
+    cb = setproperties(ad_cb.cb; coupled_buffers = coupled)::CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,NT}
+    result = isa(cb, CB) ? setproperties(ad_cb; cb) : AutoDiffCellBuffer(cb)
+    cache[] = (coupled, result)
+    return result
 end
 
 function create_local(c::AutoDiffCellBuffer)

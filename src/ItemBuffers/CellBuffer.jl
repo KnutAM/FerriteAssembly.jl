@@ -27,6 +27,10 @@ mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,CB} <: AbstractCellBuffer
     const user_data::UD               # User data for the cell (used for additional information)
     const user_cache::UC              # Cache for the cell (user type) (deepcopy for each thread)
     const coupled_buffers::CB         # NamedTuple with coupled `CellBuffer`s, empty if not coupled.
+    # Cache of the last (coupled_buffers key, couple_itembuffers result) pair, so that repeated
+    # `work!` calls linking to the *same* coupled buffer objects (the common case) skip
+    # reconstruction entirely instead of paying for it every call - see `couple_itembuffers`.
+    const coupled_cache::Base.RefValue{Any}
 end
 
 """
@@ -49,9 +53,10 @@ function CellBuffer(numdofs::Int, coords, cellvalues, material, state, dofrange,
     cellid = -1
     cache = allocate_cell_cache(material, cellvalues)
     return CellBuffer(
-        zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
-        zeros(Int, numdofs), coords, 
-        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache, NamedTuple())
+        zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs),
+        zeros(Int, numdofs), coords,
+        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache, NamedTuple(),
+        Ref{Any}(nothing))
 end
 
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
@@ -69,7 +74,7 @@ end
 # TaskLocals interface (only `create_local` required for other `AbstractCellBuffer`s) (unless gather! is req.)
 function create_local(cb::CellBuffer)
     dcpy = map(deepcopy, (cb.ae_old, cb.ae, cb.re, cb.Ke, cb.dofs, cb.coords, cb.cellvalues, cb.Δt, cb.cellid, cb.dofrange, cb.material, cb.state, cb.old_state))
-    return CellBuffer(dcpy..., cb.user_data, deepcopy(cb.user_cache), NamedTuple())
+    return CellBuffer(dcpy..., cb.user_data, deepcopy(cb.user_cache), NamedTuple(), Ref{Any}(nothing))
 end
 
 set_time_increment!(cb::CellBuffer, Δt) = (cb.Δt=Δt)
@@ -150,37 +155,33 @@ function reinit_coupled!(coupled_buffers::NamedTuple, coupled::CoupledSimulation
 end
 
 function _replace_material_with(cb::CellBuffer, new_material)
-    return setproperties(cb; material = new_material)
+    # A fresh `coupled_cache`: reusing `cb`'s would let a stale wrapper - built with the old
+    # material - be returned from `couple_itembuffers` on the new buffer.
+    return setproperties(cb; material = new_material, coupled_cache = Ref{Any}(nothing))
 end
 
 """
-    couple_buffers(cb::CellBuffer, coupled::CoupledSimulations)
+    couple_itembuffers(cb::CellBuffer, coupled_buffers::NamedTuple)
 
-Return a `cb`-like buffer whose coupled-buffer links match `coupled`. For each key in
-`coupled.sims`, links to that partner simulation's base itembuffer (fetched fresh, never a cached
-reference), so it always matches whatever is currently supplied to `work!` - no separate setup-time
-`couple_buffers` call is required or supported anymore.
+Link `cb` directly to `coupled_buffers` (already the correct buffer objects to link to - e.g.
+partner base buffers for sequential work, or this task's own per-task partner buffers for
+threaded work - no fetching needed here). Since `coupled_buffers` is one of `CellBuffer`'s type
+parameters, actually changing it requires constructing a new `CellBuffer` (all other fields keep
+the same references as `cb`, so this is cheap - no arrays are copied).
 
-Since `coupled_buffers` is one of `CellBuffer`'s type parameters, changing it requires
-constructing a new `CellBuffer` (all other fields keep the same references as `cb`, so this is
-cheap - no arrays are copied). Called once per `work!` call (not per cell) by
-[`work_domain_sequential!`](@ref); per-cell content (dofs, state) for the linked partner buffers
-is still refreshed every cell via [`reinit_coupled!`](@ref).
+`cb` is always the domain's own persistent buffer (the same object every `work!` call), so its
+[`coupled_cache`](@ref) lets repeated calls linking to the *same* buffer objects (the common case,
+across staggered iterations reusing the same partner) return the previously-built result instead
+of reconstructing - which matters far more for [`AutoDiffCellBuffer`](@ref), where reconstruction
+means rebuilding a `ForwardDiff.JacobianConfig`.
 """
-function couple_buffers(cb::CellBuffer, coupled::CoupledSimulations)
-    ks = keys(coupled.sims)
-    vs = map(k -> get_base(get_itembuffer(coupled.sims[k])), ks)
-    return setproperties(cb; coupled_buffers = NamedTuple{ks}(vs))
+function couple_itembuffers(cb::CellBuffer{T,CC,CV,DR,MT,ST,UD,UC}, coupled_buffers::NT) where {T,CC,CV,DR,MT,ST,UD,UC,NT<:NamedTuple}
+    cb.coupled_buffers === coupled_buffers && return cb
+    cached = cb.coupled_cache[]
+    if cached !== nothing && cached[1] === coupled_buffers
+        return cached[2]::CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,NT}
+    end
+    result = setproperties(cb; coupled_buffers)::CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,NT}
+    cb.coupled_cache[] = (coupled_buffers, result)
+    return result
 end
-
-"""
-    couple_buffers(cb::CellBuffer, coupled_buffers::NamedTuple)
-
-Link `cb` directly to the given `coupled_buffers` (already the correct buffer objects - e.g. this
-task's own private per-task copies from [`work_domain_threaded!`](@ref) - no fetching needed).
-"""
-function couple_buffers(cb::CellBuffer, coupled_buffers::NamedTuple)
-    return setproperties(cb; coupled_buffers)
-end
-
-couple_itembuffers(cb::CellBuffer, coupled_buffers::NamedTuple) = setproperties(cb; coupled_buffers)

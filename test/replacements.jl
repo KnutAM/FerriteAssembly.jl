@@ -272,3 +272,49 @@ end
     @test nalloc_ad_30b < 2 * nalloc_ad_30a
     @test nalloc_ad_60a < 2 * nalloc_ad_30a # doesn't scale with ncells
 end
+
+@testset "couple_buffers cache identity" begin
+    # Direct, non-allocation-based proof that `couple_itembuffers` returns the exact same cached
+    # wrapper - JacobianConfig included for AutoDiffCellBuffer - when called again with the same
+    # (===) coupled NamedTuple, instead of only appearing cheap by allocation count.
+    ip = Lagrange{RefQuadrilateral,1}()
+    qr = QuadratureRule{RefQuadrilateral}(2)
+    cv = CellValues(qr, ip, ip)
+    struct ME end
+    FerriteAssembly.element_routine!(Ke, re, state, ae, ::ME, cv, buffer) = fill!(Ke, 0)
+    struct MF end
+    f_repl(::ME) = MF()
+    grid = generate_grid(Quadrilateral, (2, 2))
+    dh1 = close!(add!(DofHandler(grid), :u, ip))
+    dh2 = close!(add!(DofHandler(grid), :v, ip))
+
+    for autodiffbuffer in (false, true)
+        d1 = setup_domainbuffer(DomainSpec(dh1, ME(), cv); autodiffbuffer)
+        d2 = setup_domainbuffer(DomainSpec(dh2, ME(), cv); autodiffbuffer)
+        itembuffer = FerriteAssembly.get_itembuffer(d1)
+        coupled_buffers = (b = FerriteAssembly.get_itembuffer(d2),)
+
+        linked1 = FerriteAssembly.couple_itembuffers(itembuffer, coupled_buffers)
+        linked2 = FerriteAssembly.couple_itembuffers(itembuffer, coupled_buffers)
+        @test linked1 === linked2 # same coupled NamedTuple -> cached wrapper reused, not rebuilt
+        if autodiffbuffer
+            @test linked1.cfg === linked2.cfg # JacobianConfig specifically not rebuilt
+        end
+
+        # A genuinely different partner buffer object (e.g. after `replace_material`, which never
+        # mutates in place) is not `===`, so must rebuild rather than reuse the cached wrapper.
+        d2_other = FerriteAssembly.replace_material(d2, identity)
+        other_coupled_buffers = (b = FerriteAssembly.get_itembuffer(d2_other),)
+        @test other_coupled_buffers !== coupled_buffers
+        linked3 = FerriteAssembly.couple_itembuffers(itembuffer, other_coupled_buffers)
+        @test linked3 !== linked1
+
+        # `replace_material` must not carry over a coupled_cache entry built with the old
+        # material: coupling the replaced buffer to the same partner must reflect the new
+        # material, not return a stale wrapper linked to the pre-replacement buffer.
+        d1_repl = FerriteAssembly.replace_material(d1, f_repl)
+        itembuffer_repl = FerriteAssembly.get_itembuffer(d1_repl)
+        linked_repl = FerriteAssembly.couple_itembuffers(itembuffer_repl, coupled_buffers)
+        @test FerriteAssembly.get_material(linked_repl) isa MF
+    end
+end

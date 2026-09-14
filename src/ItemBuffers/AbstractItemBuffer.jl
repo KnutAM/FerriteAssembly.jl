@@ -64,7 +64,21 @@ e.g. by calling `get_state(coupled_buffer)`.
 """
 @inline get_coupled_buffer(b::AbstractItemBuffer, key::Symbol) = getfield(get_coupled_buffers(b), key)
 
+get_coupled_buffers(::AbstractItemBuffer) = NamedTuple() # Default: buffer types that don't support coupling
+
+"""
+    couple_itembuffers(itembuffer::AbstractItemBuffer, coupled::NamedTuple)
+
+Return an `itembuffer`-like buffer linked to `coupled` (a `NamedTuple` of the actual buffer
+objects to link to, e.g. from [`work_domain_sequential!`](@ref)/[`work_domain_threaded!`](@ref)).
+Buffer types that support coupling (e.g. `CellBuffer`) override this to skip reconstruction
+entirely when nothing has changed since last time - the common case across repeated `work!` calls
+reusing the same partner buffers - so steady-state coupled work costs nothing extra. This default
+is for buffer types that don't support coupling at all (e.g. `FacetBuffer`): a no-op when
+`coupled` is empty, or an error if actually asked to couple.
+"""
 function couple_itembuffers(itembuffer::AbstractItemBuffer, coupled::NamedTuple)
+    get_coupled_buffers(itembuffer) === coupled && return itembuffer
     isempty(coupled) && return itembuffer
     throw(ArgumentError("$(typeof(itembuffer)) does not support coupled simulations"))
 end
