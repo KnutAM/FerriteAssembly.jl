@@ -50,27 +50,3 @@ end
 Base.iterate(sim::Simulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.db))
 Base.iterate(sim::Simulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.db, iter))
 
-"""
-    CoupledSimulations(; key1 = sim1::Simulation, key2 = sim2::Simulation, ...)
-
-Setup the collection of coupled simulations to allow values (such as state variables and 
-local dof-values from these simulations to be available when `work!`ing another simulation, 
-if the buffers have been coupled with [`couple_buffers`](@ref). 
-The coupled itembuffer on the local level is accessed with [`get_coupled_buffer`](@ref). 
-"""
-struct CoupledSimulations{NT <: NamedTuple{<:Any, <:NTuple{<:Any, Simulation}}}
-    sims::NT
-end
-CoupledSimulations(; kwargs...) = CoupledSimulations(NamedTuple{keys(kwargs)}(values(kwargs)))
-
-function get_domain_simulation(cs::CoupledSimulations, name::String)
-    # Need to return a named tuple with only the simulations that have a domain called `name`
-    sims = Pair{Symbol, Simulation}[]
-    for (key, sim) in zip(keys(cs.sims), values(cs.sims))
-        if haskey(sim.db, name)
-            push!(sims, key => get_domain_simulation(sim, name))
-        end
-    end
-    return CoupledSimulations(NamedTuple(sims))
-#    return CoupledSimulations(map(s -> get_domain_simulation(s, name), cs.sims))
-end

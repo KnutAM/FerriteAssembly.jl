@@ -17,10 +17,12 @@ include("Simulation.jl")
 include("setup.jl")
 
 include("ItemBuffers/CellBuffer.jl")
+include("ItemBuffers/CoupledCellBuffer.jl")
 include("ItemBuffers/FacetBuffer.jl")
 include("Autodiff/autodiff.jl")
 
 include("work.jl")
+include("Coupling.jl")
 include("Workers/Assemblers.jl")
 include("Workers/Integrators.jl")
 include("Workers/QuadPointEvaluator.jl")
@@ -29,7 +31,7 @@ include("LoadHandler/LoadHandler.jl")
 
 # Setup 
 export DomainSpec, setup_domainbuffer, setup_domainbuffers
-export Simulation, CoupledSimulations, couple_buffers
+export Simulation, CoupledSimulations
 # Main functions to use during simulations
 export work!, update_states!, revert_states!, set_time_increment!
 # Workers

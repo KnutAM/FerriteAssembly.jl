@@ -9,7 +9,8 @@ import MechanicalMaterialModels as MMM
 using Logging
 
 include("replacements.jl")
-include("states.jl") 
+include("coupled_simulations.jl")
+include("states.jl")
 include("threading_utils.jl")
 include("heatequation.jl")
 include("example_elements.jl")

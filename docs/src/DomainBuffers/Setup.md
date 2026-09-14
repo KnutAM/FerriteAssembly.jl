@@ -26,14 +26,26 @@ set_time_increment!(::FerriteAssembly.DomainBuffers, ::Any)
 ## Coupled simulations
 The `Simulation` type contains an abstract domain buffer, along with (optionally) 
 the global degree of freedom values, which are used to get the local values for each item.
-The main purpose is to conveniently collect these when passing into [`work!`](@ref), 
-especially in the case of `CoupledSimulations`.
 
-The idea behind the coupled simulation setup is to give access to values from a different simulation
-at the item level. For example, when solving two separate problems in parallel, and using staggered
-iterations. See the [Phase-field fracture tutorial](@ref Phase-field-fracture) for an example. 
+A [`CoupledSimulations`](@ref) group is built, once, from a set of named `Simulation`s, and
+gives access to values from other simulations at the item level (e.g. state variables and
+local dof-values) via [`get_coupled_buffer`](@ref). For example, when solving two separate
+problems in parallel using staggered iterations. See the
+[Phase-field fracture tutorial](@ref Phase-field-fracture) for an example. Coupling is
+resolved entirely at group-construction time; `work!`ing a group member (`work!(worker,
+group.member_name)`) never re-discovers or rebuilds the coupling.
+
+!!! warning "Concurrency contract"
+    Coupled buffers reference the partner's *actual* mutable storage — no copies are made.
+    `work!` calls that share any of that storage must therefore not run concurrently with
+    each other. This includes: working two members of the *same* group at the same time;
+    working a member of a group at the same time as its own original (pre-group) source
+    `Simulation`; working members of *two different* groups that were built from the same
+    source `Simulation`(s) (e.g. a group and a later `replace_material`-built group that
+    still shares some members' storage by reference); and re-entrant `work!` calls that
+    would reuse the same scratch. Ordinary staggered iteration — working one member, then
+    another, in sequence — is safe; it is *simultaneous* access to shared scratch that is not.
 ```@docs
 Simulation
-couple_buffers
 CoupledSimulations
 ```

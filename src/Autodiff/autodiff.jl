@@ -1,4 +1,6 @@
-mutable struct ElementResidual{S,M,CV,B<:CellBuffer} <: Function
+const AnyCellBuffer = Union{CellBuffer,CoupledCellBuffer}
+
+mutable struct ElementResidual{S,M,CV,B<:AnyCellBuffer} <: Function
     state::S
     material::M
     cellvalues::CV
@@ -23,19 +25,19 @@ function create_jacobian_config(er::ElementResidual)
     return ForwardDiff.JacobianConfig(er, re, ae, ForwardDiff.Chunk{length(ae)}())
 end
 
-struct AutoDiffCellBuffer{CB<:CellBuffer,ER<:ElementResidual,JC} <: AbstractCellBuffer
+struct AutoDiffCellBuffer{CB<:AnyCellBuffer,ER<:ElementResidual,JC} <: AbstractCellBuffer
     cb::CB
     er::ER
     cfg::JC # JacobianConfig
 end
 
-include("autodiff_unwrap.jl") # Experimental feature, include to remove large docstring from src here. 
+include("autodiff_unwrap.jl") # Experimental feature, include to remove large docstring from src here.
 
 """
-    AutoDiffCellBuffer(cb::CellBuffer)
+    AutoDiffCellBuffer(cb::Union{CellBuffer,CoupledCellBuffer})
 
 """
-function AutoDiffCellBuffer(cb::CellBuffer)
+function AutoDiffCellBuffer(cb::AnyCellBuffer)
     cellstate = deepcopy(get_old_state(cb)) # to be safe, copy shouldn't be required. 
     material = unwrap_material_for_ad(get_material(cb))
     cellvalues = get_values(cb)
@@ -55,16 +57,12 @@ reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.c
 set_time_increment!(c::AutoDiffCellBuffer, Δt) = set_time_increment!(c.cb, Δt)
 
 function _replace_material_with(ad_cb::AutoDiffCellBuffer{CB}, new_material) where CB
-    cb = setproperties(ad_cb.cb; material = new_material)
+    cb = _replace_material_with(ad_cb.cb, new_material)
     if isa(cb, CB) # If type didn't change, no need to recalculate autodiff buffers
         return setproperties(ad_cb; cb)
     else
         return AutoDiffCellBuffer(cb)
     end
-end
-
-function couple_buffers(cb::AutoDiffCellBuffer; kwargs...)
-    return AutoDiffCellBuffer(couple_buffers(cb.cb; kwargs...))
 end
 
 function create_local(c::AutoDiffCellBuffer)
@@ -93,7 +91,7 @@ end
 
 # Standard method if no AutoDiffCellBuffer is defined. Should be no need to use, but good to keep for 
 # benchmarks if desired. 
-function element_routine_ad!(Ke, re, state, ae, material, cellvalues, buffer::CellBuffer)
+function element_routine_ad!(Ke, re, state, ae, material, cellvalues, buffer::AnyCellBuffer)
     rf!(re_, ae_) = element_residual!(re_, state, ae_, material, cellvalues, buffer)
     try
         # Setting Chunk explicitly to solve https://github.com/KnutAM/FerriteAssembly.jl/issues/9

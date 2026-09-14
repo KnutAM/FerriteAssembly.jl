@@ -154,22 +154,15 @@ function replace_material(dbs::DomainBuffers, replacement_function)
 end
 
 """
-    couple_buffers(dbs::Dict{String, <:AbstractDomainBuffer}; kwargs::Dict{String, <:AbstractDomainBuffer}...)
-    couple_buffers(db::AbstractDomainBuffer; kwargs::AbstractDomainBuffer...)
+    replace_material(dbs::Dict{String,AbstractDomainBuffer}, domain::String, replacement_function)
 
-Return new buffer(s) that are coupled with the buffers provided as keyword arguments. The key is used in 
-[`get_coupled_buffer`](@ref) to get the coupled itembuffer, such that its values may be queried. 
-
-!!! note
-    This functionality assumes that each setup has the same grid, and in case of multiple domains, these should also 
-    match.
+Return a new instance of `dbs` where as much as possible is copied by reference, and
+where the material, `m`, of `dbs[domain]` is replaced by `replacement_function(m)`.
+Other domains are copied by reference, unchanged.
 """
-function couple_buffers(dbs::DomainBuffers; kwargs...)
-    return Dict(
-        key => (all(haskey(v, key) for (_, v) in kwargs) ? 
-            couple_buffers(db; (k => v[key] for (k, v) in kwargs)...) :
-            db) for (key, db) in dbs)
-    #return Dict(key => couple_buffers(db; (k => v[key] for (k, v) in kwargs)...) for (key, db) in dbs)
+function replace_material(dbs::DomainBuffers, domain::String, replacement_function)
+    haskey(dbs, domain) || throw(ArgumentError("domain \"$domain\" not found in $(collect(keys(dbs)))"))
+    return Dict(key => (key == domain ? replace_material(db, replacement_function) : db) for (key, db) in dbs)
 end
 
 """
@@ -243,20 +236,7 @@ function replace_material(db::ThreadedDomainBuffer, replacement_function)
     return setproperties(db; itembuffer = TaskLocals(base_ibuf, task_ibuf))
 end
 
-function couple_buffers(db::DomainBuffer; kwargs...)
-    itembuffer = couple_buffers(db.itembuffer; (k => v.itembuffer for (k, v) in kwargs)...)
-    return setproperties(db; itembuffer)
-end
-
-function couple_buffers(db::ThreadedDomainBuffer; kwargs...)
-    base_ibuf = couple_buffers(get_base(db.itembuffer); (k => get_base(v.itembuffer) for (k, v) in kwargs)...)
-    task_ibuf = map(enumerate(get_locals(db.itembuffer))) do (i, ibuf)
-        couple_buffers(ibuf; (k => get_local(v.itembuffer, i) for (k, v) in kwargs)...)
-    end
-    return setproperties(db; itembuffer = TaskLocals(base_ibuf, task_ibuf))
-end
-
-# Experimental: Insert new states, allows reusing the buffer for multiple simulations with same 
+# Experimental: Insert new states, allows reusing the buffer for multiple simulations with same
 # initial state (grid, dh, etc.), but which experience different loading. Typically for RVE simulations. 
 function replace_states!(dbs::Dict{String, <:AbstractDomainBuffer}, states::Dict{String, <:StateVariables})
     keys(dbs) == keys(states) || throw(ArgumentError("keys of dictionaries don't match"))
