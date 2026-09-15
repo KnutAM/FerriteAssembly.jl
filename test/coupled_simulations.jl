@@ -97,12 +97,12 @@
         @test is_concrete_inferred(grp -> grp.a, typeof(g))
 
         # Forwarded properties must tab-complete, not just the two real struct fields.
-        pn = propertynames(g.a)
-        @test :a in pn
-        @test :aold in pn
-        @test :db in pn
-        @test :sim in pn
-        @test :partners in pn
+        propnames = propertynames(g.a)
+        @test :a in propnames
+        @test :aold in propnames
+        @test :db in propnames
+        @test :sim in propnames
+        @test :partners in propnames
 
         K = allocate_matrix(dh1)
         r = zeros(ndofs(dh1))
