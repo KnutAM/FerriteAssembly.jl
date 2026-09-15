@@ -21,7 +21,7 @@
         aold_value = rand()
         aold = ones(ndofs(dh))*aold_value
         _getdomain(dbs::Dict, key::String) = dbs[key]
-        _getdomain(sim::Simulation, key) = FerriteAssembly.get_domain_simulation(sim, key)
+        _getdomain(sim::Simulation, key) = Simulation(sim.db[key], sim.a, sim.aold)
         for container in (buffers, buffers_ad, Simulation(buffers, nothing, aold), Simulation(buffers_ad, nothing, aold))
             # Basic access functions
             @test FerriteAssembly.get_dofhandler(container) === dh

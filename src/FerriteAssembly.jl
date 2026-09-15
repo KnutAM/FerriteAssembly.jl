@@ -21,7 +21,6 @@ include("ItemBuffers/CoupledCellBuffer.jl")
 include("ItemBuffers/FacetBuffer.jl")
 include("Autodiff/autodiff.jl")
 
-include("Coupling.jl")
 include("work.jl")
 include("Workers/Assemblers.jl")
 include("Workers/Integrators.jl")
