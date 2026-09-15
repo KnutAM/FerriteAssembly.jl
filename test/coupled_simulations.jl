@@ -44,6 +44,12 @@
             @test 6 * state ≈ FerriteAssembly.get_state(cb_b)
         end
         isnan(expected_b_dt[]) || @test FerriteAssembly.get_time_increment(cb_b) == expected_b_dt[]
+        # Present only in the 3-member mutual-coupling test below; checks that :b and :c are
+        # not positionally swapped when a reader has two distinct partners.
+        if haskey(FerriteAssembly.get_coupled_buffers(buffer), :c)
+            cb_c = FerriteAssembly.get_coupled_buffer(buffer, :c)
+            @test 7 * ae ≈ FerriteAssembly.get_ae(cb_c)
+        end
     end
     function FerriteAssembly.element_routine!(Ke, re, state, ae, m::CS_MB, cv, buffer)
         nothing # Only assembled from `:a`'s perspective in these tests
@@ -135,6 +141,82 @@
         @test nalloc < 2_000_000
     end
 
+    @testset "coupling allocations do not scale with cell count" begin
+        # The single-mesh check above only bounds allocations against a fixed ceiling on one
+        # 4-cell grid; it cannot detect a small per-cell allocation (e.g. a reintroduced
+        # per-cell wrapper/config construction) that would still be far below that ceiling.
+        # Compare a much larger mesh against a tiny one instead: coupling-specific overhead
+        # (wrapper/config construction, task-spawn/chunk machinery) is paid once per `work!`
+        # call, not per cell, so it must not grow materially with cell count.
+        struct CS_AllocA end
+        struct CS_AllocB end
+        struct CS_AllocA0 end # uncoupled baseline: same per-cell work, no partner access
+        FerriteAssembly.create_cell_state(::CS_AllocA, args...) = nothing
+        FerriteAssembly.create_cell_state(::CS_AllocB, args...) = nothing
+        FerriteAssembly.create_cell_state(::CS_AllocA0, args...) = nothing
+        function FerriteAssembly.element_routine!(Ke, re, state, ae, ::CS_AllocA, cv, buffer)
+            cb = FerriteAssembly.get_coupled_buffer(buffer, :b)
+            ae_p = FerriteAssembly.get_ae(cb)
+            @inbounds for i in eachindex(re)
+                re[i] += ae_p[i]
+            end
+            return nothing
+        end
+        FerriteAssembly.element_routine!(Ke, re, state, ae, ::CS_AllocB, cv, buffer) = nothing
+        function FerriteAssembly.element_routine!(Ke, re, state, ae, ::CS_AllocA0, cv, buffer)
+            @inbounds for i in eachindex(re)
+                re[i] += ae[i]
+            end
+            return nothing
+        end
+
+        function build_alloc_group(n)
+            grid_ = generate_grid(Quadrilateral, (n, n))
+            ip_ = Lagrange{RefQuadrilateral,1}()
+            dhA = close!(add!(DofHandler(grid_), :u, ip_))
+            dhB = close!(add!(DofHandler(grid_), :v, ip_^2))
+            cvA = CellValues(qr, ip_, ip_)
+            cvB = CellValues(qr, ip_^2, ip_)
+            aA = zeros(ndofs(dhA))
+            aB = zeros(ndofs(dhB))
+            dA = setup_domainbuffer(DomainSpec(dhA, CS_AllocA(), cvA); a = aA)
+            dB = setup_domainbuffer(DomainSpec(dhB, CS_AllocB(), cvB); a = aB)
+            simA = Simulation(dA, aA, zeros(ndofs(dhA)))
+            simB = Simulation(dB, aB, zeros(ndofs(dhB)))
+            return CoupledSimulations((a = simA,); refs = (b = simB,)), dhA
+        end
+        function build_baseline(n)
+            grid_ = generate_grid(Quadrilateral, (n, n))
+            ip_ = Lagrange{RefQuadrilateral,1}()
+            dhA = close!(add!(DofHandler(grid_), :u, ip_))
+            cvA = CellValues(qr, ip_, ip_)
+            aA = zeros(ndofs(dhA))
+            dA = setup_domainbuffer(DomainSpec(dhA, CS_AllocA0(), cvA); a = aA)
+            return Simulation(dA, aA, zeros(ndofs(dhA))), dhA
+        end
+        function measure_alloc(sim_or_group, dh_)
+            K = allocate_matrix(dh_)
+            r = zeros(ndofs(dh_))
+            asm = start_assemble(K, r)
+            work!(asm, sim_or_group) # warm up (compile)
+            work!(asm, sim_or_group) # warm up again
+            return @allocated work!(asm, sim_or_group)
+        end
+        g_small, dh_small = build_alloc_group(2)
+        g_large, dh_large = build_alloc_group(20) # 100x the cells of g_small
+        nalloc_small = measure_alloc(g_small.a, dh_small)
+        nalloc_large = measure_alloc(g_large.a, dh_large)
+
+        # Coupling-specific overhead relative to an uncoupled baseline doing equivalent
+        # per-cell work: both must be exactly zero (ordinary sequential assembly is
+        # allocation-free), so even a small per-cell allocation reintroduced by coupling
+        # would be caught, not just growth that outpaces cell count.
+        base_small = measure_alloc(build_baseline(2)...)
+        base_large = measure_alloc(build_baseline(20)...)
+        @test nalloc_small - base_small == 0
+        @test nalloc_large - base_large == 0
+    end
+
     @testset "threaded reader (1 task) with sequential partner" begin
         # validate_domain_pair explicitly allows this (a sequential partner counts as 1 slot,
         # matching a threaded reader with exactly 1 task); work! must not throw when scattering
@@ -161,22 +243,37 @@
         ip3 = Lagrange{RefQuadrilateral,1}()
         dh3 = close!(add!(DofHandler(grid), :w, ip3))
         cv3 = CellValues(qr, ip3, ip3)
-        a3 = zeros(ndofs(dh3))
+        # Same dof ordering as dh1 (same grid/interpolation/single scalar field), so a
+        # component-wise multiple of a1 gives an independently checkable per-cell value,
+        # matching the existing a2/a1 pattern used for the :b partner above.
+        a3 = 7 * a1
         aold3 = zeros(ndofs(dh3))
-        d1 = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu); a = a1)
-        d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2)
-        d3 = setup_domainbuffer(DomainSpec(dh3, CS_MC(), cv3); a = a3)
-        sim1 = Simulation(d1, a1, aold1)
-        sim2 = Simulation(d2, a2, aold2)
-        sim3 = Simulation(d3, a3, aold3)
-        g = CoupledSimulations((a = sim1, b = sim2, c = sim3))
-        @test g.a isa FerriteAssembly.CoupledSimulation
-        @test g.b isa FerriteAssembly.CoupledSimulation
-        @test g.c isa FerriteAssembly.CoupledSimulation
-        cb_b = FerriteAssembly.get_coupled_buffers(FerriteAssembly.get_base(FerriteAssembly.get_itembuffer(g.a)))
-        @test haskey(cb_b, :b) && haskey(cb_b, :c)
-        # b and c views from a are nonrecursive: plain CellBuffer, no further coupling
-        @test !hasmethod(FerriteAssembly.get_coupled_buffers, Tuple{typeof(cb_b.b)})
+        expected_b_material[] = CS_MB
+        for threading in (false, true)
+            d1 = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu); a = a1, threading)
+            d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2, threading)
+            d3 = setup_domainbuffer(DomainSpec(dh3, CS_MC(), cv3); a = a3, threading)
+            sim1 = Simulation(d1, a1, aold1)
+            sim2 = Simulation(d2, a2, aold2)
+            sim3 = Simulation(d3, a3, aold3)
+            g = CoupledSimulations((a = sim1, b = sim2, c = sim3))
+            @test g.a isa FerriteAssembly.CoupledSimulation
+            @test g.b isa FerriteAssembly.CoupledSimulation
+            @test g.c isa FerriteAssembly.CoupledSimulation
+            cb_b = FerriteAssembly.get_coupled_buffers(FerriteAssembly.get_base(FerriteAssembly.get_itembuffer(g.a)))
+            @test haskey(cb_b, :b) && haskey(cb_b, :c)
+            # b and c views from a are nonrecursive: plain CellBuffer, no further coupling
+            @test !hasmethod(FerriteAssembly.get_coupled_buffers, Tuple{typeof(cb_b.b)})
+
+            # Actually work! the reader with two distinct partners: CS_MA's element_routine!
+            # checks both :b (2x/2y-scaled dof/state values) and :c (7x-scaled dof values),
+            # so a positional mix-up between the two partner NamedTuples (buffers vs.
+            # simulations) would fail here even though it could pass a construction-only check.
+            expected_b_dt[] = NaN
+            K = allocate_matrix(dh1)
+            r = zeros(ndofs(dh1))
+            work!(start_assemble(K, r), g.a)
+        end
     end
 
     @testset "autodiff through coupling: numerical agreement" begin
@@ -310,5 +407,17 @@
 
         # Duplicate storage: same domain buffer object used under two member names
         @test_throws ArgumentError CoupledSimulations((a = sim1,); refs = (b = sim2, c = sim2))
+
+        # Unsupported buffer kind (facet buffers): rejected with an actionable ArgumentError,
+        # not a MethodError, both as a partner and as a sole primary with no partners at all
+        # (storage-identity validation runs for every member, regardless of pairing).
+        struct CS_MFacet end
+        dh_f = close!(add!(DofHandler(grid), :f, ip))
+        fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
+        d_facet = setup_domainbuffer(DomainSpec(dh_f, CS_MFacet(), fv; set=getfacetset(grid, "left")))
+        a_f = zeros(ndofs(dh_f))
+        sim_facet = Simulation(d_facet, a_f, zeros(ndofs(dh_f)))
+        @test_throws ArgumentError CoupledSimulations((a = sim_facet,))
+        @test_throws ArgumentError CoupledSimulations((a = sim1,); refs = (b = sim_facet,))
     end
 end

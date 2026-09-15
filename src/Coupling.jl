@@ -79,6 +79,8 @@ Base.propertynames(cs::CoupledSimulations) = (:primaries, :refs, :members, keys(
 
 unwrap_cb(cb::CellBuffer) = cb
 unwrap_cb(ad::AutoDiffCellBuffer) = ad.cb
+unwrap_cb(ib) = throw(ArgumentError(
+    "coupling only supports `CellBuffer`/autodiff cell buffers, got $(typeof(ib))"))
 
 select_partner(p::TaskLocals, i::Int) = get_local(p, i)
 select_partner(p, ::Int) = p
