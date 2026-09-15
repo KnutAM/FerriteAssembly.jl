@@ -86,20 +86,13 @@ replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
     "replace_material on a CoupledSimulations member is not supported; use " *
     "replace_material(group, member_name, f) to rebuild the whole group instead."))
 
-# Per-domain iteration for a multi-domain member, mirroring `Simulation{<:DomainBuffers}`'s
-# own iteration but pairing each per-domain `Simulation` with its own slice of `partners`.
-function Base.iterate(csim::CoupledSimulation{<:DomainBuffers})
-    it = iterate(csim.sim)
-    it === nothing && return nothing
-    ((name, dsim), st) = it
-    return ((name, CoupledSimulation(dsim, csim.partners[name])), st)
+@inline function _iterate(csim::CoupledSimulation{<:DomainBuffers}, iter)
+    iter === nothing && return nothing
+    ((name, sim), state) = iter
+    return ((name, CoupledSimulation(sim, csim.partners[name])), state)
 end
-function Base.iterate(csim::CoupledSimulation{<:DomainBuffers}, st)
-    it = iterate(csim.sim, st)
-    it === nothing && return nothing
-    ((name, dsim), st2) = it
-    return ((name, CoupledSimulation(dsim, csim.partners[name])), st2)
-end
+Base.iterate(sim::CoupledSimulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.sim))
+Base.iterate(sim::CoupledSimulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.sim, iter))
 
 _scatter_partner_container!(c::TaskLocals) = scatter!(c)
 _scatter_partner_container!(::Any) = nothing
