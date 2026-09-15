@@ -110,6 +110,16 @@
         @test :sim in propnames
         @test :partners in propnames
 
+        # The group itself (`CoupledSimulations`) also forwards property access to its
+        # members/refs, must tab-complete accordingly, and must reject unknown names.
+        group_propnames = propertynames(g)
+        @test :primaries in group_propnames
+        @test :refs in group_propnames
+        @test :members in group_propnames
+        @test :a in group_propnames
+        @test :b in group_propnames
+        @test_throws ArgumentError g.nonexistent_member
+
         K = allocate_matrix(dh1)
         r = zeros(ndofs(dh1))
         assembler = start_assemble(K, r)
@@ -366,6 +376,71 @@
 
         @test_throws ArgumentError FerriteAssembly.replace_material(g, :nope, identity)
         @test_throws ArgumentError FerriteAssembly.replace_material(g.a, identity)
+    end
+
+    @testset "replace_material with domain selector" begin
+        # Both members are multi-domain (matching "left"/"right" keys), as required by
+        # coupling's mixed single-domain/dictionary validation.
+        sets = Dict(k => getcellset(grid, k) for k in ("left", "right"))
+        d1m = setup_domainbuffers(Dict(k => DomainSpec(dh1, CS_MA(), cvu; set) for (k, set) in sets); a = a1)
+        d2m = setup_domainbuffers(Dict(k => DomainSpec(dh2, CS_MB(), cvv; set) for (k, set) in sets); a = a2)
+        sim1m = Simulation(d1m, a1, aold1)
+        sim2m = Simulation(d2m, a2, aold2)
+        g = CoupledSimulations((a = sim1m,); refs = (b = sim2m,))
+
+        # Success path: only the named domain's material is swapped, the other domain and
+        # the old group/handle are untouched.
+        g2 = FerriteAssembly.replace_material(g, :a, m -> CS_MB2(); domain = "left")
+        @test FerriteAssembly.get_material(g2.a.db["left"]) isa CS_MB2
+        @test FerriteAssembly.get_material(g2.a.db["right"]) isa CS_MA
+        @test FerriteAssembly.get_material(g.a.db["left"]) isa CS_MA
+
+        # Error path: `domain` given for a member whose `db` is not a domain dictionary
+        # (uses the plain single-domain group from the "replace_material through group" case).
+        d1 = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu); a = a1)
+        d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2)
+        gs = CoupledSimulations((a = Simulation(d1, a1, aold1),); refs = (b = Simulation(d2, a2, aold2),))
+        @test_throws ArgumentError FerriteAssembly.replace_material(gs, :a, identity; domain = "left")
+    end
+
+    @testset "CoupledCellBuffer forwarding (dof_range, direct replace_material)" begin
+        d1 = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu); a = a1)
+        d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2)
+        sim1 = Simulation(d1, a1, aold1)
+        sim2 = Simulation(d2, a2, aold2)
+        g = CoupledSimulations((a = sim1,); refs = (b = sim2,))
+        cb = FerriteAssembly.get_base(FerriteAssembly.get_itembuffer(g.a))
+        @test cb isa FerriteAssembly.CoupledCellBuffer
+        @test Ferrite.dof_range(cb, :u) == Ferrite.dof_range(cb.primary, :u)
+
+        # Internal-plumbing check, not a demonstration of a supported user workflow: calling
+        # `replace_material` directly on a `.db` that already wraps `CoupledCellBuffer`s (as
+        # opposed to the documented, group-level `replace_material(group, member, f)`) must
+        # still dispatch correctly and preserve the partner buffers by reference. The result
+        # is not itself re-workable through `work!`, since the partner *Simulations* needed
+        # for reinitialization live on the owning `CoupledSimulation`, not on `.db` alone.
+        new_db = FerriteAssembly.replace_material(g.a.db, m -> CS_MB2())
+        @test FerriteAssembly.get_material(new_db) isa CS_MB2
+        new_cb = FerriteAssembly.get_base(FerriteAssembly.get_itembuffer(new_db))
+        @test new_cb isa FerriteAssembly.CoupledCellBuffer
+        @test FerriteAssembly.get_coupled_buffers(new_cb) === FerriteAssembly.get_coupled_buffers(cb)
+    end
+
+    @testset "empty multi-domain reader" begin
+        # Construction-only edge case: a primary member whose own `db` is an empty domain
+        # dictionary must succeed (nothing to couple), rather than erroring while trying to
+        # iterate it. This does not imply such a member is workable via `work!` afterwards
+        # (its `Dict` value type is the abstract `AbstractDomainBuffer`, which does not match
+        # the concrete-eltype bound `work!`'s multi-domain dispatch requires) - only that
+        # `CoupledSimulations` construction itself tolerates it.
+        empty_db = Dict{String, FerriteAssembly.AbstractDomainBuffer}()
+        sim_empty = Simulation(empty_db, Float64[], Float64[])
+        d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2)
+        sim2 = Simulation(d2, a2, aold2)
+        g = CoupledSimulations((a = sim_empty,); refs = (b = sim2,))
+        @test g.a isa FerriteAssembly.CoupledSimulation
+        @test g.a.db isa Dict
+        @test isempty(g.a.db)
     end
 
     @testset "validation errors" begin

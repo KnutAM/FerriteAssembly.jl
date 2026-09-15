@@ -105,4 +105,13 @@
             @test rb ≈ ra
         end
     end
+
+    @testset "can_thread/skip_this_domain defaults" begin
+        # Every worker in the package overrides both traits, so a worker relying purely on
+        # the generic `::Any` fallback (e.g. a user-defined worker that never opts in to
+        # threading or domain skipping) must still get sensible defaults.
+        struct FA_DummyWorker end
+        @test !FA.can_thread(FA_DummyWorker())
+        @test !FA.skip_this_domain(FA_DummyWorker(), "somedomain")
+    end
 end
