@@ -1,4 +1,14 @@
 @testset "CoupledSimulations" begin
+    # `@inferred` can't check constant propagation for property access (`.a` etc.): its macro
+    # only accepts call expressions, and it infers based on the *runtime type* of arguments
+    # passed to `getproperty`, not the literal property name baked into `x.a` syntax at the
+    # call site (the case that actually matters, since that's how these are used everywhere).
+    # `Base.return_types` on a closure containing the literal dot-access captures that.
+    is_concrete_inferred(f, argtypes...) = begin
+        rt = Base.return_types(f, argtypes)
+        length(rt) == 1 && isconcretetype(rt[1])
+    end
+
     grid = generate_grid(Quadrilateral, (2,2))
     addcellset!(grid, "left", x -> x[1] < eps())
     addcellset!(grid, "right", setdiff(1:getncells(grid), getcellset(grid, "left")))
@@ -75,6 +85,24 @@
         @test g.a.aold === aold1
         @test g.a.db === g.a.sim.db
         @test g.a.db !== d1
+
+        # Property access must constant-propagate to a single concrete type (not a Union
+        # across every forwarding branch) for both the member handle's own getproperty
+        # override and the group's.
+        @test is_concrete_inferred(csim -> csim.a, typeof(g.a))
+        @test is_concrete_inferred(csim -> csim.aold, typeof(g.a))
+        @test is_concrete_inferred(csim -> csim.db, typeof(g.a))
+        @test is_concrete_inferred(csim -> csim.sim, typeof(g.a))
+        @test is_concrete_inferred(csim -> csim.partners, typeof(g.a))
+        @test is_concrete_inferred(grp -> grp.a, typeof(g))
+
+        # Forwarded properties must tab-complete, not just the two real struct fields.
+        pn = propertynames(g.a)
+        @test :a in pn
+        @test :aold in pn
+        @test :db in pn
+        @test :sim in pn
+        @test :partners in pn
 
         K = allocate_matrix(dh1)
         r = zeros(ndofs(dh1))

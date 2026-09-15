@@ -89,6 +89,9 @@ function Base.getproperty(csim::CoupledSimulation, name::Symbol)
     return getproperty(getfield(csim, :sim), name)
 end
 
+# Include the forwarded Simulation properties (`.a`, `.aold`, `.db`) so they tab-complete.
+Base.propertynames(csim::CoupledSimulation) = (:sim, :partners, propertynames(getfield(csim, :sim))...)
+
 get_domainbuffer(sim::CoupledSimulation) = get_domainbuffer(sim.sim)
 
 function scatter!(sim::CoupledSimulation{<:ThreadedDomainBuffer})
