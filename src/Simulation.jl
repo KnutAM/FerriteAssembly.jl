@@ -61,6 +61,8 @@ end
 Base.iterate(sim::Simulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.db))
 Base.iterate(sim::Simulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.db, iter))
 
+scatter!(sim::Simulation{<:ThreadedDomainBuffer}) = scatter!(get_itembuffer(sim))
+
 """
     CoupledSimulation(sim, partners)
 
@@ -82,6 +84,11 @@ end
 
 get_domainbuffer(sim::CoupledSimulation) = get_domainbuffer(sim.sim)
 
+function scatter!(sim::CoupledSimulation{<:ThreadedDomainBuffer})
+    scatter!(sim.sim)
+    map(scatter!, sim.partners)
+end
+
 replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
     "replace_material on a CoupledSimulations member is not supported; use " *
     "replace_material(group, member_name, f) to rebuild the whole group instead."))
@@ -93,24 +100,3 @@ replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
 end
 Base.iterate(sim::CoupledSimulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.sim))
 Base.iterate(sim::CoupledSimulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.sim, iter))
-
-_scatter_partner_container!(c::TaskLocals) = scatter!(c)
-_scatter_partner_container!(::Any) = nothing
-
-_flatten_partner_sims(partners::NamedTuple) = values(partners)
-_flatten_partner_sims(partners_by_domain::Dict) = (psim for nt in values(partners_by_domain) for psim in values(nt))
-
-# Scatter every reachable partner's task-local buffers from its base once, before any
-# per-cell work, so a threaded reader always observes the partner's *current* state (e.g. its
-# time increment) even if the partner itself has not been `work!`ed since it last changed.
-function _scatter_all_partners!(csim::CoupledSimulation)
-    for psim in _flatten_partner_sims(csim.partners)
-        _scatter_partner_container!(get_itembuffer(psim.db))
-    end
-    return nothing
-end
-
-# Hook hit once at the start of every top-level `work!` call (see `work.jl`); a no-op for a
-# plain `Simulation`, overridden here so a `CoupledSimulation`'s partners are scattered before
-# any per-cell work, without `work.jl` needing to know coupling exists.
-_prepare_work!(csim::CoupledSimulation) = _scatter_all_partners!(csim)

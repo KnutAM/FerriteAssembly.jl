@@ -2,11 +2,6 @@ function work!(worker, buffer::Union{AbstractDomainBuffer, DomainBuffers}; a = n
     return work!(worker, Simulation(buffer, a, aold))
 end
 
-# Hit once at the start of every top-level `work!` call, before any per-cell work. A no-op for
-# a plain `Simulation`; `Coupling.jl` overrides this for `CoupledSimulation` to scatter its
-# partners' task-local buffers, without this file needing to know coupling exists.
-_prepare_work!(::Any) = nothing
-
 """
     work!(worker, sim::Simulation)
 
@@ -24,18 +19,15 @@ The global degree of freedom vectors, `a` and `aold`, make their corresponding l
 available. If not passed, the local values are `NaN`s.
 """
 function work!(worker, multisim::AbstractMultiDomainSim)
-    _prepare_work!(multisim)
     for (name, sim) in multisim
         skip_this_domain(worker, name) && continue
         work_domain_sequential!(worker, sim)
     end
 end
 function work!(worker, sim::AbstractSingleDomainSim)
-    _prepare_work!(sim)
     work_domain_sequential!(worker, sim)
 end
 function work!(worker, multisim::AbstractMultiDomainThreadedSim)
-    _prepare_work!(multisim)
     if can_thread(worker)
         workers = TaskLocals(worker, num_tasks = get_num_tasks(multisim))
         for (name, sim) in multisim
@@ -50,7 +42,6 @@ function work!(worker, multisim::AbstractMultiDomainThreadedSim)
     end
 end
 function work!(worker, sim::AbstractSingleDomainThreadedSim)
-    _prepare_work!(sim)
     if can_thread(worker)
         workers = TaskLocals(worker; num_tasks = get_num_tasks(sim))
         work_domain_threaded!(workers, sim)
@@ -68,8 +59,8 @@ function work_domain_sequential!(worker, sim::AbstractSimulation{<:AbstractDomai
 end
 
 function work_domain_threaded!(workers, sim::AbstractSingleDomainThreadedSim)
+    scatter!(sim) # Includes scatter of the `itembuffers`
     itembuffers = get_itembuffer(sim) #::TaskLocals
-    scatter!(itembuffers)
     scatter!(workers)
     num_tasks = get_num_tasks(sim) # Default to Threads.nthreads()
     for chunk_vector in get_chunks(sim)

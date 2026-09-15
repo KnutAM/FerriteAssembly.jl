@@ -36,14 +36,6 @@ for op = (:celldofs, :getcoordinates, :getfieldnames, :cellid)
 end
 Ferrite.dof_range(cb::CoupledCellBuffer, name::Symbol) = Ferrite.dof_range(cb.primary, name)
 
-# `reinit_buffer!(cb::CoupledCellBuffer, sim::CoupledSimulation, cellnum::Int)` is defined in
-# Coupling.jl, after `CoupledSimulation` exists (this file is included before Coupling.jl).
-
-function reinit_partners!(buffers::NamedTuple, sims::NamedTuple, cellnum::Int)
-    map((b, s) -> (reinit_buffer!(b, s, cellnum); nothing), buffers, sims)
-    return nothing
-end
-
 function _replace_material_with(cb::CoupledCellBuffer, new_material)
     new_primary = _replace_material_with(cb.primary, new_material)
     return CoupledCellBuffer(new_primary, cb.partner_buffers)

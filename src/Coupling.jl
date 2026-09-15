@@ -15,7 +15,9 @@ further coupling initialization happens.
 """
 function reinit_buffer!(cb::CoupledCellBuffer, sim::CoupledSimulation, cellnum::Int)
     reinit_buffer!(cb.primary, getfield(sim, :sim), cellnum)
-    reinit_partners!(cb.partner_buffers, getfield(sim, :partners), cellnum)
+    map(cb.partner_buffers, sim.partners) do (b, s)
+        reinit_buffer!(b, s, cellnum)
+    end
     return nothing
 end
 
