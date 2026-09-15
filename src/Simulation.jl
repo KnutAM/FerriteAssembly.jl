@@ -61,6 +61,7 @@ end
 Base.iterate(sim::Simulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.db))
 Base.iterate(sim::Simulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.db, iter))
 
+scatter!(::AbstractSimulation) = nothing # only a threaded sim has task-local buffers to scatter into
 scatter!(sim::Simulation{<:ThreadedDomainBuffer}) = scatter!(get_itembuffer(sim))
 
 """
@@ -80,6 +81,12 @@ Forwards the ordinary [`Simulation`](@ref) accessor API (`.a`, `.aold`, `.db`,
 struct CoupledSimulation{DB, S <: Simulation{DB}, P} <: AbstractSimulation{DB}
     sim::S
     partners::P
+end
+
+function Base.getproperty(csim::CoupledSimulation, name::Symbol)
+    name === :sim && return getfield(csim, :sim)
+    name === :partners && return getfield(csim, :partners)
+    return getproperty(getfield(csim, :sim), name)
 end
 
 get_domainbuffer(sim::CoupledSimulation) = get_domainbuffer(sim.sim)

@@ -1,6 +1,7 @@
 # CoupledSimulations group construction and the cell-buffer-dependent parts of coupling.
 #
-# CoupledSimulation itself (struct, accessors, iteration, partner-scatter hook) lives in
+# CoupledSimulation itself (struct, accessors, iteration, the scatter! overloads that push a
+# threaded partner's current base state into its task-locals before work!) lives in
 # Simulation.jl since it needs no cell-buffer types. Everything here references CellBuffer,
 # CoupledCellBuffer, or AutoDiffCellBuffer, so this file must be included after those exist
 # (see FerriteAssembly.jl's include order).
@@ -14,7 +15,7 @@ Partner reinitialization does not recurse: partner buffers are plain `CellBuffer
 further coupling initialization happens.
 """
 function reinit_buffer!(cb::CoupledCellBuffer, sim::CoupledSimulation, cellnum::Int)
-    reinit_buffer!(cb.primary, getfield(sim, :sim), cellnum)
+    reinit_buffer!(cb.primary, sim.sim, cellnum)
     map((b, s) -> (reinit_buffer!(b, s, cellnum); nothing), cb.partner_buffers, sim.partners)
     return nothing
 end

@@ -68,6 +68,14 @@
         @test g.a isa FerriteAssembly.CoupledSimulation
         @test g.b === sim2 # refs are the plain source Simulation
 
+        # A CoupledSimulation member forwards ordinary Simulation property access: `.a`/
+        # `.aold` are the same global vectors (shared by reference, not copied), `.db` is the
+        # *rebuilt* (coupled) domain buffer, not the original source `d1`.
+        @test g.a.a === a1
+        @test g.a.aold === aold1
+        @test g.a.db === g.a.sim.db
+        @test g.a.db !== d1
+
         K = allocate_matrix(dh1)
         r = zeros(ndofs(dh1))
         assembler = start_assemble(K, r)
@@ -97,6 +105,23 @@
         work!(assembler, g.a) # warm up again to be safe against any first-use effects
         nalloc = @allocated work!(assembler, g.a)
         @test nalloc < 2_000_000
+    end
+
+    @testset "threaded reader (1 task) with sequential partner" begin
+        # validate_domain_pair explicitly allows this (a sequential partner counts as 1 slot,
+        # matching a threaded reader with exactly 1 task); work! must not throw when scattering
+        # partners before dispatch, even though the partner has no task-local buffers to
+        # scatter into.
+        expected_b_dt[] = NaN
+        expected_b_material[] = CS_MB
+        d1 = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu); a = a1, threading = true, num_tasks = 1)
+        d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2, threading = false)
+        sim1 = Simulation(d1, a1, aold1)
+        sim2 = Simulation(d2, a2, aold2)
+        g = CoupledSimulations((a = sim1,); refs = (b = sim2,))
+        K = allocate_matrix(dh1)
+        r = zeros(ndofs(dh1))
+        work!(start_assemble(K, r), g.a)
     end
 
     @testset "mutual coupling (3 members)" begin
