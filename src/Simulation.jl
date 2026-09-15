@@ -80,13 +80,7 @@ struct CoupledSimulation{DB, S <: Simulation{DB}, P} <: AbstractSimulation{DB}
     partners::P
 end
 
-function Base.getproperty(csim::CoupledSimulation, name::Symbol)
-    name === :sim && return getfield(csim, :sim)
-    name === :partners && return getfield(csim, :partners)
-    return getproperty(getfield(csim, :sim), name)
-end
-
-get_domainbuffer(sim::CoupledSimulation) = get_domainbuffer(getfield(sim, :sim))
+get_domainbuffer(sim::CoupledSimulation) = get_domainbuffer(sim.sim)
 
 replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
     "replace_material on a CoupledSimulations member is not supported; use " *
@@ -95,16 +89,16 @@ replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
 # Per-domain iteration for a multi-domain member, mirroring `Simulation{<:DomainBuffers}`'s
 # own iteration but pairing each per-domain `Simulation` with its own slice of `partners`.
 function Base.iterate(csim::CoupledSimulation{<:DomainBuffers})
-    it = iterate(getfield(csim, :sim))
+    it = iterate(csim.sim)
     it === nothing && return nothing
     ((name, dsim), st) = it
-    return ((name, CoupledSimulation(dsim, getfield(csim, :partners)[name])), st)
+    return ((name, CoupledSimulation(dsim, csim.partners[name])), st)
 end
 function Base.iterate(csim::CoupledSimulation{<:DomainBuffers}, st)
-    it = iterate(getfield(csim, :sim), st)
+    it = iterate(csim.sim, st)
     it === nothing && return nothing
     ((name, dsim), st2) = it
-    return ((name, CoupledSimulation(dsim, getfield(csim, :partners)[name])), st2)
+    return ((name, CoupledSimulation(dsim, csim.partners[name])), st2)
 end
 
 _scatter_partner_container!(c::TaskLocals) = scatter!(c)
@@ -117,7 +111,7 @@ _flatten_partner_sims(partners_by_domain::Dict) = (psim for nt in values(partner
 # per-cell work, so a threaded reader always observes the partner's *current* state (e.g. its
 # time increment) even if the partner itself has not been `work!`ed since it last changed.
 function _scatter_all_partners!(csim::CoupledSimulation)
-    for psim in _flatten_partner_sims(getfield(csim, :partners))
+    for psim in _flatten_partner_sims(csim.partners)
         _scatter_partner_container!(get_itembuffer(psim.db))
     end
     return nothing
