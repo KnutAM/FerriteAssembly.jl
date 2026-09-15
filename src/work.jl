@@ -7,15 +7,6 @@ end
 # partners' task-local buffers, without this file needing to know coupling exists.
 _prepare_work!(::Any) = nothing
 
-const AnySingleDomainSim = Union{SingleDomainSim, CoupledSimulation{<:SingleDomainSim}}
-const AnyMultiDomainSim = Union{MultiDomainSim, CoupledSimulation{<:MultiDomainSim}}
-const AnySingleDomainThreadedSim = Union{SingleDomainThreadedSim, CoupledSimulation{<:SingleDomainThreadedSim}}
-const AnyMultiDomainThreadedSim = Union{MultiDomainThreadedSim, CoupledSimulation{<:MultiDomainThreadedSim}}
-# Deliberately broad, mirroring the two concrete cases `work_domain_sequential!` is called
-# for: a genuinely sequential domain, and the sequential fallback for a threaded domain when
-# the worker doesn't support threading.
-const AnyDomainSim = Union{Simulation{<:AbstractDomainBuffer}, CoupledSimulation{<:Simulation{<:AbstractDomainBuffer}}}
-
 """
     work!(worker, sim::Simulation)
 
@@ -32,18 +23,18 @@ Simplified interface, directly forwarded to `work!(worker, Simulation(db, a, aol
 The global degree of freedom vectors, `a` and `aold`, make their corresponding local values
 available. If not passed, the local values are `NaN`s.
 """
-function work!(worker, multisim::AnyMultiDomainSim)
+function work!(worker, multisim::AbstractMultiDomainSim)
     _prepare_work!(multisim)
     for (name, sim) in multisim
         skip_this_domain(worker, name) && continue
         work_domain_sequential!(worker, sim)
     end
 end
-function work!(worker, sim::AnySingleDomainSim)
+function work!(worker, sim::AbstractSingleDomainSim)
     _prepare_work!(sim)
     work_domain_sequential!(worker, sim)
 end
-function work!(worker, multisim::AnyMultiDomainThreadedSim)
+function work!(worker, multisim::AbstractMultiDomainThreadedSim)
     _prepare_work!(multisim)
     if can_thread(worker)
         workers = TaskLocals(worker, num_tasks = get_num_tasks(multisim))
@@ -58,7 +49,7 @@ function work!(worker, multisim::AnyMultiDomainThreadedSim)
         end
     end
 end
-function work!(worker, sim::AnySingleDomainThreadedSim)
+function work!(worker, sim::AbstractSingleDomainThreadedSim)
     _prepare_work!(sim)
     if can_thread(worker)
         workers = TaskLocals(worker; num_tasks = get_num_tasks(sim))
@@ -68,7 +59,7 @@ function work!(worker, sim::AnySingleDomainThreadedSim)
     end
 end
 
-function work_domain_sequential!(worker, sim::AnyDomainSim)
+function work_domain_sequential!(worker, sim::AbstractSimulation{<:AbstractDomainBuffer})
     itembuffer = get_base(get_itembuffer(sim)) # get_base if threaded buffer
     for itemnr in getset(sim)
         reinit_buffer!(itembuffer, sim, itemnr)
@@ -76,7 +67,7 @@ function work_domain_sequential!(worker, sim::AnyDomainSim)
     end
 end
 
-function work_domain_threaded!(workers, sim::AnySingleDomainThreadedSim)
+function work_domain_threaded!(workers, sim::AbstractSingleDomainThreadedSim)
     itembuffers = get_itembuffer(sim) #::TaskLocals
     scatter!(itembuffers)
     scatter!(workers)
