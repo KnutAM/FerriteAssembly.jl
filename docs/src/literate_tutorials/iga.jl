@@ -1,9 +1,9 @@
-# # Using `IGA.jl`
-# This tutorial shows how to integrate FerriteAssembly with the 
-# isogeometric analysis toolbox IGA.jl, directly based on `IGA.jl`'s 
+# # Using `FerriteIGA.jl`
+# This tutorial shows how to integrate FerriteAssembly with the
+# isogeometric analysis toolbox FerriteIGA.jl, directly based on `FerriteIGA.jl`'s
 # [Infinite plate with hole](https://lijas.github.io/IGA.jl/dev/examples/plate_with_hole/)
-# example. Hence, please see there for further documentation details and important remarks 
-# regarding IGA. 
+# example. Hence, please see there for further documentation details and important remarks
+# regarding IGA.
 # 
 # The example considers solving a plate with a hole. A quarter of a plate is considered via symmetry 
 # boundary conditions, and a tensile load is applied on one edge.
@@ -11,15 +11,15 @@
 # [bottom of this page](@ref iga_plain_program).
 
 # Start by loading the necessary packages
-using Ferrite, IGA, LinearAlgebra, FerriteAssembly
+using Ferrite, FerriteIGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
 # ## Setup
-# To clarify the differences, we split the setup into `IGA.jl`, `Ferrite.jl`,
+# To clarify the differences, we split the setup into `FerriteIGA.jl`, `Ferrite.jl`,
 # and `FerriteAssembly.jl` specific parts.
-# ### `IGA.jl` setup 
-# We begin by generating the mesh by using `IGA.jl`'s built-in mesh generators, 
-# specifically a "plate with hole". 
+# ### `FerriteIGA.jl` setup
+# We begin by generating the mesh by using `FerriteIGA.jl`'s built-in mesh generators,
+# specifically a "plate with hole".
 function create_mesh(; nels = (20,10), order)
     nurbsmesh = generate_nurbs_patch(:plate_with_hole, nels, order)
     grid = BezierGrid(nurbsmesh)
@@ -33,8 +33,8 @@ end
 order = 2
 grid = create_mesh(; order);
 
-# Create the `IGA.jl` cell and facet values for storing the 
-# the `IGA.jl` shape function values and gradients. 
+# Create the `FerriteIGA.jl` cell and facet values for storing the
+# the `FerriteIGA.jl` shape function values and gradients.
 ip = IGAInterpolation{RefQuadrilateral, order}()
 qr_cell = QuadratureRule{RefQuadrilateral}(4)
 qr_face = FacetQuadratureRule{RefQuadrilateral}(3)
@@ -103,11 +103,11 @@ work!(qe, buffer; a=a);
 # Currently, however, IGA doesn't support L2 projection. 
 # ```julia
 # # projector = L2Projector(ip, grid)
-# # σ_nodes = IGA.igaproject(projector, qe.data, qr_cell; project_to_nodes=true);
+# # σ_nodes = FerriteIGA.igaproject(projector, qe.data, qr_cell; project_to_nodes=true);
 # ```
 
 # Output results to VTK
-IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
+FerriteIGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
 end
 
