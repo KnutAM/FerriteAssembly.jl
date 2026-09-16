@@ -1,4 +1,4 @@
-using Ferrite, IGA, LinearAlgebra, FerriteAssembly
+using Ferrite, FerriteIGA, LinearAlgebra, FerriteAssembly
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
 function create_mesh(; nels = (20,10), order)
@@ -60,7 +60,7 @@ end;
 qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
 work!(qe, buffer; a=a);
 
-IGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
+FerriteIGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
 end
 
