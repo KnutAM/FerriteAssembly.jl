@@ -158,9 +158,10 @@ db_d_uc, Kd, rd, ndofs_d = setup(PhaseFieldFracture{:d}(mbase), grid, :d;
     ip_quad = Lagrange{RefQuadrilateral, 2}()
     )
 
-sim_u0 = Simulation(db_u_uc, zeros(ndofs_u), zeros(ndofs_u))
-sim_d0 = Simulation(db_d_uc, zeros(ndofs_d), zeros(ndofs_d))
-g = CoupledSimulations((u = sim_u0, d = sim_d0)) # `:u` and `:d` mutually read each other
+g = CoupledSimulations((
+    u = Simulation(db_u_uc, zeros(ndofs_u), zeros(ndofs_u)), 
+    d = Simulation(db_d_uc, zeros(ndofs_d), zeros(ndofs_d)),
+    ))
 sim_u, sim_d = g.u, g.d;
 
 # Setup loading and boundary conditions
@@ -179,8 +180,7 @@ function get_reaction_dofs(dh)
 end;
 
 # ## Solving
-# Write function to solve one simulation part. The coupling to the other part is already
-# wired into `sim` (a `CoupledSimulations` member handle), so `work!` needs no extra input.
+# Common function to solve each simulation
 function solve_single_part(sim, K, r, ch; firsttol = 1e-5, tol = 1e-6, maxiter = 100)
     if ch !== nothing # Displacement part
         reaction_dofs = get_reaction_dofs(FerriteAssembly.get_dofhandler(sim))
