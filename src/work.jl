@@ -3,72 +3,69 @@ function work!(worker, buffer::Union{AbstractDomainBuffer, DomainBuffers}; a = n
 end
 
 """
-    work!(worker, sim::Simulation, [coupled_simulations::CoupledSimulations])
+    work!(worker, sim::Simulation)
 
 Perform the work according to `worker` over the domain(s) in `sim`.
 
-**Advance usage:** By passing the optional `coupled_simulations`, values from those simulations 
-(e.g. state variables and local dof-values) become available on the local level via 
-[`get_coupled_buffer`](@ref). This requires that the domainbuffer(s) in `sim` has been coupled 
-using [`couple_buffers`](@ref).
+**Coupled simulations:** To make values from other simulations (e.g. state variables and
+local dof-values) available on the local level via [`get_coupled_buffer`](@ref), build a
+[`CoupledSimulations`](@ref) group and call `work!(worker, group.member_name)` instead;
+the member handle already carries its resolved coupling.
 
     work!(worker, db::Union{AbstractDomainBuffer, Dict}; a = nothing, aold = nothing)
 
-Simplified interface that doesn't support coupled simulations, directly forwarded to 
-`work!(worker, Simulation(db, a, aold))`. The global degree of freedom vectors, `a` and `aold`,
-make their corresponding local values available. If not passed, the local values are `NaN`s.
+Simplified interface, directly forwarded to `work!(worker, Simulation(db, a, aold))`.
+The global degree of freedom vectors, `a` and `aold`, make their corresponding local values
+available. If not passed, the local values are `NaN`s.
 """
-function work!(worker, multisim::MultiDomainSim, coupled_simulations = CoupledSimulations())
+function work!(worker, multisim::AbstractMultiDomainSim)
     for (name, sim) in multisim
         skip_this_domain(worker, name) && continue
-        coupled = get_domain_simulation(coupled_simulations, name)
-        work_domain_sequential!(worker, sim, coupled)
+        work_domain_sequential!(worker, sim)
     end
 end
-function work!(worker, sim::SingleDomainSim, coupled_simulations = CoupledSimulations())
-    work_domain_sequential!(worker, sim, coupled_simulations)
+function work!(worker, sim::AbstractSingleDomainSim)
+    work_domain_sequential!(worker, sim)
 end
-function work!(worker, multisim::MultiDomainThreadedSim, coupled_simulations = CoupledSimulations())
+function work!(worker, multisim::AbstractMultiDomainThreadedSim)
     if can_thread(worker)
         workers = TaskLocals(worker, num_tasks = get_num_tasks(multisim))
         for (name, sim) in multisim
             skip_this_domain(worker, name) && continue
-            coupled = get_domain_simulation(coupled_simulations, name)
-            work_domain_threaded!(workers, sim, coupled)
+            work_domain_threaded!(workers, sim)
         end
     else
         for (name, sim) in multisim
             skip_this_domain(worker, name) && continue
-            coupled = get_domain_simulation(coupled_simulations, name)
-            work_domain_sequential!(worker, sim, coupled)
+            work_domain_sequential!(worker, sim)
         end
     end
 end
-function work!(worker, sim::SingleDomainThreadedSim, coupled_simulations = CoupledSimulations())
+function work!(worker, sim::AbstractSingleDomainThreadedSim)
     if can_thread(worker)
         workers = TaskLocals(worker; num_tasks = get_num_tasks(sim))
-        work_domain_threaded!(workers, sim, coupled_simulations)
+        work_domain_threaded!(workers, sim)
     else
-        work_domain_sequential!(worker, sim, coupled_simulations)
+        work_domain_sequential!(worker, sim)
     end
 end
 
-function work_domain_sequential!(worker, sim::Simulation{<:AbstractDomainBuffer}, coupled)
+function work_domain_sequential!(worker, sim::AbstractSimulation{<:AbstractDomainBuffer})
     itembuffer = get_base(get_itembuffer(sim)) # get_base if threaded buffer
     for itemnr in getset(sim)
-        reinit_buffer!(itembuffer, sim, coupled, itemnr)
+        reinit_buffer!(itembuffer, sim, itemnr)
         work_single!(worker, itembuffer)
     end
 end
 
-function work_domain_threaded!(workers, sim::SingleDomainThreadedSim, coupled)
+function work_domain_threaded!(workers, sim::AbstractSingleDomainThreadedSim)
+    scatter!(sim) # Includes scatter of the `itembuffers`
     itembuffers = get_itembuffer(sim) #::TaskLocals
-    scatter!(itembuffers)
     scatter!(workers)
     num_tasks = get_num_tasks(sim) # Default to Threads.nthreads()
     for chunk_vector in get_chunks(sim)
         taskchunks = TaskChunks(chunk_vector)
-        Base.Experimental.@sync begin 
+        Base.Experimental.@sync begin
             for taskid in 1:num_tasks
                 itembuffer = get_local(itembuffers, taskid)
                 worker = get_local(workers, taskid)
@@ -77,7 +74,7 @@ function work_domain_threaded!(workers, sim::SingleDomainThreadedSim, coupled)
                         taskchunk = get_chunk(taskchunks) # Union{Vector{Int}, Nothing}
                         taskchunk === nothing && break
                         for itemnr in taskchunk
-                            reinit_buffer!(itembuffer, sim, coupled, itemnr)
+                            reinit_buffer!(itembuffer, sim, itemnr)
                             work_single!(worker, itembuffer)
                         end # itemnr
                     end #chunk
@@ -93,8 +90,8 @@ end
 """
     can_thread(worker)::Bool
 
-Does the worker support multithreaded work? Defaults to `false`. 
-If this returns `true`, the worker must support the `TaskLocals` interface. 
+Does the worker support multithreaded work? Defaults to `false`.
+If this returns `true`, the worker must support the `TaskLocals` interface.
 """
 can_thread(::Any) = false
 

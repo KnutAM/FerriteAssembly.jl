@@ -1,76 +1,112 @@
+abstract type AbstractSimulation{DB} end
+
+const AbstractSingleDomainSim = AbstractSimulation{<:DomainBuffer}
+const AbstractMultiDomainSim = AbstractSimulation{<:Dict{String, <:DomainBuffer}}
+const AbstractSingleDomainThreadedSim = AbstractSimulation{<:ThreadedDomainBuffer}
+const AbstractMultiDomainThreadedSim = AbstractSimulation{<:Dict{String, <:ThreadedDomainBuffer}}
+
+# Must be defined
+"""
+    get_domainbuffer(sim::AbstractSimulation)
+
+Accessor for the automatic forwarding for domainbuffer methods to work
+"""
+function get_domainbuffer end
+
+# Forwarding for public API
+get_material(sim::AbstractSimulation, args::Vararg{Any, N}) where N = get_material(get_domainbuffer(sim), args...)
+get_dofhandler(sim::AbstractSimulation) = get_dofhandler(get_domainbuffer(sim))
+get_grid(sim::AbstractSimulation) = get_grid(get_domainbuffer(sim))
+get_state(sim::AbstractSimulation, args::Vararg{Any, N}) where N = get_state(get_domainbuffer(sim), args...)
+get_old_state(sim::AbstractSimulation, args::Vararg{Any, N}) where N = get_old_state(get_domainbuffer(sim), args...)
+getset(sim::AbstractSimulation, args::Vararg{Any, N}) where N = getset(get_domainbuffer(sim), args...)
+update_states!(sim::AbstractSimulation; kwargs...) = update_states!(get_domainbuffer(sim); kwargs...)
+set_time_increment!(sim::AbstractSimulation, Δt) = set_time_increment!(get_domainbuffer(sim), Δt)
+revert_states!(sim::AbstractSimulation) = revert_states!(get_domainbuffer(sim))
+
+# Forwarding for internal API
+get_num_tasks(sim::AbstractSimulation) = get_num_tasks(get_domainbuffer(sim))
+get_chunks(sim::AbstractSimulation{<:AbstractDomainBuffer}) = get_chunks(get_domainbuffer(sim))
+get_itembuffer(sim::AbstractSimulation, args::Vararg{Any, N}) where {N} = get_itembuffer(get_domainbuffer(sim), args...)
+
+
 """
     Simulation(db, a = nothing, aold = nothing)
 
-A `Simulation` is a collection of the simulation domain(s) `db`, and the 
-global degree of freedom vectors, `a` and `aold`. 
+A `Simulation` is a collection of the simulation domain(s) `db`, and the
+global degree of freedom vectors, `a` and `aold`.
 
-**Note:** 
+**Note:**
 If `a` or `aold` are not provided, the local vectors will have `NaN` values.
 """
 struct Simulation{
-        DB  <: Union{DomainBuffers, AbstractDomainBuffer}, 
-        TA  <: Union{Nothing, AbstractVector}, 
+        DB  <: Union{DomainBuffers, AbstractDomainBuffer},
+        TA  <: Union{Nothing, AbstractVector},
         TAO <: Union{Nothing, AbstractVector}
-        }
+        } <: AbstractSimulation{DB}
     db::DB
     a::TA
     aold::TAO
 end
 Simulation(db::Union{DomainBuffers, AbstractDomainBuffer}, a = nothing, aold = nothing) = Simulation(db, a, aold)
 
-const SingleDomainSim = Simulation{<:DomainBuffer}
-const MultiDomainSim = Simulation{<:Dict{String, <:DomainBuffer}}
-const SingleDomainThreadedSim = Simulation{<:ThreadedDomainBuffer}
-const MultiDomainThreadedSim = Simulation{<:Dict{String, <:ThreadedDomainBuffer}}
+get_domainbuffer(sim::Simulation) = sim.db
 
-# Forwarding for public API
-get_material(sim::Simulation, args::Vararg{Any, N}) where N = get_material(sim.db, args...)
-get_dofhandler(sim::Simulation) = get_dofhandler(sim.db)
-get_grid(sim::Simulation) = get_grid(sim.db)
-get_state(sim::Simulation, args::Vararg{Any, N}) where N = get_state(sim.db, args...)
-get_old_state(sim::Simulation, args::Vararg{Any, N}) where N = get_old_state(sim.db, args...)
-getset(sim::Simulation, args::Vararg{Any, N}) where N = getset(sim.db, args...)
-update_states!(sim::Simulation; kwargs...) = update_states!(sim.db; kwargs...)
-set_time_increment!(sim::Simulation, Δt) = set_time_increment!(sim.db, Δt)
-revert_states!(sim::Simulation) = revert_states!(sim.db)
-
-# Forwarding for internal API
-get_num_tasks(sim::Simulation) = get_num_tasks(sim.db)
-get_chunks(sim::Simulation{<:AbstractDomainBuffer}) = get_chunks(sim.db)
-get_itembuffer(sim::Simulation, args::Vararg{Any, N}) where {N} = get_itembuffer(sim.db, args...)
-
-# Internal API
-get_domain_simulation(sim::Simulation{<:DomainBuffers}, name::String) = Simulation(sim.db[name], sim.a, sim.aold)
 ## Iterator interface
 @inline function _iterate(sim::Simulation{<:DomainBuffers}, iter)
     iter === nothing && return nothing
-    ((name, db), state) = iter              
+    ((name, db), state) = iter
     return ((name, Simulation(db, sim.a, sim.aold)), state)
 end
 Base.iterate(sim::Simulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.db))
 Base.iterate(sim::Simulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.db, iter))
 
-"""
-    CoupledSimulations(; key1 = sim1::Simulation, key2 = sim2::Simulation, ...)
+scatter!(::AbstractSimulation) = nothing # only a threaded sim has task-local buffers to scatter into
+scatter!(sim::Simulation{<:ThreadedDomainBuffer}) = scatter!(get_itembuffer(sim))
 
-Setup the collection of coupled simulations to allow values (such as state variables and 
-local dof-values from these simulations to be available when `work!`ing another simulation, 
-if the buffers have been coupled with [`couple_buffers`](@ref). 
-The coupled itembuffer on the local level is accessed with [`get_coupled_buffer`](@ref). 
 """
-struct CoupledSimulations{NT <: NamedTuple{<:Any, <:NTuple{<:Any, Simulation}}}
-    sims::NT
-end
-CoupledSimulations(; kwargs...) = CoupledSimulations(NamedTuple{keys(kwargs)}(values(kwargs)))
+    CoupledSimulation(sim, partners)
 
-function get_domain_simulation(cs::CoupledSimulations, name::String)
-    # Need to return a named tuple with only the simulations that have a domain called `name`
-    sims = Pair{Symbol, Simulation}[]
-    for (key, sim) in zip(keys(cs.sims), values(cs.sims))
-        if haskey(sim.db, name)
-            push!(sims, key => get_domain_simulation(sim, name))
-        end
-    end
-    return CoupledSimulations(NamedTuple(sims))
-#    return CoupledSimulations(map(s -> get_domain_simulation(s, name), cs.sims))
+A handle to one primary member of a [`CoupledSimulations`](@ref) group (e.g. `group.a`).
+`sim` is a [`Simulation`](@ref) whose domain buffer(s) have been rebuilt with coupled
+itembuffers. `partners` holds the resolved partner `Simulation`s this member reads from: a
+`NamedTuple{name}` of partner `Simulation`s for a single-domain member, or a
+`Dict{String,<:NamedTuple}` (one `NamedTuple` of partner `Simulation`s per domain name) for a
+multi-domain member. This is the single, canonical copy of that information — passed into
+[`reinit_buffer!`](@ref) at call time rather than duplicated into every task-local buffer.
+
+Forwards the ordinary [`Simulation`](@ref) accessor API (`.a`, `.aold`, `.db`,
+`get_dofhandler`, `get_state`, `set_time_increment!`, `update_states!`, etc.).
+"""
+struct CoupledSimulation{DB, S <: Simulation{DB}, P} <: AbstractSimulation{DB}
+    sim::S
+    partners::P
 end
+
+function Base.getproperty(csim::CoupledSimulation, name::Symbol)
+    name === :sim && return getfield(csim, :sim)
+    name === :partners && return getfield(csim, :partners)
+    return getproperty(getfield(csim, :sim), name)
+end
+
+# Include the forwarded Simulation properties (`.a`, `.aold`, `.db`) so they tab-complete.
+Base.propertynames(csim::CoupledSimulation) = (:sim, :partners, propertynames(getfield(csim, :sim))...)
+
+get_domainbuffer(sim::CoupledSimulation) = get_domainbuffer(sim.sim)
+
+function scatter!(sim::CoupledSimulation{<:ThreadedDomainBuffer})
+    scatter!(sim.sim)
+    map(scatter!, sim.partners)
+end
+
+replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
+    "replace_material on a CoupledSimulations member is not supported; use " *
+    "replace_material(group, member_name, f) to rebuild the whole group instead."))
+
+@inline function _iterate(csim::CoupledSimulation{<:DomainBuffers}, iter)
+    iter === nothing && return nothing
+    ((name, sim), state) = iter
+    return ((name, CoupledSimulation(sim, csim.partners[name])), state)
+end
+Base.iterate(sim::CoupledSimulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.sim))
+Base.iterate(sim::CoupledSimulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.sim, iter))

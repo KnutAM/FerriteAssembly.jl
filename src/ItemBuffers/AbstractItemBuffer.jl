@@ -58,10 +58,10 @@ function get_user_cache end
 """
     get_coupled_buffer(b::AbstractItemBuffer, key::Symbol)
 
-Get the coupled buffer `key` from `b`. To enable this, use [`couple_buffers`](@ref) on the 
-domain buffers. The coupled buffer can be queried just like a normal item buffer,
-e.g. by calling `get_state(coupled_buffer)`.
-""" 
+Get the coupled buffer `key` from `b`. To enable this, build a [`CoupledSimulations`](@ref)
+group and `work!` its member handles. The coupled buffer can be queried just like a normal
+item buffer, e.g. by calling `get_state(coupled_buffer)`.
+"""
 @inline get_coupled_buffer(b::AbstractItemBuffer, key::Symbol) = getfield(get_coupled_buffers(b), key)
 
 """

@@ -100,7 +100,7 @@ allocations. Returns `nothing` by default.
 """
 allocate_facet_cache(::Any, ::Any) = nothing
 
-function reinit_buffer!(fb::FacetBuffer, sim::Simulation, #=coupled=#_, fi::FacetIndex)
+function reinit_buffer!(fb::FacetBuffer, sim::Simulation, fi::FacetIndex)
     cellnum, facetnr = fi
     dh = get_dofhandler(sim)
     fb.cellid = cellnum

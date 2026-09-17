@@ -9,10 +9,10 @@ Each worker that supports a cellbuffer should overload this function.
 """
 function work_single_cell! end
 
-mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,CB} <: AbstractCellBuffer
+mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC} <: AbstractCellBuffer
     const ae_old::Vector{T}           # Old element dof values
     const ae::Vector{T}               # Current element dof values
-    const re::Vector{T}               # Residual/force vector 
+    const re::Vector{T}               # Residual/force vector
     const Ke::Matrix{T}               # Element stiffness matrix
     const dofs::Vector{Int}           # celldofs
     const coords::CC                  # cellcoords (or what is required to reinit cellvalues)
@@ -26,7 +26,6 @@ mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,CB} <: AbstractCellBuffer
     old_state::ST                     # Old state variables for the cell (updated in reinit!)
     const user_data::UD               # User data for the cell (used for additional information)
     const user_cache::UC              # Cache for the cell (user type) (deepcopy for each thread)
-    const coupled_buffers::CB         # nothing or NamedTuple with staggered coupled `CellBuffer`s. 
 end
 
 """
@@ -49,9 +48,9 @@ function CellBuffer(numdofs::Int, coords, cellvalues, material, state, dofrange,
     cellid = -1
     cache = allocate_cell_cache(material, cellvalues)
     return CellBuffer(
-        zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs), 
-        zeros(Int, numdofs), coords, 
-        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache, nothing)
+        zeros(numdofs), zeros(numdofs), zeros(numdofs), zeros(numdofs,numdofs),
+        zeros(Int, numdofs), coords,
+        cellvalues, Δt, cellid, dofrange, material, state, state, user_data, cache)
 end
 
 setup_cellbuffer(ad::Bool, args...; kwargs...) = setup_cellbuffer(Val(ad), args...; kwargs...)
@@ -59,10 +58,6 @@ function setup_cellbuffer(::Val{false}, sdh, cv, material, cell_state, dofrange,
     numdofs = ndofs_per_cell(sdh)
     coords = getcoordinates(_getgrid(sdh), first(_getcellset(sdh)))
     return CellBuffer(numdofs, coords, cv, material, cell_state, dofrange, user_data)
-end
-
-function couple_buffers(cb::CellBuffer; kwargs...)
-    return setproperties(cb; coupled_buffers = NamedTuple{keys(kwargs)}(values(kwargs)))
 end
 
 function setup_cellbuffer(::Val{true}, args...)
@@ -73,7 +68,7 @@ end
 # TaskLocals interface (only `create_local` required for other `AbstractCellBuffer`s) (unless gather! is req.)
 function create_local(cb::CellBuffer)
     dcpy = map(deepcopy, (cb.ae_old, cb.ae, cb.re, cb.Ke, cb.dofs, cb.coords, cb.cellvalues, cb.Δt, cb.cellid, cb.dofrange, cb.material, cb.state, cb.old_state))
-    return CellBuffer(dcpy..., cb.user_data, deepcopy(cb.user_cache), create_local(cb.coupled_buffers))
+    return CellBuffer(dcpy..., cb.user_data, deepcopy(cb.user_cache))
 end
 
 set_time_increment!(cb::CellBuffer, Δt) = (cb.Δt=Δt)
@@ -106,8 +101,6 @@ Ferrite.getfieldnames(cb::CellBuffer) = keys(cb.dofrange)
 
 @inline get_user_cache(cb::CellBuffer) = cb.user_cache
 
-@inline get_coupled_buffers(cb::CellBuffer) = cb.coupled_buffers
-
 """
     FerriteAssembly.allocate_cell_cache(material, cellvalues)
 
@@ -118,15 +111,15 @@ used to reduce allocations. Returns `nothing` by default.
 allocate_cell_cache(::Any, ::Any) = nothing
 
 """
-    reinit_buffer!(cb::CellBuffer, sim::Simulation, coupled, cellnum::Int)
+    reinit_buffer!(cb::CellBuffer, sim::Simulation, cellnum::Int)
 
 Reinitialize the `cb::CellBuffer` for cell number `cellnum`.
 The global degree of freedom vectors `a` (current) and `aold` are used
 to update the cell degree of freedom vectors in `c`.
 If the global vectors are not included in `sim`, the corresponding local vectors are set to `NaN`
-The element stiffness, `cb.Ke`, and residual, `cb.re`, are also zeroed. 
+The element stiffness, `cb.Ke`, and residual, `cb.re`, are also zeroed.
 """
-function reinit_buffer!(cb::CellBuffer, sim::Simulation, coupled, cellnum::Int)
+function reinit_buffer!(cb::CellBuffer, sim::Simulation, cellnum::Int)
     dh = get_dofhandler(sim)
     grid = dh.grid
     cb.cellid = cellnum
@@ -139,19 +132,7 @@ function reinit_buffer!(cb::CellBuffer, sim::Simulation, coupled, cellnum::Int)
     _copydofs!(cb.ae_old, sim.aold, cb.dofs) # ae_old .= a_old[dofs]
     fill!(cb.Ke, 0)
     fill!(cb.re, 0)
-    reinit_coupled!(cb.coupled_buffers, coupled, cellnum)
-    return nothing  # Ferrite's reinit! doesn't return 
-end
-
-# No coupled buffer, no coupled simulation
-reinit_coupled!(::Nothing, coupled::CoupledSimulations{@NamedTuple{}}, cellnum::Int) = nothing
-
-function reinit_coupled!(coupled_buffers::NamedTuple, coupled::CoupledSimulations, cellnum::Int)
-    if length(coupled_buffers) != length(coupled.sims)
-        throw(ArgumentError("When using coupled simulations, the coupled buffers must match the coupled simulations"))
-    end
-    tuple((reinit_buffer!(cb, coupled.sims[k], CoupledSimulations(), cellnum) for (k, cb) in pairs(coupled_buffers))...)
-    return nothing
+    return nothing  # Ferrite's reinit! doesn't return
 end
 
 function _replace_material_with(cb::CellBuffer, new_material)

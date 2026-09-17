@@ -21,7 +21,7 @@
         aold_value = rand()
         aold = ones(ndofs(dh))*aold_value
         _getdomain(dbs::Dict, key::String) = dbs[key]
-        _getdomain(sim::Simulation, key) = FerriteAssembly.get_domain_simulation(sim, key)
+        _getdomain(sim::Simulation, key) = Simulation(sim.db[key], sim.a, sim.aold)
         for container in (buffers, buffers_ad, Simulation(buffers, nothing, aold), Simulation(buffers_ad, nothing, aold))
             # Basic access functions
             @test FerriteAssembly.get_dofhandler(container) === dh
@@ -36,7 +36,7 @@
             cell_id = first(cellset)
             cb1 = FerriteAssembly.get_itembuffer(cont1)
             sim = isa(container, Simulation) ? cont1 : Simulation(cont1, nothing, aold)
-            FerriteAssembly.reinit_buffer!(cb1, sim, CoupledSimulations(), cell_id)
+            FerriteAssembly.reinit_buffer!(cb1, sim, cell_id)
             @test FerriteAssembly.get_user_data(cb1) === userdata 
             @test FerriteAssembly.get_user_cache(cb1) == [1.0]
             ae_old = FerriteAssembly.get_aeold(cb1)
@@ -82,7 +82,7 @@
         aold = ones(ndofs(dh))*aold_value
         facetbuffer = FerriteAssembly.get_itembuffer(buffer)
         facet_id = first(FerriteAssembly.getset(buffer))
-        FerriteAssembly.reinit_buffer!(facetbuffer, Simulation(buffer, zeros(ndofs(dh)), aold), CoupledSimulations(), facet_id)
+        FerriteAssembly.reinit_buffer!(facetbuffer, Simulation(buffer, zeros(ndofs(dh)), aold), facet_id)
         @test FerriteAssembly.get_user_data(facetbuffer) === userdata 
         @test FerriteAssembly.get_user_cache(facetbuffer) == [1.0]
         @test FerriteAssembly.get_user_cache(facetbuffer) !== FerriteAssembly.get_user_cache(FerriteAssembly.get_itembuffer(buffers["right"]))
