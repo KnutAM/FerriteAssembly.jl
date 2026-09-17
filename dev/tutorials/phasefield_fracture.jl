@@ -126,8 +126,11 @@ db_d_uc, Kd, rd, ndofs_d = setup(PhaseFieldFracture{:d}(mbase), grid, :d;
     ip_quad = Lagrange{RefQuadrilateral, 2}()
     )
 
-sim_u = Simulation(couple_buffers(db_u_uc; d = db_d_uc), zeros(ndofs_u), zeros(ndofs_u))
-sim_d = Simulation(couple_buffers(db_d_uc; u = db_u_uc), zeros(ndofs_d), zeros(ndofs_d));
+g = CoupledSimulations((
+    u = Simulation(db_u_uc, zeros(ndofs_u), zeros(ndofs_u)),
+    d = Simulation(db_d_uc, zeros(ndofs_d), zeros(ndofs_d)),
+    ))
+sim_u, sim_d = g.u, g.d;
 
 load_function(t) = 1e-4 * t
 
@@ -142,7 +145,7 @@ function get_reaction_dofs(dh)
     return ch_dummy.prescribed_dofs
 end;
 
-function solve_single_part(sim, coupled, K, r, ch; firsttol = 1e-5, tol = 1e-6, maxiter = 100)
+function solve_single_part(sim, K, r, ch; firsttol = 1e-5, tol = 1e-6, maxiter = 100)
     if ch !== nothing # Displacement part
         reaction_dofs = get_reaction_dofs(FerriteAssembly.get_dofhandler(sim))
     else
@@ -150,7 +153,7 @@ function solve_single_part(sim, coupled, K, r, ch; firsttol = 1e-5, tol = 1e-6, 
     end
     for i in 1:maxiter
         assembler = start_assemble(K, r)
-        work!(assembler, sim, coupled)
+        work!(assembler, sim)
         rf = sum(i -> r[i], reaction_dofs; init = zero(eltype(r)))
         ch === nothing || apply_zero!(K, r, ch)
         res = norm(r)
@@ -176,9 +179,9 @@ function solve(sim_u, sim_d, Ku, ru, Kd, rd, ch_u, grid)
         max_staggered = 2500
         for iter in 1:max_staggered
             num = iter
-            u_converged, rf = solve_single_part(sim_u, CoupledSimulations(d = sim_d), Ku, ru, ch_u)
+            u_converged, rf = solve_single_part(sim_u, Ku, ru, ch_u)
             u_converged && break # Displacement was converged without updating
-            d_converged, _ = solve_single_part(sim_d, CoupledSimulations(u = sim_u), Kd, rd, nothing)
+            d_converged, _ = solve_single_part(sim_d, Kd, rd, nothing)
             d_converged && break # Damage was converged without updating
             iter ≥ max_staggered && error("Did not converge in staggered iterations")
         end
