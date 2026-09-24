@@ -114,7 +114,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
         apply!(a, ch)
         fill!(fext, 0)
         apply!(fext, lh, t)
-        ## The applied traction is linear in `t`, so if `fext` accumulated loads
+        ## The applied traction is linear in `t`, so if `fext` accumulated loads #src
         ## from previous steps instead of being reset, it would not match `t * fext_unit`. #src
         @test fext ≈ t * fext_unit #src
         for i in 1:maxiter
