@@ -104,6 +104,8 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
     r = zeros(ndofs(dh))
     fext = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
+    fext_unit = zeros(ndofs(dh)) #src
+    apply!(fext_unit, lh, 1.0)   #src
     ## Prepare postprocessing
     pvd = paraview_collection("multiple_materials")
     for (n, t) in enumerate(time_history)
@@ -112,9 +114,9 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
         apply!(a, ch)
         fill!(fext, 0)
         apply!(fext, lh, t)
-        fext_check = zeros(length(fext)) #src
-        apply!(fext_check, lh, t)        #src
-        @test fext ≈ fext_check          #src
+        ## The applied traction is linear in `t`, so if `fext` accumulated loads
+        ## from previous steps instead of being reset, it would not match `t * fext_unit`. #src
+        @test fext ≈ t * fext_unit #src
         for i in 1:maxiter
             ## Assemble the system
             assembler = start_assemble(K, r)
