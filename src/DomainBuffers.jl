@@ -63,6 +63,16 @@ get_old_state(db::DomainBuffers) = Dict(key=>get_old_state(val) for (key,val) in
     get_material(sim::Simulation)
 
 Get the material for the domain represented by `db` or `dbs[domain]`.
+
+**Note:** This always returns the *base* material. If `db` is threaded, `work!` uses
+independent copies of this material that were created for each task when `db` was set
+up (or last passed to [`replace_material`](@ref)); those task-local copies are *not*
+kept in sync with the object returned here. Mutating that object in place (e.g.
+`get_material(db).k = 2.0` for a mutable material) is therefore only reliably observed
+by sequential work (including a worker with `can_thread(worker) == false` run on a
+threaded `db`) and can silently leave already-threaded work using the old value. Use
+[`replace_material`](@ref) to update a material so that both sequential and threaded
+storage are updated consistently.
 """
 get_material(db::DomainBuffers, domain::String) = get_material(db[domain])
 
@@ -146,8 +156,31 @@ end
     replace_material(db::Dict{String,AbstractDomainBuffer}, replacement_function)
     replace_material(db::AbstractDomainBuffer, replacement_function)
 
-Return a new instance of `db` where as much as possible is copied by reference, and 
+Return a new instance of `db` where as much as possible is copied by reference, and
 where the stored material, `m`, is replaced by `replacement_function(m)`.
+
+This is the supported way to update a material: unlike mutating the object returned by
+[`get_material`](@ref) in place, it updates *every* copy used by `db` (the base material
+as well as each threaded task's copy), so sequential and threaded work agree afterwards.
+
+**Note:** `replacement_function` is applied separately to the base material and to each
+existing task-local copy; it is not applied once to the base and then propagated. If a
+material was previously mutated in place so that task-local copies already differ from
+the base (the pitfall documented on [`get_material`](@ref)), `replacement_function`
+receiving different inputs for different copies can leave them inconsistent with each
+other. Prefer a `replacement_function` that does not depend on its input (e.g.
+`m -> MyMaterial(2.0)` rather than `m -> MyMaterial(2*m.k)`) whenever the material may
+have diverged this way, or simply avoid in-place mutation entirely and always go through
+`replace_material`.
+
+**Note:** `replace_material` does not deep-copy `replacement_function`'s return value; if
+it returns the *same* mutable object for multiple calls (e.g. a closure capturing one
+shared instance), that object becomes aliased across the returned buffer's copies (and
+possibly the original `db`'s, since unrelated fields are still shared by reference).
+Working with aliased mutable materials concurrently across tasks, or working `db` and its
+replacement at the same time, is then not safe from data races: return an independent
+instance per call if per-task isolation is required, and treat `db` as superseded by
+its replacement rather than continuing to use both.
 """
 function replace_material(dbs::DomainBuffers, replacement_function)
     return Dict(key=>replace_material(db, replacement_function) for (key,db) in dbs)
@@ -158,7 +191,8 @@ end
 
 Return a new instance of `dbs` where as much as possible is copied by reference, and
 where the material, `m`, of `dbs[domain]` is replaced by `replacement_function(m)`.
-Other domains are copied by reference, unchanged.
+Other domains are copied by reference, unchanged. See the single-domain
+[`replace_material`](@ref) method for the update contract and its caveats.
 """
 function replace_material(dbs::DomainBuffers, domain::String, replacement_function)
     haskey(dbs, domain) || throw(ArgumentError("domain \"$domain\" not found in $(collect(keys(dbs)))"))

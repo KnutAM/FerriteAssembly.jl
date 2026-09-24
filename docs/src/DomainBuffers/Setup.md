@@ -23,6 +23,21 @@ revert_states!(::FerriteAssembly.DomainBuffers)
 set_time_increment!(::FerriteAssembly.DomainBuffers, ::Any)
 ```
 
+## Updating materials
+!!! warning "Material update contract"
+    `get_material` (above) always returns the *base* material; a threaded domain buffer's
+    task-local copies, used by threaded `work!`, are **not** kept in sync with mutations to
+    that returned object. Use `replace_material` instead, and rebind its result (it returns
+    a new buffer rather than mutating `db`). `replace_material` is `public` but not
+    `export`ed, so qualify it (or `using FerriteAssembly: replace_material`):
+    ```julia
+    db = FerriteAssembly.replace_material(db, m -> MyMaterial(; k = 2.0))
+    ```
+```@docs
+FerriteAssembly.replace_material(::FerriteAssembly.DomainBuffers, ::Any)
+FerriteAssembly.replace_material(::FerriteAssembly.DomainBuffers, ::String, ::Any)
+```
+
 ## Coupled simulations
 The `Simulation` type contains an abstract domain buffer, along with (optionally) 
 the global degree of freedom values, which are used to get the local values for each item.
