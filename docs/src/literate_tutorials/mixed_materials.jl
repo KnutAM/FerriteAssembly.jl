@@ -78,25 +78,14 @@ buffer = setup_domainbuffers(domains);
 # `Ferrite`'s `L2Projector`.
 # 
 # First, we define a function to calculate the stresses for each material.
-# Note that here we have to use some internals from `MechanicalMaterialModels.jl`,
-# but this should be solved with 
-# [MaterialModelsBase#12](https://github.com/KnutAM/MaterialModelsBase.jl/issues/12).
+# We use `MaterialModelsBase.stress_from_state`, which calculates the stress
+# conjugated to a given strain that is consistent with an already-converged
+# `state`, without invoking any local iteration that would advance history
+# variables. For a `ReducedStressState`, such as our plane-stress case, this
+# correctly accounts for the reduced dimensionality (e.g. plane stress).
 
 function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
-    ϵ = symmetric(∇u) # Already the reduced (in-plane) strain
-    return calculate_stress(m.stress_state, m.material, ϵ, qp_state)
-end
-function calculate_stress(stress_state, m::LinearElastic, ϵ, qp_state)
-    σ, _, _ = material_response(stress_state, m, ϵ, qp_state)
-    return σ
-end
-function calculate_stress(stress_state, m::Plastic, ϵ, qp_state)
-    ## `qp_state.ϵp` is the full 3d converged plastic strain, whose out-of-plane
-    ## component already accounts for the plane-stress constraint. Using it here,
-    ## rather than re-running `Plastic`'s own `material_response`, avoids advancing
-    ## the (already converged) state a second time during postprocessing.
-    ϵₑ = ϵ - MaterialModelsBase.reduce_tensordim(stress_state, qp_state.ϵp)
-    return calculate_stress(stress_state, m.elastic, ϵₑ, qp_state)
+    return stress_from_state(m, symmetric(∇u), qp_state)
 end;
 
 # And then we create the QuadPointEvaluator including this function
