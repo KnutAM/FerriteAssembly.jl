@@ -17,6 +17,7 @@
 using Ferrite, FerriteAssembly, FerriteMeshParser
 using MaterialModelsBase, MechanicalMaterialModels, WriteVTK
 using Downloads: download
+using Test #src
 
 # ## Setup Ferrite quantities
 # We start by the downloading and parsing the grid containing a central inclusion,
@@ -77,17 +78,15 @@ buffer = setup_domainbuffers(domains);
 # `Ferrite`'s `L2Projector`.
 # 
 # First, we define a function to calculate the stresses for each material.
-# Note that here we have to use some internals from `MechanicalMaterialModels.jl`,
-# but this should be solved with 
-# [MaterialModelsBase#12](https://github.com/KnutAM/MaterialModelsBase.jl/issues/12).
+# We use `MaterialModelsBase.stress_from_state`, which calculates the stress
+# conjugated to a given strain that is consistent with an already-converged
+# `state`, without invoking any local iteration that would advance history
+# variables. For a `ReducedStressState`, such as our plane-stress case, this
+# correctly accounts for the reduced dimensionality (e.g. plane stress).
 
 function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
-    ϵ = MaterialModelsBase.expand_tensordim(m.stress_state, symmetric(∇u))
-    σ = calculate_stress(m.material, ϵ, qp_state)
-    return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
-end
-calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
-calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);
+    return stress_from_state(m, symmetric(∇u), qp_state)
+end;
 
 # And then we create the QuadPointEvaluator including this function
 qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
@@ -105,13 +104,19 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
     r = zeros(ndofs(dh))
     fext = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
+    fext_unit = zeros(ndofs(dh)) #src
+    apply!(fext_unit, lh, 1.0)   #src
     ## Prepare postprocessing
     pvd = paraview_collection("multiple_materials")
     for (n, t) in enumerate(time_history)
         ## Update and apply the Dirichlet boundary conditions
         update!(ch, t)
         apply!(a, ch)
+        fill!(fext, 0)
         apply!(fext, lh, t)
+        ## The applied traction is linear in `t`, so if `fext` accumulated loads #src
+        ## from previous steps instead of being reset, it would not match `t * fext_unit`. #src
+        @test fext ≈ t * fext_unit #src
         for i in 1:maxiter
             ## Assemble the system
             assembler = start_assemble(K, r)
@@ -144,6 +149,27 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
     return nothing
 end;
 solve_nonlinear_timehistory(buffer, dh, ch, lh, proj, qe; time_history=collect(range(0, 1, 20)));
+
+## Regression checks for `calculate_stress`'s plane-stress postprocessing (hidden from docs) #src
+## Analytical reference: for isotropic plane stress with E, ν and ϵ11=0.01, ϵ22=ϵ12=0,       #src
+## σ11 = E/(1-ν^2)*ϵ11 and σ22 = E/(1-ν^2)*ν*ϵ11.                                             #src
+let                                                                                           #src
+    E, ν = 210e3, 0.3                                                                         #src
+    ϵ11 = 0.01                                                                                #src
+    ∇u = Tensor{2,2}((ϵ11, 0.0, 0.0, 0.0))                                                    #src
+    qp_state = MaterialModelsBase.initial_material_state(elastic_material)                    #src
+    σ = calculate_stress(elastic_material, zero(Vec{2}), ∇u, qp_state)                        #src
+    σ11_ref = E / (1 - ν^2) * ϵ11                                                             #src
+    σ22_ref = E / (1 - ν^2) * ν * ϵ11                                                         #src
+    @test σ[1, 1] ≈ σ11_ref                                                                   #src
+    @test σ[2, 2] ≈ σ22_ref                                                                   #src
+    ## Check that the eliminated out-of-plane stress is indeed zero                           #src
+    _, _, _, ϵ_3d = material_response(elastic_material.stress_state, elastic_material.material, symmetric(∇u), qp_state) #src
+    σ_3d = elastic_material.material.C ⊡ ϵ_3d                                                 #src
+    @test σ_3d[3, 3] ≈ 0.0 atol = 1e-6 * abs(σ11_ref)                                         #src
+end                                                                                            #src
+## Pinned regression value for the full solve's postprocessed stresses #src
+@test norm(norm.(qe.data)) ≈ 62718.61437855114                         #src
 
 #md # ## [Plain program](@id mixed_materials_plain_program)
 #md #
