@@ -20,13 +20,9 @@ plastic_material = ReducedStressState(PlaneStress(), Plastic(;
     kinematic = ArmstrongFrederick(;Hkin = 0.0, β∞ = 1.0) # No kinematic hardening
     ));</code></pre><p>We need to create the domain buffers, where the difference from earlier tutorials is that we have multiple domains. The domain specification should then be a <code>Dict</code> with one entry for each domain:</p><pre><code class="language-julia hljs">domains = Dict(
     &quot;elastic&quot;=&gt;DomainSpec(dh, elastic_material, cv; set=getcellset(grid, &quot;inclusion&quot;)),
-    &quot;plastic&quot;=&gt;DomainSpec(dh, plastic_material, cv; set=getcellset(grid, &quot;matrix&quot;)) );</code></pre><p>Now, we can call <code>setup_domainbuffers</code>, which accepts the same keyword arguments as <code>setup_domainbuffer</code>. Here, we accept the defaults.</p><pre><code class="language-julia hljs">buffer = setup_domainbuffers(domains);</code></pre><h3 id="Postprocessing-setup"><a class="docs-heading-anchor" href="#Postprocessing-setup">Postprocessing setup</a><a id="Postprocessing-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing-setup" title="Permalink"></a></h3><p>In this tutorial, we also demonstrate how the <code>QuadPointEvaluator</code> can be used to obtain quadrature point data which can be used to visualize the results, in this case the stresses. Specifically, we will use the evaluated data in combination with <code>Ferrite</code>&#39;s <code>L2Projector</code>.</p><p>First, we define a function to calculate the stresses for each material. Note that here we have to use some internals from <code>MechanicalMaterialModels.jl</code>, but this should be solved with <a href="https://github.com/KnutAM/MaterialModelsBase.jl/issues/12">MaterialModelsBase#12</a>.</p><pre><code class="language-julia hljs">function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
-    ϵ = MaterialModelsBase.expand_tensordim(m.stress_state, symmetric(∇u))
-    σ = calculate_stress(m.material, ϵ, qp_state)
-    return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
-end
-calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
-calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);</code></pre><p>And then we create the QuadPointEvaluator including this function</p><pre><code class="language-julia hljs">qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);</code></pre><p>Finally, we&#39;ll setup the L2Projector that we will use</p><pre><code class="language-julia hljs">proj = L2Projector(grid)
+    &quot;plastic&quot;=&gt;DomainSpec(dh, plastic_material, cv; set=getcellset(grid, &quot;matrix&quot;)) );</code></pre><p>Now, we can call <code>setup_domainbuffers</code>, which accepts the same keyword arguments as <code>setup_domainbuffer</code>. Here, we accept the defaults.</p><pre><code class="language-julia hljs">buffer = setup_domainbuffers(domains);</code></pre><h3 id="Postprocessing-setup"><a class="docs-heading-anchor" href="#Postprocessing-setup">Postprocessing setup</a><a id="Postprocessing-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing-setup" title="Permalink"></a></h3><p>In this tutorial, we also demonstrate how the <code>QuadPointEvaluator</code> can be used to obtain quadrature point data which can be used to visualize the results, in this case the stresses. Specifically, we will use the evaluated data in combination with <code>Ferrite</code>&#39;s <code>L2Projector</code>.</p><p>First, we define a function to calculate the stresses for each material. We use <code>MaterialModelsBase.stress_from_state</code>, which calculates the stress conjugated to a given strain that is consistent with an already-converged <code>state</code>, without invoking any local iteration that would advance history variables. For a <code>ReducedStressState</code>, such as our plane-stress case, this correctly accounts for the reduced dimensionality (e.g. plane stress).</p><pre><code class="language-julia hljs">function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
+    return stress_from_state(m, symmetric(∇u), qp_state)
+end;</code></pre><p>And then we create the QuadPointEvaluator including this function</p><pre><code class="language-julia hljs">qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);</code></pre><p>Finally, we&#39;ll setup the L2Projector that we will use</p><pre><code class="language-julia hljs">proj = L2Projector(grid)
 add!(proj, 1:getncells(grid), Lagrange{RefTriangle, 1}(); qr_rhs = qr)
 close!(proj);</code></pre><h2 id="Solving-the-nonlinear-problem-via-time-stepping"><a class="docs-heading-anchor" href="#Solving-the-nonlinear-problem-via-time-stepping">Solving the nonlinear problem via time-stepping</a><a id="Solving-the-nonlinear-problem-via-time-stepping-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-nonlinear-problem-via-time-stepping" title="Permalink"></a></h2><pre><code class="language-julia hljs">function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; time_history)
     maxiter = 100
@@ -41,6 +37,7 @@ close!(proj);</code></pre><h2 id="Solving-the-nonlinear-problem-via-time-steppin
         # Update and apply the Dirichlet boundary conditions
         update!(ch, t)
         apply!(a, ch)
+        fill!(fext, 0)
         apply!(fext, lh, t)
         for i in 1:maxiter
             # Assemble the system
@@ -115,12 +112,8 @@ domains = Dict(
 buffer = setup_domainbuffers(domains);
 
 function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
-    ϵ = MaterialModelsBase.expand_tensordim(m.stress_state, symmetric(∇u))
-    σ = calculate_stress(m.material, ϵ, qp_state)
-    return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
-end
-calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
-calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);
+    return stress_from_state(m, symmetric(∇u), qp_state)
+end;
 
 qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
 
@@ -141,6 +134,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
         # Update and apply the Dirichlet boundary conditions
         update!(ch, t)
         apply!(a, ch)
+        fill!(fext, 0)
         apply!(fext, lh, t)
         for i in 1:maxiter
             # Assemble the system
@@ -175,4 +169,4 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
 end;
 solve_nonlinear_timehistory(buffer, dh, ch, lh, proj, qe; time_history=collect(range(0, 1, 20)));
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Multiple fields</a><a class="docs-footer-nextpage" href="../iga/">Using <code>FerriteIGA.jl</code> »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 17 September 2026 12:50">Thursday 17 September 2026</span>. Using Julia version 1.13.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Multiple fields</a><a class="docs-footer-nextpage" href="../iga/">Using <code>FerriteIGA.jl</code> »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 24 September 2026 12:38">Thursday 24 September 2026</span>. Using Julia version 1.13.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

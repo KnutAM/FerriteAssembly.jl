@@ -40,12 +40,8 @@ domains = Dict(
 buffer = setup_domainbuffers(domains);
 
 function calculate_stress(m::ReducedStressState, u, ∇u, qp_state)
-    ϵ = MaterialModelsBase.expand_tensordim(m.stress_state, symmetric(∇u))
-    σ = calculate_stress(m.material, ϵ, qp_state)
-    return MaterialModelsBase.reduce_tensordim(m.stress_state, σ)
-end
-calculate_stress(m::LinearElastic, ϵ, qp_state) = m.C ⊡ ϵ
-calculate_stress(m::Plastic, ϵ, qp_state) = calculate_stress(m.elastic, ϵ - qp_state.ϵp, qp_state);
+    return stress_from_state(m, symmetric(∇u), qp_state)
+end;
 
 qe = QuadPointEvaluator{SymmetricTensor{2,2,Float64,3}}(buffer, calculate_stress);
 
@@ -66,6 +62,7 @@ function solve_nonlinear_timehistory(buffer, dh, ch, lh, l2_proj, qp_evaluator; 
         # Update and apply the Dirichlet boundary conditions
         update!(ch, t)
         apply!(a, ch)
+        fill!(fext, 0)
         apply!(fext, lh, t)
         for i in 1:maxiter
             # Assemble the system
