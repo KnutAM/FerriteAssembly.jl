@@ -195,6 +195,7 @@ struct ThreadedDomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     sdh::SDH
 end
 function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states::StateVariables, sdh::SubDofHandler, colors_or_chunks=nothing; num_tasks = Threads.nthreads())
+    num_tasks > 0 || throw(ArgumentError("num_tasks must be positive, got $num_tasks"))
     grid = _getgrid(sdh)
     set_vector = collect(set)
     chunks = create_chunks(grid, set_vector, colors_or_chunks)
