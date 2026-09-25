@@ -24,10 +24,12 @@
     cvu = CellValues(qr, ipu)
     cvv = CellValues(qr, ipv)
     for threading in (false, true)
+        BufferType = threading ? FerriteAssembly.ThreadedDomainBuffer : FerriteAssembly.DomainBuffer
         @testset "SingleDomain" begin
             @testset "Single field" begin
                 qe_state(::QEMat{1}) = rand()
-                db = setup_domainbuffer(DomainSpec(dh1, QEMat{1}(), cvu))
+                db = setup_domainbuffer(DomainSpec(dh1, QEMat{1}(), cvu); threading)
+                @test isa(db, BufferType)
                 states = FerriteAssembly.get_state(db)
                 @assert states[1][1] != states[2][1] # Catch bugs if all cells would be created equal. 
         
@@ -49,6 +51,7 @@
             @testset "Multiple fields" begin
                 qe_state(::QEMat{2}) = rand()
                 db = setup_domainbuffer(DomainSpec(dh2, QEMat{2}(), (u = cvu, v = cvv)); threading)
+                @test isa(db, BufferType)
                 states = FerriteAssembly.get_state(db)
         
                 foo(m, u, ∇u, qp_state) = 2 * qp_state
@@ -74,6 +77,7 @@
             ds_left  = DomainSpec(dh1, QEMat{3}(), cvu; set = getcellset(grid, "left"))
             ds_right = DomainSpec(dh1, QEMat{4}(), cvu; set = getcellset(grid, "right"))
             db = setup_domainbuffers(Dict("left" => ds_left, "right" => ds_right); threading)
+            @test isa(db, Dict{String,<:BufferType})
             states = FerriteAssembly.get_state(db)
             foo(::QEMat{3}, u, ∇u, qp_state) = 3 * qp_state
             foo(::QEMat{4}, u, ∇u, qp_state) = 3 * qp_state[2]
