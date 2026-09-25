@@ -63,6 +63,11 @@ get_old_state(db::DomainBuffers) = Dict(key=>get_old_state(val) for (key,val) in
     get_material(sim::Simulation)
 
 Get the material for the domain represented by `db` or `dbs[domain]`.
+
+**Note:** This always returns the *base* material. If `db` is threaded, `work!` uses
+independent copies of this material, so mutating the returned object will not be
+reflected when doing threaded assembly. However, in most cases the material is
+immutable, and this is not a problem.
 """
 get_material(db::DomainBuffers, domain::String) = get_material(db[domain])
 
@@ -146,7 +151,7 @@ end
     replace_material(db::Dict{String,AbstractDomainBuffer}, replacement_function)
     replace_material(db::AbstractDomainBuffer, replacement_function)
 
-Return a new instance of `db` where as much as possible is copied by reference, and 
+Return a new instance of `db` where as much as possible is copied by reference, and
 where the stored material, `m`, is replaced by `replacement_function(m)`.
 """
 function replace_material(dbs::DomainBuffers, replacement_function)
