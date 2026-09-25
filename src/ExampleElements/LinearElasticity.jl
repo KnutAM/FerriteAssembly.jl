@@ -17,8 +17,8 @@ with the corresponding weak form,
    = \int_\Gamma \boldsymbol{\delta u} \cdot \boldsymbol{t} \mathrm{d}\Gamma 
    + \int_\Omega \boldsymbol{\delta u} \cdot \boldsymbol{b} \mathrm{d}\Omega
 ```
-The external loading on the right hand side is not included in the element, but can be implemented 
-using `FerriteNeumann.jl`.  (Note that this constructor returns `LinearElastic`, which just stores the 
+The external loading on the right hand side is not included in the element, but can be implemented
+using the [`LoadHandler`](@ref FerriteAssembly.LoadHandler).  (Note that this constructor returns `LinearElastic`, which just stores the
 correct stiffness tensor for the case of isotropic plane strain)
 """
 ElasticPlaneStrain(;kwargs...) = LinearElastic(Val(:planestrain); kwargs...)

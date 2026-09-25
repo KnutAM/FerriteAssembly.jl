@@ -1,9 +1,9 @@
 # # Local constraint application
 # **Executive summary:** Replace `start_assemble(K,r)` with `KeReAssembler(K,r;ch,apply_zero=true)`.
 # 
-# In some cases, it might be beneficial to apply constraints locally 
-# by using `Ferrite`'s `apply_assemble!`. This is supported by using 
-# `FerriteAssembly`'s `ReAssembler` and `KeReAssembler`.
+# In some cases, it might be beneficial to apply constraints locally
+# by using `Ferrite`'s `apply_assemble!`. This is supported by using
+# `FerriteAssembly`'s `KeReAssembler`.
 # To demonstrate, let's start by setting up a quick simulation setup
 using Ferrite, FerriteAssembly 
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
@@ -40,6 +40,10 @@ work!(assembler, buffer; a=a);
 # And finally we can solve our problem update 
 a .-= K\r;
 
+# As an independent check, we assemble `K2`/`r2` with the standard (unconstrained)
+# assembler and apply the constraints afterwards. Since `a`/`a2` are updated via a
+# residual increment, `apply_zero!` (not `apply!`) must be used, so that the
+# increment does not perturb the already-prescribed dofs.
 using Test                              #src
 K2 = similar(K)                         #src
 r2 = similar(r)                         #src
@@ -47,6 +51,6 @@ a2 = zeros(ndofs(dh))                   #src
 apply!(a2, ch)                          #src
 std_assembler = start_assemble(K2, r2)  #src
 work!(std_assembler, buffer; a=a2)      #src
-apply!(K2, r2, ch)                      #src
-a2 .-= K\r                              #src
+apply_zero!(K2, r2, ch)                 #src
+a2 .-= K2 \ r2                          #src
 @test a2 ≈ a                            #src
