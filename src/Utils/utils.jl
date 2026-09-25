@@ -19,16 +19,16 @@ remove_dual(x::AbstractTensor) = x
 # Internal functions used for convenience
 
 """
-    _copydofs!(edofs::Vector, gdofs::Vector, inds::Vector{Int})
+    _copydofs!(edofs::Vector, gdofs::AbstractVector, inds::Vector{Int})
 
-Internal function for faster copying of global values into the element values. 
+Internal function for faster copying of global values into the element values.
 Equivalent to `edofs .= gdofs[inds]`
 
     _copydofs!(edofs::Vector, gdofs::Nothing, inds::Vector{Int})
 
 Fill `edofs` with NaN
 """
-function _copydofs!(edofs::Vector, gdofs::Vector, inds::Vector{Int})
+function _copydofs!(edofs::Vector, gdofs::AbstractVector, inds::Vector{Int})
     checkbounds(edofs, 1:length(inds))
     for (i,j) in enumerate(inds)
         gdof = gdofs[j] # checkbounds + @inbounds is slower
