@@ -27,12 +27,7 @@ set_time_increment!(::FerriteAssembly.DomainBuffers, ::Any)
 !!! warning "Material update contract"
     `get_material` (above) always returns the *base* material; a threaded domain buffer's
     task-local copies, used by threaded `work!`, are **not** kept in sync with mutations to
-    that returned object. Use `replace_material` instead, and rebind its result (it returns
-    a new buffer rather than mutating `db`). `replace_material` is `public` but not
-    `export`ed, so qualify it (or `using FerriteAssembly: replace_material`):
-    ```julia
-    db = FerriteAssembly.replace_material(db, m -> MyMaterial(; k = 2.0))
-    ```
+    that returned object. Use `replace_material` instead to create a new buffer if this is required.
 ```@docs
 FerriteAssembly.replace_material(::FerriteAssembly.DomainBuffers, ::Any)
 FerriteAssembly.replace_material(::FerriteAssembly.DomainBuffers, ::String, ::Any)
