@@ -270,7 +270,48 @@ end
     f_th = zeros(ndofs(dh))
     apply!(f_th, lh_th, t)
     # Check that the threaded result is the same as the sequential
-    @test f_th ≈ f_reg 
+    @test f_th ≈ f_reg
+end
+
+@testset "Threaded with empty categories (BUG-008)" begin
+    # Neumann and BodyLoad are stored in separate dicts in LoadHandler, and each
+    # dict is worked as its own threaded multidomain simulation. Any single dict
+    # being empty (e.g. a body-only, boundary-only, or dof-only LoadHandler) must
+    # not throw when threading is enabled.
+    fs(x,t,n) = cos(norm(x))*cos(x⋅n)*t
+    bs(x,t) = cos(norm(x))*t
+    grid = generate_grid(Quadrilateral, (5,5))
+    ip = Lagrange{RefQuadrilateral,1}()
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+    t = rand()
+
+    # Boundary-only (bodyloads dict empty)
+    lh = LoadHandler(dh; threading=true)
+    add!(lh, Neumann(:u, 2, getfacetset(grid, "right"), fs))
+    f = zeros(ndofs(dh))
+    apply!(f, lh, t)
+    @test norm(f) > 0
+
+    # Body-only (nbcs dict empty)
+    lh = LoadHandler(dh; threading=true)
+    add!(lh, BodyLoad(:u, 2, bs))
+    f = zeros(ndofs(dh))
+    apply!(f, lh, t)
+    @test norm(f) > 0
+
+    # Dof-only (both dicts empty)
+    lh = LoadHandler(dh; threading=true)
+    add!(lh, DofLoad(1, t -> 2*t))
+    f = zeros(ndofs(dh))
+    apply!(f, lh, t)
+    @test f[1] ≈ 2*t
+    @test norm(f) ≈ abs(2*t)
+
+    # Entirely empty
+    lh = LoadHandler(dh; threading=true)
+    f = zeros(ndofs(dh))
+    apply!(f, lh, t)
+    @test norm(f) == 0
 end
 
 end
