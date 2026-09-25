@@ -6,7 +6,10 @@ Solve the problem with primary variable, ``u``, variation, ``\delta u``, and a w
    \int_\Omega f(\delta u, \delta u \otimes\nabla, u, u \otimes\nabla, \dot{u}, \dot{u} \otimes\nabla) \mathrm{d}\Omega 
    - \int_\Gamma \delta u\ h(x,t,n)\ \mathrm{d}\Gamma - \int_\Omega \delta u\ b(x,t)\ \mathrm{d}\Omega = 0
 ```
-where the function `f` is given to the weak form, and `h` and `b` are given with FerriteNeumann.
+where the function `f` is given to the weak form, and `h` and `b` are given via the [`LoadHandler`](@ref FerriteAssembly.LoadHandler).
+Note the sign convention: `LoadHandler`'s `apply!` *adds* the value of the given function to
+the residual/external-load vector, so to subtract a term as shown above, the corresponding
+function must return the negative of that term (e.g. `-h` and `-b`), as demonstrated below.
 
 !!! note "This element is intended for testing"
     It is not optimized for speed
@@ -15,19 +18,20 @@ where the function `f` is given to the weak form, and `h` and `b` are given with
 ## Transient heat flow
 *Weak form*
 ```math
-    \int_\Omega \delta u\ c\ \dot{u} + k\ [\nabla \delta u] \cdot [\nabla u]\ \mathrm{d}\Omega 
-   + \int_\Gamma \delta u\ q_\mathrm{n}\ \mathrm{d}\Gamma - \int_\Omega \delta u\ b\ \mathrm{d}\Omega = 0
+    \int_\Omega \delta u\ c\ \dot{u} + k\ [\nabla \delta u] \cdot [\nabla u]\ \mathrm{d}\Omega
+   - \int_\Gamma \delta u\ q_\mathrm{n}\ \mathrm{d}\Gamma - \int_\Omega \delta u\ b\ \mathrm{d}\Omega = 0
 ```
+where ``q_\mathrm{n}`` is the outward heat flux on the boundary.
 *Implementation*
 This implementation is equivalent to [`TransientFourier`](@ref FerriteAssembly.ExampleElements.TransientFourier),
-but it is also possible to add the body load directly in the weak form (if desired). 
+but it is also possible to add the body load directly in the weak form (if desired).
 ```julia
 c = 1.0; k = 1.0; # heat capacity and heat conductivity (material parameters)
-qn = 1.0; b=1.0;  # Normal boundary flux and internal heat source (external loading)
+qn = 1.0; b=1.0;  # Outward boundary heat flux and internal heat source (external loading)
 material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> δu*c*u_dot + k*(∇δu ⋅ ∇u))
-nh = NeumannHandler(dh)
-add!(nh, Neumann(:u, 2, getfacetset(dh.grid, "right"), (x,t,n)->qn))
-add!(nh, BodyLoad(:c, 1, (x,t)->b))
+lh = LoadHandler(dh)
+add!(lh, Neumann(:u, 2, getfacetset(dh.grid, "right"), (x,t,n)->-qn)) # rᵢ -= ∫ δuᵢ*qₙ dΓ
+add!(lh, BodyLoad(:u, 1, (x,t)->-b))                                  # rᵢ -= ∫ δuᵢ*b dΩ
 ```
 
 ## Linear elasticity
@@ -42,11 +46,11 @@ but it is also possible to add the body load directly in the weak form (if desir
 *Implementation*
 ```julia
 G = 80e3; K = 160e3; # Shear and bulk modulus (material parameters)
-tn = 1.0, b=Vec((0.0, 0.0, -1.0)); # Normal traction and body force (external loading)
+tn = 1.0; b = Vec((0.0, 0.0, -1.0)); # Outward normal traction and body force (external loading)
 material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> (∇δu ⊡ (2*G*dev(symmetric(∇u)) + 3*K*vol(∇u))))
-nh = NeumannHandler(dh)
-add!(nh, Neumann(:u, 2, getfacetset(dh.grid, "right"), (x,t,n)->tn*n))
-add!(nh, BodyLoad(:c, 2, (x,t)->b))
+lh = LoadHandler(dh)
+add!(lh, Neumann(:u, 2, getfacetset(dh.grid, "right"), (x,t,n)->-tn*n)) # rᵢ -= ∫ δuᵢ⋅(tₙn) dΓ
+add!(lh, BodyLoad(:u, 2, (x,t)->-b))                                    # rᵢ -= ∫ δuᵢ⋅b dΩ
 ```
 """
 struct WeakForm{F<:Function}
