@@ -39,6 +39,26 @@ end
     end
 end
 
+@testset "nonpositive num_tasks rejected (BUG-007)" begin
+    # `num_tasks <= 0` previously created empty task-local arrays, silently
+    # skipping all work instead of raising an error at setup.
+    grid = generate_grid(Quadrilateral, (2, 1))
+    ip = Lagrange{RefQuadrilateral, 1}()
+    dh = close!(add!(DofHandler(grid), :u, ip))
+    cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
+    for num_tasks in (0, -1)
+        @test_throws ArgumentError setup_domainbuffer(
+            DomainSpec(dh, nothing, cv); threading=true, num_tasks=num_tasks)
+    end
+    for num_tasks in (1, Threads.nthreads() + 10)
+        db = setup_domainbuffer(
+            DomainSpec(dh, nothing, cv); threading=true, num_tasks=num_tasks)
+        ig = SimpleIntegrator(Returns(1.0), 0.0)
+        work!(ig, db)
+        @test ig.val ≈ 4.0 # total area of the two-cell grid
+    end
+end
+
 @testset "work! with empty custom chunks (PR89)" begin
     # End-to-end reproduction: a domain whose user-supplied chunks contain
     # empty sub-chunks must still visit every cell during threaded `work!`.
