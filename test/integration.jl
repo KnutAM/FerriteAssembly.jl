@@ -1,6 +1,6 @@
 module TestIntegrators
     using FerriteAssembly
-    # Re-implement SimpleIntegrator, but with the general Integrator interface. 
+    # Re-implement SimpleIntegrator, but with the general Integrator interface.
     struct MySimpleIntegrand{SI<:SimpleIntegrator}
         integrator::SI
     end
@@ -10,9 +10,21 @@ module TestIntegrators
     function FerriteAssembly.integrate_facet!(val::MySimpleIntegrand, ae, _, fv, buffer)
         FerriteAssembly.integrate_facet!(val.integrator, ae, nothing, fv, buffer)
     end
+
+    # Minimal non-1-based AbstractVector, used to test that _copydofs! rejects
+    # global solution vectors without one-based indexing (BUG-009 follow-up).
+    # Not using OffsetArrays.jl since it is not a project dependency.
+    struct OffsetVec{T} <: AbstractVector{T}
+        data::Vector{T}
+        offset::Int
+    end
+    Base.size(v::OffsetVec) = size(v.data)
+    Base.axes(v::OffsetVec) = (v.offset .+ (1:length(v.data)),)
+    Base.getindex(v::OffsetVec, i::Int) = v.data[i - v.offset]
+    Base.IndexStyle(::Type{<:OffsetVec}) = IndexLinear()
 end
 
-import .TestIntegrators: MySimpleIntegrand
+import .TestIntegrators: MySimpleIntegrand, OffsetVec
 
 @testset "Integration" begin
     function solve_problem(dh, ch, buffer; Δt=NaN)
@@ -82,7 +94,30 @@ import .TestIntegrators: MySimpleIntegrand
     
         test_heatflow(;threading=Val(false))
         test_heatflow(;threading=Val(true))
-        
+
+        @testset "AbstractVector a/aold (BUG-009)" begin
+            # Simulation must accept any AbstractVector (e.g. a view), not just Vector,
+            # for the global solution vectors.
+            for threading in (Val(false), Val(true))
+                dh, a, buffer = heatflow_solution(;threading=threading)
+                aold = zero(a)
+                integrator_vec = SimpleIntegrator((u, ∇u, state)->u, 0.0)
+                work!(integrator_vec, Simulation(buffer, a, aold))
+                integrator_view = SimpleIntegrator((u, ∇u, state)->u, 0.0)
+                work!(integrator_view, Simulation(buffer, view(a, :), view(aold, :)))
+                @test integrator_vec.val ≈ integrator_view.val
+            end
+        end
+
+        @testset "Rejects non-1-based AbstractVector a/aold (BUG-009)" begin
+            # A global solution vector without one-based indexing has no well-defined
+            # mapping from global dof numbers to entries, so it must error clearly
+            # rather than silently produce wrong results.
+            dh, a, buffer = heatflow_solution()
+            offset_a = OffsetVec(a, 1)
+            integrator = SimpleIntegrator((u, ∇u, state)->u, 0.0)
+            @test_throws ArgumentError work!(integrator, Simulation(buffer, offset_a))
+        end
     end
 
     @testset "Elasticity" begin
@@ -316,6 +351,14 @@ end
         @test ig.val[1] ≈ ly*2*(lx+lz)
         @test ig.val[2] ≈ 2*lx*ly*lz
         @test isapprox(ig.val[3], 0.0; atol=ig.val[1]*1e-8)
+
+        @testset "AbstractVector a (BUG-009)" begin
+            ig_view = SimpleIntegrator((u,∇u,n)->(1.0, u.u ⋅ n, u.v), (0.0, 0.0, 0.0))
+            work!(ig_view, Simulation(buffers, view(a, :)))
+            @test ig_view.val[1] ≈ ig.val[1]
+            @test ig_view.val[2] ≈ ig.val[2]
+            @test isapprox(ig_view.val[3], ig.val[3]; atol=ig.val[1]*1e-8)
+        end
     end
     end
 end
