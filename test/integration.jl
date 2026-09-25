@@ -1,6 +1,6 @@
 module TestIntegrators
     using FerriteAssembly
-    # Re-implement SimpleIntegrator, but with the general Integrator interface. 
+    # Re-implement SimpleIntegrator, but with the general Integrator interface.
     struct MySimpleIntegrand{SI<:SimpleIntegrator}
         integrator::SI
     end
@@ -10,9 +10,21 @@ module TestIntegrators
     function FerriteAssembly.integrate_facet!(val::MySimpleIntegrand, ae, _, fv, buffer)
         FerriteAssembly.integrate_facet!(val.integrator, ae, nothing, fv, buffer)
     end
+
+    # Minimal non-1-based AbstractVector, used to test that _copydofs! rejects
+    # global solution vectors without one-based indexing (BUG-009 follow-up).
+    # Not using OffsetArrays.jl since it is not a project dependency.
+    struct OffsetVec{T} <: AbstractVector{T}
+        data::Vector{T}
+        offset::Int
+    end
+    Base.size(v::OffsetVec) = size(v.data)
+    Base.axes(v::OffsetVec) = (v.offset .+ (1:length(v.data)),)
+    Base.getindex(v::OffsetVec, i::Int) = v.data[i - v.offset]
+    Base.IndexStyle(::Type{<:OffsetVec}) = IndexLinear()
 end
 
-import .TestIntegrators: MySimpleIntegrand
+import .TestIntegrators: MySimpleIntegrand, OffsetVec
 
 @testset "Integration" begin
     function solve_problem(dh, ch, buffer; Δt=NaN)
@@ -95,6 +107,16 @@ import .TestIntegrators: MySimpleIntegrand
                 work!(integrator_view, Simulation(buffer, view(a, :), view(aold, :)))
                 @test integrator_vec.val ≈ integrator_view.val
             end
+        end
+
+        @testset "Rejects non-1-based AbstractVector a/aold (BUG-009)" begin
+            # A global solution vector without one-based indexing has no well-defined
+            # mapping from global dof numbers to entries, so it must error clearly
+            # rather than silently produce wrong results.
+            dh, a, buffer = heatflow_solution()
+            offset_a = OffsetVec(a, 1)
+            integrator = SimpleIntegrator((u, ∇u, state)->u, 0.0)
+            @test_throws ArgumentError work!(integrator, Simulation(buffer, offset_a))
         end
     end
 
