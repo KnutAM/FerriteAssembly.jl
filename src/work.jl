@@ -28,6 +28,7 @@ function work!(worker, sim::AbstractSingleDomainSim)
     work_domain_sequential!(worker, sim)
 end
 function work!(worker, multisim::AbstractMultiDomainThreadedSim)
+    isempty(get_domainbuffer(multisim)) && return nothing
     if can_thread(worker)
         workers = TaskLocals(worker, num_tasks = get_num_tasks(multisim))
         for (name, sim) in multisim
