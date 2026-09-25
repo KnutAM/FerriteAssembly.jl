@@ -374,7 +374,8 @@ end
 
             # MatC (accumulation), using threading as well
             colors = create_coloring(grid)
-            buffer = setup_domainbuffer(DomainSpec(dh, MatC(), cv; colors=colors))
+            buffer = setup_domainbuffer(DomainSpec(dh, MatC(), cv; colors=colors); threading=true)
+            @test isa(buffer, FerriteAssembly.ThreadedDomainBuffer)
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
             @test isa(old_states, FerriteAssembly.StateVector{Vector{StateC}})
