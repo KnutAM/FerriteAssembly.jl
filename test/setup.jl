@@ -95,27 +95,34 @@
 
     end
 
-    @testset "mixed cell and facet domains (BUG-011)" begin
+    @testset "mixed cell and facet domains rejected (BUG-011)" begin
         grid = generate_grid(Quadrilateral, (4,4))
         ip = Lagrange{RefQuadrilateral,1}()
         dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
         cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
         fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
-        cell_domain = DomainSpec(dh, nothing, cv) # covers the full grid: no coverage warnings expected
+        cell_domain = DomainSpec(dh, nothing, cv)
         facet_domain = DomainSpec(dh, nothing, fv; set=getfacetset(grid, "left"))
 
-        # Validation must not depend on which domain type check_input happens to see
-        # first, so try several dictionary key arrangements (Dict iteration order
-        # depends on the keys' hashes).
+        # Rejection must not depend on which domain type happens to be seen first, so try
+        # several dictionary key arrangements (Dict iteration order depends on key hashes).
         key_pairs = (("cells", "facets"), ("facets", "cells"), ("a", "b"), ("z", "y"))
-        volumes = map(key_pairs) do (cell_key, facet_key)
+        for (cell_key, facet_key) in key_pairs
             dbs_spec = Dict(cell_key => cell_domain, facet_key => facet_domain)
-            dbs = @test_nowarn setup_domainbuffers(dbs_spec)
-            v = SimpleIntegrator(Returns(1.0), 0.0; domains=cell_key)
-            work!(v, dbs)
-            return v.val
+            @test_throws ArgumentError setup_domainbuffers(dbs_spec)
         end
-        @test all(≈(volumes[1]), volumes)
+
+        # Combining cell and facet integrals instead requires two separate dictionaries.
+        cell_dbs = setup_domainbuffers(Dict("cells" => cell_domain))
+        facet_dbs = setup_domainbuffers(Dict("facets" => facet_domain))
+        v = SimpleIntegrator(Returns(1.0), 0.0)
+        work!(v, cell_dbs)
+        work!(v, facet_dbs)
+        v_cell = SimpleIntegrator(Returns(1.0), 0.0)
+        work!(v_cell, cell_dbs)
+        v_facet = SimpleIntegrator(Returns(1.0), 0.0)
+        work!(v_facet, facet_dbs)
+        @test v.val ≈ v_cell.val + v_facet.val
     end
 
     @testset "empty domains (BUG-016)" begin

@@ -49,33 +49,55 @@ end
     setup_domainbuffers(domains::Dict{String,DomainSpec}, suppress_warnings = false; kwargs...)
 
 Setup multiple domain buffers, one for each `DomainSpec` in `domains`.
-Set `suppress_warnings = true` to suppress warnings checking for typical input errors when setting up multiple domains. 
+Set `suppress_warnings = true` to suppress warnings checking for typical input errors when setting up multiple domains.
 See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
+
+**Note:** All domains in `domains` must be of the same kind: either all cell domains or
+all facet (or other non-cell) domains. Mixing cell and facet domains in a single
+dictionary is not supported; use separate dictionaries (and separate calls to
+`setup_domainbuffers`/`work!`) instead.
 """
 function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, suppress_warnings = false; kwargs...)
     isempty(domains) && return Dict{String, AbstractDomainBuffer}()
+    check_domain_kinds(domains)
     dbs = Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
     suppress_warnings || check_input(dbs)
     return dbs
 end
 
+is_cell_domain(::DomainSpec{I}) where I = I <: Integer
+
+# A single `DomainBuffers` dictionary cannot mix cell and facet (or other non-cell) domains.
+function check_domain_kinds(domains::Dict{String,<:DomainSpec})
+    cell_names = [name for (name, d) in domains if is_cell_domain(d)]
+    other_names = [name for (name, d) in domains if !is_cell_domain(d)]
+    if !isempty(cell_names) && !isempty(other_names)
+        throw(ArgumentError(
+            "Cannot mix cell domains ($(join(cell_names, ", "))) and non-cell domains, " *
+            "e.g. facets, ($(join(other_names, ", "))) in the same domain dictionary; " *
+            "use separate dictionaries instead."))
+    end
+    return nothing
+end
+
 function check_input(dbs::DomainBuffers)
     isempty(dbs) && return nothing
-    cell_dbs = filter(kv -> eltype(getset(kv[2])) <: Integer, dbs)
-    other_dbs = filter(kv -> !(eltype(getset(kv[2])) <: Integer), dbs)
-    isempty(cell_dbs) || check_cell_domains(dbs, cell_dbs)
-    isempty(other_dbs) || check_other_domains(other_dbs)
+    if all(db -> eltype(getset(db)) <: Integer, values(dbs))
+        check_cell_domains(dbs)
+    else
+        check_other_domains(dbs)
+    end
     return nothing
 end
 
 # Domains of cells: check eltype consistency and that all grid cells are covered exactly once.
-function check_cell_domains(dbs::DomainBuffers, cell_dbs::DomainBuffers)
+function check_cell_domains(cell_dbs::DomainBuffers)
     I = eltype(getset(first(values(cell_dbs))))
     if !all(db -> eltype(getset(db)) === I, values(cell_dbs))
         @warn "Not all cell domains have the same set eltype, this is likely to cause errors - proceed with caution"
     end
 
-    grid = get_grid(dbs)
+    grid = get_grid(cell_dbs)
 
     num_cells_in_sets = sum(length ∘ getset, values(cell_dbs); init = 0)
     num_cells_in_grid = getncells(grid)
