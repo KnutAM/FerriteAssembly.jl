@@ -49,33 +49,54 @@ end
     setup_domainbuffers(domains::Dict{String,DomainSpec}, suppress_warnings = false; kwargs...)
 
 Setup multiple domain buffers, one for each `DomainSpec` in `domains`.
-Set `suppress_warnings = true` to suppress warnings checking for typical input errors when setting up multiple domains. 
+Set `suppress_warnings = true` to suppress warnings checking for typical input errors when setting up multiple domains.
 See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
+
+**Note:** All domains in `domains` must be of the same kind: either all cell domains or
+all facet (or other non-cell) domains. Mixing cell and facet domains in a single
+dictionary is not supported; use separate dictionaries (and separate calls to
+`setup_domainbuffers`/`work!`) instead.
 """
 function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, suppress_warnings = false; kwargs...)
+    isempty(domains) && return Dict{String, AbstractDomainBuffer}()
+    if !allequal(_domain_entity, values(domains))
+        throw(ArgumentError("Not allowed to mix different entities (e.g. cell and facet) in the same domainbuffer dictionary"))
+    end
     dbs = Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
     suppress_warnings || check_input(dbs)
-    return dbs 
+    return dbs
 end
 
-check_input(dbs::DomainBuffers) = check_input(dbs, eltype(getset(first(values(dbs)))))
+_domain_entity(::DomainSpec{I}) where {I} = _domain_entity(I)
+_domain_entity(::DomainBuffer{I}) where {I} = _domain_entity(I)
+_domain_entity(::ThreadedDomainBuffer{I}) where {I} = _domain_entity(I)
 
-function check_input(dbs::DomainBuffers, ::Type{I}) where {I <: Integer} # Domain of cells
-    if !all(db -> eltype(getset(db)) === I, values(dbs))
-        @warn "Not all sets have the same eltype, this is likely to cause errors - proceed with caution"
+_domain_entity(::Type{<:Integer}) = :cell
+_domain_entity(::Type{<:FacetIndex}) = :facet
+# _domain_entity(::Type{<:InterfaceIndex}) # TODO, see #22
+
+function check_input(dbs::DomainBuffers)
+    isempty(dbs) && return nothing
+    if all(db -> _domain_entity(db) === :cell, values(dbs))
+        check_cell_domains(dbs)
+    else
+        check_other_domains(dbs)
     end
+    return nothing
+end
 
-    grid = get_grid(dbs)
-    
-    # Check that all cells are included, and
-    num_cells_in_sets = sum(length ∘ getset, values(dbs); init = 0)
+# Domains of cells: check eltype consistency and that all grid cells are covered exactly once.
+function check_cell_domains(cell_dbs::DomainBuffers)
+    grid = get_grid(cell_dbs)
+
+    num_cells_in_sets = sum(length ∘ getset, values(cell_dbs); init = 0)
     num_cells_in_grid = getncells(grid)
     more_fewer = num_cells_in_sets > num_cells_in_grid ? "more" : "fewer"
     if num_cells_in_grid != num_cells_in_sets
         @warn "There are $more_fewer cells ($num_cells_in_sets) assigned to domains than cells in the grid ($num_cells_in_grid)"
     end
     included = zeros(Bool, getncells(grid))
-    for db in values(dbs)
+    for db in values(cell_dbs)
         for i in getset(db)
             included[i] = true
         end
@@ -84,9 +105,12 @@ function check_input(dbs::DomainBuffers, ::Type{I}) where {I <: Integer} # Domai
     all(included) || @warn "$num_missing cells are not included in the domainbuffers"
 end
 
-function check_input(dbs::DomainBuffers, ::Type) # Unspecified (typically facet set) without tests
+# Domains of e.g. facets: no checks implemented yet.
+function check_other_domains(other_dbs::DomainBuffers)
+    @assert allequal(_domain_entity, values(other_dbs)) # Must be same, see `setup_domainbuffers`
+    # (should never happen since error should be thrown earlier)
     # TODO: Add check for non-disjoint sets (always applicable)
-    return nothing 
+    return nothing
 end
 
 """
@@ -102,6 +126,8 @@ Setup a domain buffer for a single grid domain, `domain`.
 * `num_tasks`: The number of tasks to spawn during threaded assembly. Only applicable for `threading = true`.
 * `autodiffbuffer`: Should a custom itembuffer be used to speed up the automatic 
   differentiation (if supported by the itembuffer)
+An empty `domain.set` (e.g. because the given `set` does not intersect the SubDofHandler's
+cellset) is supported as a no-op: the resulting buffer is skipped when `work!`ing.
 """
 function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
     return _setup_domainbuffer(threading, domain; kwargs...)
@@ -116,7 +142,10 @@ function setup_itembuffer(adb, domain::DomainSpec{FacetIndex}, args...)
 end
 function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
     dofrange = create_dofrange(domain.sdh)
-    return setup_cellbuffer(adb, domain.sdh, domain.fe_values, domain.material, first(values(states)), dofrange, domain.user_data)
+    # An empty `states` (empty domain.set) has no real cell to sample; `nothing` is used as a
+    # placeholder, matching facet buffers, since it is never dereferenced (work! is a no-op).
+    sample_state = isempty(states) ? nothing : first(values(states))
+    return setup_cellbuffer(adb, domain.sdh, domain.fe_values, domain.material, sample_state, dofrange, domain.user_data)
 end
 
 function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false), kwargs...)

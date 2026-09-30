@@ -17,6 +17,9 @@ the member handle already carries its resolved coupling.
 Simplified interface, directly forwarded to `work!(worker, Simulation(db, a, aold))`.
 The global degree of freedom vectors, `a` and `aold`, make their corresponding local values
 available. If not passed, the local values are `NaN`s.
+
+For a `Dict{String,<:AbstractDomainBuffer}`, all domains must be either all sequential
+or all threaded; mixing the two in the same dictionary is not supported.
 """
 function work!(worker, multisim::AbstractMultiDomainSim)
     for (name, sim) in multisim

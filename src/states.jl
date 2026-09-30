@@ -149,6 +149,7 @@ define the [`create_cell_state`](@ref) function for their `material` (and corres
 `dofrange::NamedTuple` is passed onto `create_cell_state` and contains the local dof ranges for each field. 
 """
 function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
+    isempty(cellset) && return Dict{eltype(cellset), Nothing}()
     ae = zeros(ndofs_per_cell(sdh))
     coords = getcoordinates(_getgrid(sdh), first(cellset))
     dofs = zeros(Int, ndofs_per_cell(sdh))

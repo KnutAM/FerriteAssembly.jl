@@ -68,7 +68,9 @@ Calculate the integrals
 \\int_\\Omega f(u, \\nabla u, s)\\, \\mathrm{d}\\Omega
 \\int_\\Gamma f(u, \\nabla u, n)\\, \\mathrm{d}\\Gamma 
 ```
-for cell and facet domains respectively. 
+for cell and facet domains respectively. Since a single domain dictionary cannot mix cell
+and facet domains, combining both integrals requires calling `work!` with `integrator` once
+per dictionary; the results accumulate in `integrator.val`.
 For single-field problems, `u` is the current function value, `∇u` the current function gradient.
 For multi-field problem, `u` and `∇u` are `NamedTuple`s,
 where the keys in `u` and `∇u` are the fieldnames. 

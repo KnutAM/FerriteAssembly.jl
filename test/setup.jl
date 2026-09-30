@@ -94,4 +94,68 @@
         @test_throws "AutoDiffBuffer not implemented for FacetBuffer" setup_domainbuffer(domains["left"]; autodiffbuffer=true)
 
     end
+
+    @testset "mixed cell and facet domains rejected (BUG-011)" begin
+        grid = generate_grid(Quadrilateral, (4,4))
+        ip = Lagrange{RefQuadrilateral,1}()
+        dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+        cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
+        fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
+        cell_domain = DomainSpec(dh, nothing, cv)
+        facet_domain = DomainSpec(dh, nothing, fv; set=getfacetset(grid, "left"))
+
+        # Rejection must not depend on which domain type happens to be seen first, so try
+        # several dictionary key arrangements (Dict iteration order depends on key hashes).
+        key_pairs = (("cells", "facets"), ("facets", "cells"), ("a", "b"), ("z", "y"))
+        for (cell_key, facet_key) in key_pairs
+            dbs_spec = Dict(cell_key => cell_domain, facet_key => facet_domain)
+            @test_throws ArgumentError setup_domainbuffers(dbs_spec)
+        end
+
+        # Combining cell and facet integrals instead requires two separate dictionaries.
+        cell_dbs = setup_domainbuffers(Dict("cells" => cell_domain))
+        facet_dbs = setup_domainbuffers(Dict("facets" => facet_domain))
+        v = SimpleIntegrator(Returns(1.0), 0.0)
+        work!(v, cell_dbs)
+        work!(v, facet_dbs)
+        v_cell = SimpleIntegrator(Returns(1.0), 0.0)
+        work!(v_cell, cell_dbs)
+        v_facet = SimpleIntegrator(Returns(1.0), 0.0)
+        work!(v_facet, facet_dbs)
+        @test v.val ≈ v_cell.val + v_facet.val
+    end
+
+    @testset "empty domains (BUG-016)" begin
+        grid = generate_grid(Quadrilateral, (4,4))
+        ip = Lagrange{RefQuadrilateral,1}()
+        dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+        cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
+        fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
+
+        # An empty domain.set (explicit, or via a nonempty set that does not intersect the
+        # SubDofHandler's cellset) is supported as a no-op, for both cell and facet domains,
+        # sequentially and threaded. Cell domains use `nothing` as a placeholder sample state
+        # (never dereferenced, since work! iterates zero items), matching how facet domains
+        # already always use `nothing` for their (nonexistent) per-facet state.
+        empty_cellsets = (Int[], [getncells(grid)+1, getncells(grid)+2])
+        for empty_cellset in empty_cellsets, threading in (false, true)
+            cell_db = setup_domainbuffer(DomainSpec(dh, nothing, cv; set=empty_cellset); threading)
+            @test isempty(FerriteAssembly.getset(cell_db))
+            v = SimpleIntegrator(Returns(1.0), 0.0)
+            work!(v, Dict("cells" => cell_db))
+            @test v.val == 0.0
+        end
+        for threading in (false, true)
+            facet_db = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=FacetIndex[]); threading)
+            @test isempty(FerriteAssembly.getset(facet_db))
+            v = SimpleIntegrator(Returns(1.0), 0.0)
+            work!(v, Dict("facets" => facet_db))
+            @test v.val == 0.0
+        end
+
+        # An entirely empty domain dictionary is a no-op, consistent with BUG-008's
+        # fix for empty domain dictionaries in work!/load-handler dispatch.
+        dbs = setup_domainbuffers(Dict{String, FerriteAssembly.DomainSpec}())
+        @test isempty(dbs)
+    end
 end
