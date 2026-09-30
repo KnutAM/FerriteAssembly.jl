@@ -15,7 +15,9 @@ buffer = setup_domainbuffer(domain; threading=true);
 
 assembler = start_assemble(K, r);
 
-work!(assembler, buffer);
+a = zeros(ndofs(dh))
+
+work!(assembler, buffer; a=a);
 
 lh = LoadHandler(dh)
 add!(lh, BodyLoad(:u, 2, Returns(-1.0))) # rᵢ -= ∫ δuᵢ*1.0*dV
