@@ -17,6 +17,8 @@ jobs:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    env:
+      JULIA_NUM_THREADS: 2
     strategy:
       fail-fast: false
       matrix:

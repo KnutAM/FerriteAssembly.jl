@@ -27,7 +27,7 @@
         @testset "SingleDomain" begin
             @testset "Single field" begin
                 qe_state(::QEMat{1}) = rand()
-                db = setup_domainbuffer(DomainSpec(dh1, QEMat{1}(), cvu))
+                db = setup_domainbuffer(DomainSpec(dh1, QEMat{1}(), cvu); threading)
                 states = FerriteAssembly.get_state(db)
                 @assert states[1][1] != states[2][1] # Catch bugs if all cells would be created equal. 
         
