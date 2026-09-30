@@ -52,6 +52,13 @@ end
     apply!(f2, nh2, 1.0)
     @test f2 ≈ f
 
+    # Test deduction of facetvalues from an explicit FacetQuadratureRule (BUG-012)
+    f3 = zeros(ndofs(dh))
+    nh3 = LoadHandler(dh)
+    add!(nh3, Neumann(:u, FacetQuadratureRule{RefQuadrilateral}(2), getfacetset(grid, "right"), f_2d))
+    apply!(f3, nh3, 1.0)
+    @test f3 ≈ f
+
     # Use the ConstraintHandler to give fixed values on each dof
     # Note half load on node at the end of the edge
     a = zeros(ndofs(dh))
@@ -213,7 +220,14 @@ end
     f = zeros(ndofs(dh))
     apply!(f, nh, 1.0)
     @test sum(f) ≈ volume
-    
+
+    # Test deduction of cellvalues from an explicit QuadratureRule (BUG-012)
+    nh_qr = LoadHandler(dh)
+    add!(nh_qr, BodyLoad(:v, QuadratureRule{RefHexahedron}(1), Returns(1.0)))
+    f_qr = zeros(ndofs(dh))
+    apply!(f_qr, nh_qr, 1.0)
+    @test f_qr ≈ f
+
     dh = DofHandler(grid);
     ip = Lagrange{RefHexahedron,1}()
     addcellset!(grid, "leftpart",  x -> x[1] <= 0.5+eps(); all=true)

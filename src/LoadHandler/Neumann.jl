@@ -1,5 +1,5 @@
 """
-    Neumann(field_name::Symbol, fv_info::Union{FacetValues,QuadratureRule,Int}, facetset::AbstractSet{FacetIndex}, f)
+    Neumann(field_name::Symbol, fv_info::Union{FacetValues,FacetQuadratureRule,Int}, facetset::AbstractSet{FacetIndex}, f)
 
 Define a Neumann contribution with the weak forms according to 
 ```math
@@ -23,7 +23,7 @@ current time, and `n` is the facet normal vector. The remaining input arguments 
 * `fv_info` gives required input to determine the facetvalues. The following input types are accepted:
   - `Int` giving the integration order to use. `FacetValues` are deduced from the interpolation 
     of `fieldname` and the output of `f`. 
-  - `QuadratureRule` matching the interpolation for `fieldname` for facets in `facetset` `FacetValues` are deduced 
+  - `FacetQuadratureRule` matching the interpolation for `fieldname` for facets in `facetset` `FacetValues` are deduced
     from the output of `f`
   - `FacetValues` matching the interpolation for `fieldname` for the facets in `facetset` and output of `f`
 * `facetset` describes which facets the BC is applied to
