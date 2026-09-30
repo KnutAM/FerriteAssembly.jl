@@ -12,6 +12,7 @@
 
 # Start by loading the necessary packages
 using Ferrite, FerriteIGA, LinearAlgebra, FerriteAssembly
+using Test                                      #src
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
 # ## Setup
@@ -81,6 +82,23 @@ apply!(a, ch)
 work!(assembler, buffer; a=a)
 apply!(r, lh, 0.0);
 
+# ## Threaded IGA assembly
+# `setup_domainbuffer` also supports `threading=true` for `BezierGrid`, since
+# `FerriteAssembly` no longer requires a concrete `Ferrite.Grid` for chunk creation.
+# We request 2 tasks explicitly (independent of `Threads.nthreads()`) so the
+# chunk-splitting is exercised even in a single-threaded Julia session, and
+# compare against the sequential result above.
+threaded_buffer = setup_domainbuffer(domain; threading=true, num_tasks=2)
+K_threaded = allocate_matrix(dh)
+r_threaded = zeros(ndofs(dh))
+assembler_threaded = start_assemble(K_threaded, r_threaded)
+work!(assembler_threaded, threaded_buffer; a=a)
+apply!(r_threaded, lh, 0.0);
+
+using Test                #hide
+@test K_threaded ≈ K      #hide
+@test r_threaded ≈ r      #hide
+
 # before solving it,
 apply_zero!(K, r, ch)
 a .-= K\r
@@ -111,7 +129,6 @@ FerriteIGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
 end
 
-using Test                                      #src
 # @test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src
 @test norm(norm.(qe.data)) ≈ 679.3207411544098  #src
 

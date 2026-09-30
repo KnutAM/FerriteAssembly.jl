@@ -59,6 +59,31 @@ end
     end
 end
 
+# `create_chunks` previously dispatched on concrete `Ferrite.Grid`, so any other
+# `Ferrite.AbstractGrid` implementation (e.g. FerriteIGA.jl's `BezierGrid`) could not
+# be used with `threading=true`, even though `create_coloring` and the generic
+# `AbstractGrid` accessors it relies on only require `.cells` and `.nodes` fields.
+struct DummyGrid{C,N} <: Ferrite.AbstractGrid{2}
+    cells::Vector{C}
+    nodes::Vector{N}
+end
+
+@testset "create_chunks with non-Grid AbstractGrid (BUG-013)" begin
+    grid = generate_grid(Quadrilateral, (4, 4))
+    dummygrid = DummyGrid(grid.cells, grid.nodes)
+    cellset = collect(1:getncells(grid))
+
+    # Automatic coloring path (colors_or_chunks = nothing)
+    chunks_grid = FerriteAssembly.create_chunks(grid, cellset, nothing)
+    chunks_dummy = FerriteAssembly.create_chunks(dummygrid, cellset, nothing)
+    @test Set(Iterators.flatten(Iterators.flatten(chunks_dummy))) == Set(cellset)
+    @test [sort!(collect(Iterators.flatten(c))) for c in chunks_dummy] == [sort!(collect(Iterators.flatten(c))) for c in chunks_grid]
+
+    # User-supplied chunks path (doesn't use the grid argument beyond dispatch)
+    chunks = [[cellset[1:8], cellset[9:16]], [cellset[17:end]]]
+    @test FerriteAssembly.create_chunks(dummygrid, cellset, chunks) == chunks
+end
+
 @testset "work! with empty custom chunks (PR89)" begin
     # End-to-end reproduction: a domain whose user-supplied chunks contain
     # empty sub-chunks must still visit every cell during threaded `work!`.

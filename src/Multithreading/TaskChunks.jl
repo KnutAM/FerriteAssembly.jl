@@ -81,7 +81,7 @@ function split_in_chunks(set::Vector{T}; num_tasks = Threads.nthreads()) where T
 end
 
 # If chunks already given, check that they match the intersected set
-function create_chunks(::Grid, intersected_set::Vector{I}, chunks::Vector{Vector{Vector{I}}}) where I
+function create_chunks(::Ferrite.AbstractGrid, intersected_set::Vector{I}, chunks::Vector{Vector{Vector{I}}}) where I
     chunk_set = sizehint!(Set{I}(), length(intersected_set))
     full_set = Set(intersected_set)
     for chunk_vector in chunks
@@ -100,14 +100,14 @@ function create_chunks(::Grid, intersected_set::Vector{I}, chunks::Vector{Vector
     return chunks
 end
 
-# Colors given with same type as set 
-function create_chunks(g::Grid, intersected_set::Vector{I}, colors::Vector{Vector{I}}) where I
+# Colors given with same type as set
+function create_chunks(g::Ferrite.AbstractGrid, intersected_set::Vector{I}, colors::Vector{Vector{I}}) where I
     colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, intersected_set), colors)
     chunks = [split_in_chunks(set) for set in colors_intersect]
     return create_chunks(g, intersected_set, chunks)
 end
 # Colors given with different type as set
-function create_chunks(g::Grid, intersected_set::Vector{FacetIndex}, colors::Vector{Vector{Int}})
+function create_chunks(g::Ferrite.AbstractGrid, intersected_set::Vector{FacetIndex}, colors::Vector{Vector{Int}})
     cellset = first.(intersected_set)
     colors_intersect = map(sort! ∘ collect ∘ Base.Fix1(intersect, cellset), colors)
     chunks = [convert_chunk(split_in_chunks(set), intersected_set) for set in colors_intersect]
@@ -115,7 +115,7 @@ function create_chunks(g::Grid, intersected_set::Vector{FacetIndex}, colors::Vec
 end
 
 # Colors not given
-function create_chunks(grid::Grid, intersected_set::Vector, ::Nothing)
+function create_chunks(grid::Ferrite.AbstractGrid, intersected_set::Vector, ::Nothing)
     makecellset(v::Vector{Int}) = Set(v)
     makecellset(v::Vector) = Set(first.(v))
     return create_chunks(grid, intersected_set, create_coloring(grid, makecellset(intersected_set)))
