@@ -94,4 +94,44 @@
         @test_throws "AutoDiffBuffer not implemented for FacetBuffer" setup_domainbuffer(domains["left"]; autodiffbuffer=true)
 
     end
+
+    @testset "mixed cell and facet domains (BUG-011)" begin
+        grid = generate_grid(Quadrilateral, (4,4))
+        ip = Lagrange{RefQuadrilateral,1}()
+        dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+        cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
+        fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
+        cell_domain = DomainSpec(dh, nothing, cv) # covers the full grid: no coverage warnings expected
+        facet_domain = DomainSpec(dh, nothing, fv; set=getfacetset(grid, "left"))
+
+        # Validation must not depend on which domain type check_input happens to see
+        # first, so try several dictionary key arrangements (Dict iteration order
+        # depends on the keys' hashes).
+        key_pairs = (("cells", "facets"), ("facets", "cells"), ("a", "b"), ("z", "y"))
+        volumes = map(key_pairs) do (cell_key, facet_key)
+            dbs_spec = Dict(cell_key => cell_domain, facet_key => facet_domain)
+            dbs = @test_nowarn setup_domainbuffers(dbs_spec)
+            v = SimpleIntegrator(Returns(1.0), 0.0; domains=cell_key)
+            work!(v, dbs)
+            return v.val
+        end
+        @test all(≈(volumes[1]), volumes)
+    end
+
+    @testset "empty domains (BUG-016)" begin
+        grid = generate_grid(Quadrilateral, (4,4))
+        ip = Lagrange{RefQuadrilateral,1}()
+        dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+        cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
+
+        # Explicitly empty set
+        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; set=Int[]))
+        # Nonempty set whose intersection with the SubDofHandler's cellset is empty
+        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; set=[getncells(grid)+1, getncells(grid)+2]))
+
+        # An entirely empty domain dictionary is a no-op, consistent with BUG-008's
+        # fix for empty domain dictionaries in work!/load-handler dispatch.
+        dbs = setup_domainbuffers(Dict{String, FerriteAssembly.DomainSpec}())
+        @test isempty(dbs)
+    end
 end

@@ -51,6 +51,16 @@ function work!(worker, sim::AbstractSingleDomainThreadedSim)
     end
 end
 
+# Fallback for multidomain simulations not covered by the homogeneous fast paths above
+# (e.g. Dict{String,AbstractDomainBuffer}, or a dict mixing sequential and threaded domains).
+# Each domain is dispatched individually according to its actual (concrete) buffer type.
+function work!(worker, multisim::AbstractGenericMultiDomainSim)
+    for (name, sim) in multisim
+        skip_this_domain(worker, name) && continue
+        work!(worker, sim)
+    end
+end
+
 function work_domain_sequential!(worker, sim::AbstractSimulation{<:AbstractDomainBuffer})
     itembuffer = get_base(get_itembuffer(sim)) # get_base if threaded buffer
     for itemnr in getset(sim)

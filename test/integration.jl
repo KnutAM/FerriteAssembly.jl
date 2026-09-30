@@ -308,6 +308,39 @@ import .TestIntegrators: MySimpleIntegrand, OffsetVec
     
         test_multidomain_heatflow(;threading=Val(false))
         test_multidomain_heatflow(;threading=Val(true))
+
+        @testset "Widened Dict{String,AbstractDomainBuffer} dispatch (BUG-010)" begin
+            # work! must accept the documented Dict{String,<:AbstractDomainBuffer} type,
+            # not just the concrete Dict{String,DomainBuffer}/Dict{String,ThreadedDomainBuffer}
+            # produced by setup_domainbuffers, including a dict mixing both kinds.
+            lx, ly, lz = 1.2, 1.3, 1.1
+            volume = lx*ly*lz
+            grid = generate_grid(Hexahedron, (3,3,3), zero(Vec{3}), Vec(lx, ly, lz))
+            addcellset!(grid, "set1", x->x[1]<lx/2)
+            addcellset!(grid, "set2", setdiff!(Set(1:getncells(grid)), getcellset(grid, "set1")))
+            ip = Lagrange{RefHexahedron,1}()
+            dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
+            m = EE.StationaryFourier(1.0)
+            cv = CellValues(QuadratureRule{RefHexahedron}(2), ip)
+            ad1 = DomainSpec(dh, m, cv; set=getcellset(grid, "set1"))
+            ad2 = DomainSpec(dh, m, cv; set=getcellset(grid, "set2"))
+            db1_seq = setup_domainbuffer(ad1; threading=false)
+            db2_seq = setup_domainbuffer(ad2; threading=false)
+            db1_thr = setup_domainbuffer(ad1; threading=true)
+            db2_thr = setup_domainbuffer(ad2; threading=true)
+
+            function widened_volume(db1, db2)
+                dbs = Dict{String, FA.AbstractDomainBuffer}("d1"=>db1, "d2"=>db2)
+                v = SimpleIntegrator(Returns(1.0), 0.0)
+                work!(v, dbs)
+                return v.val
+            end
+
+            @test widened_volume(db1_seq, db2_seq) ≈ volume # all-sequential
+            @test widened_volume(db1_thr, db2_thr) ≈ volume # all-threaded
+            @test widened_volume(db1_seq, db2_thr) ≈ volume # mixed
+            @test widened_volume(db1_thr, db2_seq) ≈ volume # mixed
+        end
     end
 
 end

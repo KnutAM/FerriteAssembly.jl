@@ -53,29 +53,38 @@ Set `suppress_warnings = true` to suppress warnings checking for typical input e
 See [`setup_domainbuffer`](@ref) for description of the keyword arguments.
 """
 function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, suppress_warnings = false; kwargs...)
+    isempty(domains) && return Dict{String, AbstractDomainBuffer}()
     dbs = Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
     suppress_warnings || check_input(dbs)
-    return dbs 
+    return dbs
 end
 
-check_input(dbs::DomainBuffers) = check_input(dbs, eltype(getset(first(values(dbs)))))
+function check_input(dbs::DomainBuffers)
+    isempty(dbs) && return nothing
+    cell_dbs = filter(kv -> eltype(getset(kv[2])) <: Integer, dbs)
+    other_dbs = filter(kv -> !(eltype(getset(kv[2])) <: Integer), dbs)
+    isempty(cell_dbs) || check_cell_domains(dbs, cell_dbs)
+    isempty(other_dbs) || check_other_domains(other_dbs)
+    return nothing
+end
 
-function check_input(dbs::DomainBuffers, ::Type{I}) where {I <: Integer} # Domain of cells
-    if !all(db -> eltype(getset(db)) === I, values(dbs))
-        @warn "Not all sets have the same eltype, this is likely to cause errors - proceed with caution"
+# Domains of cells: check eltype consistency and that all grid cells are covered exactly once.
+function check_cell_domains(dbs::DomainBuffers, cell_dbs::DomainBuffers)
+    I = eltype(getset(first(values(cell_dbs))))
+    if !all(db -> eltype(getset(db)) === I, values(cell_dbs))
+        @warn "Not all cell domains have the same set eltype, this is likely to cause errors - proceed with caution"
     end
 
     grid = get_grid(dbs)
-    
-    # Check that all cells are included, and
-    num_cells_in_sets = sum(length ∘ getset, values(dbs); init = 0)
+
+    num_cells_in_sets = sum(length ∘ getset, values(cell_dbs); init = 0)
     num_cells_in_grid = getncells(grid)
     more_fewer = num_cells_in_sets > num_cells_in_grid ? "more" : "fewer"
     if num_cells_in_grid != num_cells_in_sets
         @warn "There are $more_fewer cells ($num_cells_in_sets) assigned to domains than cells in the grid ($num_cells_in_grid)"
     end
     included = zeros(Bool, getncells(grid))
-    for db in values(dbs)
+    for db in values(cell_dbs)
         for i in getset(db)
             included[i] = true
         end
@@ -84,9 +93,10 @@ function check_input(dbs::DomainBuffers, ::Type{I}) where {I <: Integer} # Domai
     all(included) || @warn "$num_missing cells are not included in the domainbuffers"
 end
 
-function check_input(dbs::DomainBuffers, ::Type) # Unspecified (typically facet set) without tests
+# Domains of e.g. facets: no checks implemented yet.
+function check_other_domains(other_dbs::DomainBuffers)
     # TODO: Add check for non-disjoint sets (always applicable)
-    return nothing 
+    return nothing
 end
 
 """
@@ -104,6 +114,9 @@ Setup a domain buffer for a single grid domain, `domain`.
   differentiation (if supported by the itembuffer)
 """
 function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
+    isempty(domain.set) && throw(ArgumentError(
+        "Cannot setup a domain buffer with an empty item set (domain.set is empty, " *
+        "e.g. because the given `set` does not intersect the SubDofHandler's cellset)."))
     return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
