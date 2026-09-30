@@ -16,7 +16,7 @@ and the corresponding weak form is
 ```
 where, on the right hand side, ``q_\mathrm{n}`` is a heat flux normal to the boundary ``\Gamma``,
 and ``h`` is a volumetric heat supply. 
-These contributions are not included in the element, and should be added with `FerriteNeumann.jl`
+These contributions are not included in the element, and should be added with the [`LoadHandler`](@ref FerriteAssembly.LoadHandler)
 """
 struct StationaryFourier{T}
     k::T # Thermal conductivity
@@ -72,8 +72,8 @@ and the corresponding time-discretized weak form is
 where ``{}^\mathrm{n}T`` is the old temperature (in the previous timestep) and ``\Delta t`` is the timestep. 
 On the right hand side, ``q_\mathrm{n}`` is a heat flux normal to the boundary ``\Gamma``,
 and ``h`` is a volumetric heat supply. 
-These external contributions on the right hand side are not included in the element, 
-and should be added with `FerriteNeumann.jl`
+These external contributions on the right hand side are not included in the element,
+and should be added with the [`LoadHandler`](@ref FerriteAssembly.LoadHandler)
 """
 struct TransientFourier{T}
     k::T # Thermal conductivity
