@@ -311,6 +311,31 @@ end
                 @test allocs == 0 # Vector{T} where isbitstype(T) should not allocate (MatA fulfills this)
             end
 
+            # StateVector's documented AbstractDict-like interface (BUG-018 regression):
+            # keys/values/pairs/iteration/haskey/get/length must work directly, without
+            # reaching into the internal `.vals` field, and must keep working across
+            # `mode = :flip` and `revert_states!`.
+            @testset "StateVector dict interface" begin
+                ncells = getncells(grid)
+                @test isa(states, AbstractDict{Int, Vector{StateA}})
+                @test Set(keys(states)) == Set(1:ncells)
+                @test length(states) == ncells
+                @test length(collect(values(states))) == ncells
+                @test all(states[i] == v for (i, v) in pairs(states))
+                @test all(i -> haskey(states, i), 1:ncells)
+                @test !haskey(states, ncells + 1)
+                @test get(states, 1, :missing) == states[1]
+                @test get(states, ncells + 1, :missing) === :missing
+                states_dict = Dict(states) # plain `Dict` built from the `StateVector`
+                @test states == states_dict # symmetric `==` with a plain `Dict`
+                @test states_dict == states
+
+                _flip!(buffer)
+                @test Set(keys(states)) == Set(1:ncells) # interface still works after flip
+                revert_states!(buffer)
+                @test Set(keys(old_states)) == Set(1:ncells) # interface still works after revert
+            end
+
             # MatB (not bitstype)
             # - Check correct values before and after update
             # - Check unaliased old and new after update_states!

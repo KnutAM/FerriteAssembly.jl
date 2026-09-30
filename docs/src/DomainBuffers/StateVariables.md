@@ -38,7 +38,9 @@ The states for a given domain are accessed with
 and 
 [`get_old_state`](@ref FerriteAssembly.get_state(::FerriteAssembly.DomainBuffers, ::String)), 
 where the state for a particular cell is indexed
-by its cell number. (The output from the mentioned functions are `Dict{Int}`)
+by its cell number. (The output from the mentioned functions is a `StateVector{S} <:
+AbstractDict{Int,S}`, which supports the usual read-only `AbstractDict` interface -
+`keys`, `values`, `pairs`, iteration, `haskey`, `get`, and equality - but is not a `Dict`.)
 
 ## API
 ```@docs
