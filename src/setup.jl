@@ -131,15 +131,10 @@ Setup a domain buffer for a single grid domain, `domain`.
 * `num_tasks`: The number of tasks to spawn during threaded assembly. Only applicable for `threading = true`.
 * `autodiffbuffer`: Should a custom itembuffer be used to speed up the automatic 
   differentiation (if supported by the itembuffer)
+An empty `domain.set` (e.g. because the given `set` does not intersect the SubDofHandler's
+cellset) is supported as a no-op: the resulting buffer is skipped when `work!`ing.
 """
 function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
-    if isempty(domain.set) && _domain_entity(domain) === :cell
-        throw(ArgumentError(
-            "Cannot setup a cell domain buffer with an empty item set (domain.set is empty, " *
-            "e.g. because the given `set` does not intersect the SubDofHandler's cellset). " *
-            "This restriction does not apply to non-cell (e.g. facet) domains, which support " *
-            "an empty set as a no-op."))
-    end
     return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
@@ -152,7 +147,10 @@ function setup_itembuffer(adb, domain::DomainSpec{FacetIndex}, args...)
 end
 function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
     dofrange = create_dofrange(domain.sdh)
-    return setup_cellbuffer(adb, domain.sdh, domain.fe_values, domain.material, first(values(states)), dofrange, domain.user_data)
+    # An empty `states` (empty domain.set) has no real cell to sample; `nothing` is used as a
+    # placeholder, matching facet buffers, since it is never dereferenced (work! is a no-op).
+    sample_state = isempty(states) ? nothing : first(values(states))
+    return setup_cellbuffer(adb, domain.sdh, domain.fe_values, domain.material, sample_state, dofrange, domain.user_data)
 end
 
 function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false), kwargs...)
