@@ -12,7 +12,6 @@
 
 # Start by loading the necessary packages
 using Ferrite, FerriteIGA, LinearAlgebra, FerriteAssembly
-using Test                                      #src
 import FerriteAssembly.ExampleElements: ElasticPlaneStrain
 
 # ## Setup
@@ -130,7 +129,7 @@ FerriteIGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
 end
 
 # @test sum(norm, σ_nodes) ≈ 3087.2447327126742 #src
-@test norm(norm.(qe.data)) ≈ 679.3207411544098  #src
+@test norm(norm.(qe.data)) ≈ 679.3207411544098  #hide
 
 #md # ## [Plain program](@id iga_plain_program)
 #md #
