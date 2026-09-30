@@ -130,11 +130,24 @@
         ip = Lagrange{RefQuadrilateral,1}()
         dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
         cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
+        fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
 
-        # Explicitly empty set
+        # Explicitly empty set: rejected for cell domains, since create_states/setup_itembuffer
+        # need a real cell to sample the per-cell state type and scratch buffers.
         @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; set=Int[]))
         # Nonempty set whose intersection with the SubDofHandler's cellset is empty
         @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; set=[getncells(grid)+1, getncells(grid)+2]))
+
+        # An empty facet domain has no such blocker (no per-facet state, and its itembuffer
+        # samples the SubDofHandler's cellset, not domain.set), so it is supported as a no-op,
+        # both sequentially and threaded.
+        for threading in (false, true)
+            facet_db = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=FacetIndex[]); threading)
+            @test isempty(FerriteAssembly.getset(facet_db))
+            v = SimpleIntegrator(Returns(1.0), 0.0)
+            work!(v, Dict("facets" => facet_db))
+            @test v.val == 0.0
+        end
 
         # An entirely empty domain dictionary is a no-op, consistent with BUG-008's
         # fix for empty domain dictionaries in work!/load-handler dispatch.

@@ -59,30 +59,25 @@ dictionary is not supported; use separate dictionaries (and separate calls to
 """
 function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, suppress_warnings = false; kwargs...)
     isempty(domains) && return Dict{String, AbstractDomainBuffer}()
-    check_domain_kinds(domains)
+    if !allequal(_domain_entity, values(domains))
+        throw(ArgumentError("Not allowed to mix different entities (e.g. cell and facet) in the same domainbuffer dictionary"))
+    end
     dbs = Dict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
     suppress_warnings || check_input(dbs)
     return dbs
 end
 
-is_cell_domain(::DomainSpec{I}) where I = I <: Integer
+_domain_entity(::DomainSpec{I}) where {I} = _domain_entity(I)
+_domain_entity(::DomainBuffer{I}) where {I} = _domain_entity(I)
+_domain_entity(::ThreadedDomainBuffer{I}) where {I} = _domain_entity(I)
 
-# A single `DomainBuffers` dictionary cannot mix cell and facet (or other non-cell) domains.
-function check_domain_kinds(domains::Dict{String,<:DomainSpec})
-    cell_names = [name for (name, d) in domains if is_cell_domain(d)]
-    other_names = [name for (name, d) in domains if !is_cell_domain(d)]
-    if !isempty(cell_names) && !isempty(other_names)
-        throw(ArgumentError(
-            "Cannot mix cell domains ($(join(cell_names, ", "))) and non-cell domains, " *
-            "e.g. facets, ($(join(other_names, ", "))) in the same domain dictionary; " *
-            "use separate dictionaries instead."))
-    end
-    return nothing
-end
+_domain_entity(::Type{<:Integer}) = :cell
+_domain_entity(::Type{<:FacetIndex}) = :facet
+# _domain_entity(::Type{<:InterfaceIndex}) # TODO, see #22
 
 function check_input(dbs::DomainBuffers)
     isempty(dbs) && return nothing
-    if all(db -> eltype(getset(db)) <: Integer, values(dbs))
+    if all(db -> _domain_entity(db) === :cell, values(dbs))
         check_cell_domains(dbs)
     else
         check_other_domains(dbs)
@@ -117,6 +112,8 @@ end
 
 # Domains of e.g. facets: no checks implemented yet.
 function check_other_domains(other_dbs::DomainBuffers)
+    @assert allequal(_domain_entity, values(other_dbs)) # Must be same, see `setup_domainbuffers`
+    # (should never happen since error should be thrown earlier)
     # TODO: Add check for non-disjoint sets (always applicable)
     return nothing
 end
@@ -136,9 +133,13 @@ Setup a domain buffer for a single grid domain, `domain`.
   differentiation (if supported by the itembuffer)
 """
 function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
-    isempty(domain.set) && throw(ArgumentError(
-        "Cannot setup a domain buffer with an empty item set (domain.set is empty, " *
-        "e.g. because the given `set` does not intersect the SubDofHandler's cellset)."))
+    if isempty(domain.set) && _domain_entity(domain) === :cell
+        throw(ArgumentError(
+            "Cannot setup a cell domain buffer with an empty item set (domain.set is empty, " *
+            "e.g. because the given `set` does not intersect the SubDofHandler's cellset). " *
+            "This restriction does not apply to non-cell (e.g. facet) domains, which support " *
+            "an empty set as a no-op."))
+    end
     return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
