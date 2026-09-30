@@ -1,10 +1,18 @@
-# Minimal interface for a vector, storage format will probably be updated later. 
-mutable struct StateVector{SV}
+# Minimal interface for a vector, storage format will probably be updated later.
+mutable struct StateVector{SV} <: AbstractDict{Int, SV}
     vals::Dict{Int, SV}
 end
 Base.getindex(s::StateVector, cellnum::Int) = s.vals[cellnum]
 Base.setindex!(s::StateVector, v, cellnum::Int) = setindex!(s.vals, v, cellnum)
 Base.:(==)(a::StateVector, b::StateVector) = (a.vals == b.vals)
+Base.iterate(s::StateVector) = iterate(s.vals)
+Base.iterate(s::StateVector, state) = iterate(s.vals, state)
+Base.length(s::StateVector) = length(s.vals)
+Base.keys(s::StateVector) = keys(s.vals)
+Base.values(s::StateVector) = values(s.vals)
+Base.pairs(s::StateVector) = pairs(s.vals)
+Base.haskey(s::StateVector, cellnum) = haskey(s.vals, cellnum)
+Base.get(s::StateVector, cellnum, default) = get(s.vals, cellnum, default)
 
 struct StateVariables{SV}
     old::StateVector{SV} # Rule: Referenced during assembly, not changed (ever)

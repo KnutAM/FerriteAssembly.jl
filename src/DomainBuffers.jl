@@ -38,9 +38,11 @@ get_itembuffer(db::DomainBuffers, domain::String) = get_itembuffer(db[domain])
     get_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
     get_state(sim::Simulation[, domain::String])
 
-Get the `states::Dict{Int,S}`, where `S` type of the state for each entity in the domain,
-stored in the `db` or `dbs[domain]`. If no `domain` is given for multiple domains, a 
-Dict{String} is returned with state variables for each domain
+Get the `states::StateVector{S}`, where `S` is the type of the state for each entity in the
+domain, stored in the `db` or `dbs[domain]`. `StateVector{S} <: AbstractDict{Int,S}` is indexed
+by cell number and supports the usual read-only `AbstractDict` interface (`keys`, `values`,
+`pairs`, iteration, `haskey`, `get`, equality), but is not a `Dict`. If no `domain` is given for
+multiple domains, a `Dict{String}` is returned with state variables for each domain.
 """
 get_state(db::DomainBuffers, domain::String) = get_state(db[domain])
 get_state(db::DomainBuffers) = Dict(key=>get_state(val) for (key,val) in db)
@@ -50,9 +52,11 @@ get_state(db::DomainBuffers) = Dict(key=>get_state(val) for (key,val) in db)
     get_old_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
     get_old_state(sim::Simulation[, domain::String])
 
-Get the `states::Dict{Int,S}`, where `S` type of the state for each entity in the domain,
-stored in the `db` or `dbs[domain]`. If no `domain` is given for multiple domains, a 
-Dict{String} is returned with state variables for each domain
+Get the `states::StateVector{S}`, where `S` is the type of the state for each entity in the
+domain, stored in the `db` or `dbs[domain]`. `StateVector{S} <: AbstractDict{Int,S}` is indexed
+by cell number and supports the usual read-only `AbstractDict` interface (`keys`, `values`,
+`pairs`, iteration, `haskey`, `get`, equality), but is not a `Dict`. If no `domain` is given for
+multiple domains, a `Dict{String}` is returned with state variables for each domain.
 """
 get_old_state(db::DomainBuffers, domain::String) = get_old_state(db[domain])
 get_old_state(db::DomainBuffers) = Dict(key=>get_old_state(val) for (key,val) in db)

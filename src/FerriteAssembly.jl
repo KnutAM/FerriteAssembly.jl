@@ -100,8 +100,12 @@ function element_residual! end
 """
     facet_routine!(Ke, re, ae, material, facetvalues, facetbuffer)
 
-Calculate contributions to the stiffness matrix and residual vector from a 
+Calculate contributions to the stiffness matrix and residual vector from a
 facet domain. It can be used, for example, to implement Robin boundary conditions.
+
+Unlike [`element_routine!`](@ref), there is currently no automatic-differentiation fallback
+for facets: `facet_routine!` must be implemented explicitly whenever a facet tangent
+contribution is required, even if [`facet_residual!`](@ref) is already defined.
 """
 function facet_routine! end
 

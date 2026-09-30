@@ -14,7 +14,7 @@ The following assemblers can be used to assemble the system matrix and vector:
 
 ### Ferrite assemblers 
 Ferrite assemblers are supported and are used to assemble both a matrix and a vector. They are created by calling Ferrite's `start_assemble` function. They will primarily call `element_routine!` or `facet_routine!`. 
-However, if not defined for the given material, automatic differentiation will be used to get the matrix contribution by calling `element_residual!` or `facet_residual!` instead.
+However, if `element_routine!` is not defined for the given material, automatic differentiation will be used to get the matrix contribution by calling `element_residual!` instead. There is currently no automatic-differentiation fallback for facets: `facet_routine!` must be implemented explicitly whenever a facet tangent contribution is required.
 
 ### ReAssembler
 The `ReAssembler` assembles only the residual vector, and will thus call `element_residual!` or `facet_residual!`.
@@ -23,7 +23,7 @@ ReAssembler
 ```
 
 ### KeReAssembler
-The `KeReAssembler` assembles both the residual vector and the system matrix, similar to Ferrite's assemblers. It will also primarily call `element_routine!` or `facet_routine!` and fall back to automatic differentiation of `element_residual!` and `facet_residual!` if the former methods are not defined. 
+The `KeReAssembler` assembles both the residual vector and the system matrix, similar to Ferrite's assemblers. It will also primarily call `element_routine!` or `facet_routine!`, and falls back to automatic differentiation of `element_residual!` if `element_routine!` is not defined. As above, there is no automatic-differentiation fallback for facets, so `facet_routine!` must be implemented explicitly.
 ```@docs
 KeReAssembler
 ```
