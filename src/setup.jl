@@ -87,7 +87,6 @@ end
 
 # Domains of cells: check eltype consistency and that all grid cells are covered exactly once.
 function check_cell_domains(cell_dbs::DomainBuffers)
-
     grid = get_grid(cell_dbs)
 
     num_cells_in_sets = sum(length ∘ getset, values(cell_dbs); init = 0)
