@@ -7,12 +7,6 @@ Solve the problem with primary variable, ``u``, variation, ``\delta u``, and a w
    - \int_\Gamma \delta u\ h(x,t,n)\ \mathrm{d}\Gamma - \int_\Omega \delta u\ b(x,t)\ \mathrm{d}\Omega = 0
 ```
 where the function `f` is given to the weak form, and `h` and `b` are given via the [`LoadHandler`](@ref FerriteAssembly.LoadHandler).
-Note the sign convention: `LoadHandler`'s `apply!` *adds* the value of the given function directly
-to the external-load vector `fext`, and the residual actually solved is `r_internal - fext`
-(see e.g. the `mixed_materials` tutorial). So the function passed to [`Neumann`](@ref FerriteAssembly.Neumann)/[`BodyLoad`](@ref FerriteAssembly.BodyLoad)
-must equal the term's coefficient exactly as written above (``h`` and ``b``, not ``-h``/``-b``) —
-whether that matches the "natural" sign of a named physical quantity in a specific example below
-depends on how that quantity relates to ``h``/``b`` in that example's own weak form, as demonstrated below.
 
 !!! note "This element is intended for testing"
     It is not optimized for speed
@@ -33,8 +27,8 @@ c = 1.0; k = 1.0; # heat capacity and heat conductivity (material parameters)
 qn = 1.0; b=1.0;  # Outward boundary heat flux and internal heat source (external loading)
 material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> δu*c*u_dot + k*(∇δu ⋅ ∇u))
 lh = LoadHandler(dh)
-add!(lh, Neumann(:u, 2, getfacetset(dh.grid, "right"), (x,t,n)->-qn)) # contributes +∫ δuᵢ*qₙ dΓ to r
-add!(lh, BodyLoad(:u, 1, (x,t)->b))                                   # contributes -∫ δuᵢ*b dΩ to r
+add!(lh, Neumann(:u, 2, getfacetset(dh.grid, "right"), (x,t,n)->-qn))
+add!(lh, BodyLoad(:u, 1, (x,t)->b))
 ```
 
 ## Linear elasticity
@@ -52,8 +46,8 @@ G = 80e3; K = 160e3; # Shear and bulk modulus (material parameters)
 tn = 1.0; b = Vec((0.0, 0.0, -1.0)); # Outward normal traction and body force (external loading)
 material = WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> (∇δu ⊡ (2*G*dev(symmetric(∇u)) + 3*K*vol(∇u))))
 lh = LoadHandler(dh)
-add!(lh, Neumann(:u, 2, getfacetset(dh.grid, "right"), (x,t,n)->tn*n)) # contributes -∫ δuᵢ⋅(tₙn) dΓ to r
-add!(lh, BodyLoad(:u, 2, (x,t)->b))                                    # contributes -∫ δuᵢ⋅b dΩ to r
+add!(lh, Neumann(:u, 2, getfacetset(dh.grid, "right"), (x,t,n)->tn*n))
+add!(lh, BodyLoad(:u, 2, (x,t)->b))
 ```
 """
 struct WeakForm{F<:Function}

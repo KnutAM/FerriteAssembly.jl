@@ -40,10 +40,10 @@ work!(assembler, buffer; a=a);
 # And finally we can solve our problem update 
 a .-= K\r;
 
-# As an independent check, we assemble `K2`/`r2` with the standard (unconstrained)
-# assembler and apply the constraints afterwards. Since `a`/`a2` are updated via a
-# residual increment, `apply_zero!` (not `apply!`) must be used, so that the
-# increment does not perturb the already-prescribed dofs.
+# As an independent check, we assemble `K2`/`r2` with the standard (unconstrained) #src
+# assembler and apply the constraints afterwards. Since `a`/`a2` are updated via a #src
+# residual increment, `apply_zero!` (not `apply!`) must be used, so that the #src
+# increment does not perturb the already-prescribed dofs. #src
 using Test                              #src
 K2 = similar(K)                         #src
 r2 = similar(r)                         #src
