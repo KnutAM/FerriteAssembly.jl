@@ -48,6 +48,17 @@ apply!(a, ch)
 work!(assembler, buffer; a=a)
 apply!(r, lh, 0.0);
 
+threaded_buffer = setup_domainbuffer(domain; threading=true, num_tasks=2)
+K_threaded = allocate_matrix(dh)
+r_threaded = zeros(ndofs(dh))
+assembler_threaded = start_assemble(K_threaded, r_threaded)
+work!(assembler_threaded, threaded_buffer; a=a)
+apply!(r_threaded, lh, 0.0);
+
+using Test                #hide
+@test K_threaded ≈ K      #hide
+@test r_threaded ≈ r      #hide
+
 apply_zero!(K, r, ch)
 a .-= K\r
 apply!(a, ch);
@@ -63,5 +74,7 @@ work!(qe, buffer; a=a);
 FerriteIGA.VTKIGAFile("plate_with_hole.vtu", grid) do vtk
     write_solution(vtk, dh, a)
 end
+
+@test norm(norm.(qe.data)) ≈ 679.3207411544098  #hide
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
