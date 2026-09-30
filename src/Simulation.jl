@@ -4,9 +4,6 @@ const AbstractSingleDomainSim = AbstractSimulation{<:DomainBuffer}
 const AbstractMultiDomainSim = AbstractSimulation{<:Dict{String, <:DomainBuffer}}
 const AbstractSingleDomainThreadedSim = AbstractSimulation{<:ThreadedDomainBuffer}
 const AbstractMultiDomainThreadedSim = AbstractSimulation{<:Dict{String, <:ThreadedDomainBuffer}}
-# Catches any multidomain simulation not matched by the homogeneous fast paths above,
-# e.g. a `Dict{String,AbstractDomainBuffer}` or a dict mixing sequential and threaded domains.
-const AbstractGenericMultiDomainSim = AbstractSimulation{<:DomainBuffers}
 
 # Must be defined
 """
