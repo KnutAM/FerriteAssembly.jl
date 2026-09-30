@@ -99,6 +99,19 @@
         end
     end
 
+    @testset "Whole-cell state (BUG-014)" begin
+        # A material using a whole-cell (non-vector) state must also work with a
+        # function-based QuadPointEvaluator, matching SimpleIntegrator's support for this case.
+        struct WholeCellStateMat end
+        FerriteAssembly.create_cell_state(::WholeCellStateMat, args...) = 1.0
+        db_wc = setup_domainbuffer(DomainSpec(dh1, WholeCellStateMat(), cvu))
+        qe_wc = QuadPointEvaluator{Float64}(db_wc, (m, u, ∇u, s) -> s)
+        work!(qe_wc, db_wc)
+        for i in 1:getncells(grid)
+            @test qe_wc.data[i] ≈ fill(1.0, getnquadpoints(cvu))
+        end
+    end
+
     @testset "QuadPointEvaluator right after update_states! (issue #86)" begin
         # Regression test for https://github.com/KnutAM/FerriteAssembly.jl/issues/86:
         # a `QuadPointEvaluator` reading the state right after `update_states!` must observe

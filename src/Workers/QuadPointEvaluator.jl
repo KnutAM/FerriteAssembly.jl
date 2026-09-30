@@ -83,18 +83,18 @@ function work_single_cell!(qe::QuadPointEvaluator, cellbuffer)
     eval_quadpoints_cell!(qe.data[cellid(cellbuffer)], qe.qe_type, cell_state, ae, m, cv, cellbuffer)
 end
 
-function eval_quadpoints_cell!(vals::AbstractVector, f::Function, cell_state::AbstractVector, ae, material, cv::AbstractCellValues, cellbuffer)
+function eval_quadpoints_cell!(vals::AbstractVector, f::Function, cell_state, ae, material, cv::AbstractCellValues, cellbuffer)
     for q_point in 1:getnquadpoints(cv)
         u  = function_value(cv, q_point, ae)
         ∇u = function_gradient(cv, q_point, ae)
-        vals[q_point] = f(material, u, ∇u, cell_state[q_point])
+        vals[q_point] = f(material, u, ∇u, _get_qp_state(cell_state, q_point))
     end
 end
 
-function eval_quadpoints_cell!(vals::AbstractVector, f::Function, cell_state::AbstractVector, ae, material, cv::NamedTuple, cellbuffer)
+function eval_quadpoints_cell!(vals::AbstractVector, f::Function, cell_state, ae, material, cv::NamedTuple, cellbuffer)
     for q_point in 1:getnquadpoints(first(cv))
         u = NamedTuple{keys(cv)}(map((k,v) -> function_value(v, q_point, ae, dof_range(cellbuffer, k)), keys(cv), values(cv)))
         ∇u = NamedTuple{keys(cv)}(map((k,v) -> function_gradient(v, q_point, ae, dof_range(cellbuffer, k)), keys(cv), values(cv)))
-        vals[q_point] = f(material, u, ∇u, cell_state[q_point])
+        vals[q_point] = f(material, u, ∇u, _get_qp_state(cell_state, q_point))
     end
 end
