@@ -1,6 +1,6 @@
 # Package design
 
-At the top level, the user of `FerriteAssembly` needs to interact with two main types of objects, a *domain buffer* (or a `Dict` of multiple domain buffers) and a *worker*
+At the top level, the user of `FerriteAssembly` needs to interact with two main types of objects, a *domain buffer* (or an immutable `Dict`-like container, [`FerriteAssembly.DomainBuffers`](@ref), of multiple domain buffers) and a *worker*
 (for example an assembler). 
 
 ## Worker 
@@ -38,7 +38,10 @@ Figure 1: Domains
 
 When setting up the domains, we collect all domains into a `Dict`, which is 
 done by calling `setup_domainbuffers(::Dict{String,DomainSpec}; kwargs...)`,
-where the keyword arguments are the same as for a single domainbuffer. 
+where the keyword arguments are the same as for a single domainbuffer. The returned
+collection of domain buffers is an immutable [`FerriteAssembly.DomainBuffers`](@ref), not a
+`Dict`: it must be rebuilt (e.g. via `replace_material`) rather than mutated in place,
+since it may be referenced by more than one [`CoupledSimulations`](@ref) member.
 
 ### User-defined overloaded functions
 The user interacts with `FerriteAssembly` on the top level, when setting up the domain buffer and the worker. But to make it work, the user must also overload 

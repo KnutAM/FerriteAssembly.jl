@@ -1,10 +1,88 @@
+using Base: ImmutableDict
+
 abstract type AbstractDomainBuffer end
 
-const DomainBuffers = Dict{String, <:AbstractDomainBuffer}
+"""
+    DomainBuffers
+
+Alias for `Base.ImmutableDict{String, <:AbstractDomainBuffer}`, the container used for
+`Simulation.db` when there are multiple domains. It is immutable (`setindex!` is not
+defined): since a `CoupledSimulations` member's `partners` keep the partner's own original
+`Simulation` (and therefore the same `db` object by reference), an in-place mutation such as
+`sim.db["domain"] = newbuffer` would silently be visible through every partner view that
+shares it. Changing the contents therefore always goes through a function (e.g.
+[`replace_material`](@ref)) that returns a new `DomainBuffers`, never through direct
+indexing assignment. `Base.ImmutableDict` (rather than `Base.PersistentDict`) is used
+because, unlike `PersistentDict`, its iteration (`values`, `pairs`, `for (k,v) in ...`) does
+not allocate - required since every domain is iterated at least once per `work!` call.
+"""
+const DomainBuffers = ImmutableDict{String, <:AbstractDomainBuffer}
+
+"""
+    _immutabledict(pairs)
+
+Build an `ImmutableDict{String}` from an iterable of `"name" => buffer` pairs, inferring the
+narrowest common concrete value type the same way `Dict(pairs)` does (needed because
+`ImmutableDict`'s own multi-pair constructor, like `Dict(pairs...)`'s, infers its value type
+from only the first pair and then tries to `convert` the rest into that type, which errors
+whenever domains have different concrete buffer types, e.g. `DomainBuffer` vs
+`ThreadedDomainBuffer`). An empty `pairs` infers `ImmutableDict{String,Any}`, just as
+`Dict(pairs)` would infer `Dict{String,Any}` - callers with an empty-but-concretely-typed
+`DomainBuffers` on hand should reuse it as-is rather than calling this function (see e.g.
+`_uncouple`). All keys in `pairs` must be unique - `ImmutableDict` does not deduplicate on
+insertion the way `Dict` does, so a repeated key would otherwise be iterated more than once.
+"""
+function _immutabledict(pairs)
+    d = Dict(pairs)
+    acc = ImmutableDict{keytype(d), valtype(d)}()
+    for (k, v) in d
+        acc = ImmutableDict(acc, k => v)
+    end
+    return acc
+end
+
+"""
+    _check_unique_domains(db)
+
+Validate that `db::DomainBuffers` has no repeated domain name, throwing an `ArgumentError`
+otherwise (a no-op for `db::AbstractDomainBuffer`, which has no domain names to repeat).
+Guards against `Base.ImmutableDict`'s own public constructor, `Base.ImmutableDict(old, name
+=> newbuffer)`: unlike `Dict`, this *shadows* rather than replaces an already-present `name`
+- lookup (`db[name]`) returns the new buffer, but iteration (used by e.g. `work!`,
+`update_states!`, `get_state(::DomainBuffers)`) visits both, silently duplicating that
+domain's contribution. Called once, from the [`Simulation`](@ref) constructor - the one choke
+point every `DomainBuffers` passes through before being iterated - rather than from
+[`_immutabledict`](@ref FerriteAssembly._immutabledict) or other construction sites, since a
+`DomainBuffers` can also reach `Simulation` via `Base.ImmutableDict`'s own constructor
+directly, bypassing `_immutabledict` entirely.
+
+Written as a plain nested loop over `keys(db)` (not via a `Set`/`Dict`) so that it does not
+allocate - `Simulation` is constructed at least once per `work!` call for the
+`work!(worker, db::DomainBuffers; ...)` convenience form, and this codebase's tests enforce
+zero allocations for several such per-call paths.
+"""
+_check_unique_domains(::AbstractDomainBuffer) = nothing
+function _check_unique_domains(db::DomainBuffers)
+    i = 0
+    for (ki, _) in db
+        i += 1
+        j = 0
+        for (kj, _) in db
+            j += 1
+            j <= i && continue
+            ki == kj && throw(ArgumentError(
+                "domain name \"$ki\" appears more than once in this `DomainBuffers`; " *
+                "likely cause: `Base.ImmutableDict(old, \"$ki\" => newbuffer)` was used to " *
+                "try to replace domain \"$ki\"'s buffer, which shadows rather than replaces " *
+                "it - use `replace_material` to replace one domain's buffer instead"))
+        end
+    end
+    return nothing
+end
 
 # Accessor functions
 """
-    get_dofhandler(dbs::Dict{String,AbstractDomainBuffer})
+    get_dofhandler(dbs::FerriteAssembly.DomainBuffers)
     get_dofhandler(db::AbstractDomainBuffer)
     get_dofhandler(sim::Simulation)
 
@@ -14,7 +92,7 @@ and not the `SubDofHandler` that is local to a specific domain.
 get_dofhandler(db::DomainBuffers) = get_dofhandler(first(values(db)))
 
 """
-    get_grid(dbs::Dict{String,AbstractDomainBuffer})
+    get_grid(dbs::FerriteAssembly.DomainBuffers)
     get_grid(db::AbstractDomainBuffer)
     get_grid(sim::Simulation)
 
@@ -23,7 +101,7 @@ Get the underlying `grid::AbstractGrid` from the domain buffers
 get_grid(db) = Ferrite.get_grid(get_dofhandler(db))
 
 """
-    get_itembuffer(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
+    get_itembuffer(dbs::FerriteAssembly.DomainBuffers, domain::String)
     get_itembuffer(db::AbstractDomainBuffer)
     get_itembuffer(sim::Simulation[, domain::String])
 
@@ -34,8 +112,8 @@ is returned for a ThreadedDomainBuffer (used internally).
 get_itembuffer(db::DomainBuffers, domain::String) = get_itembuffer(db[domain])
 
 """
-    get_state(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
-    get_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
+    get_state(dbs::FerriteAssembly.DomainBuffers, domain::String)
+    get_state(db::Union{AbstractDomainBuffer,FerriteAssembly.DomainBuffers})
     get_state(sim::Simulation[, domain::String])
 
 Get the `states::StateVector{S}`, where `S` is the type of the state for each entity in the
@@ -48,8 +126,8 @@ get_state(db::DomainBuffers, domain::String) = get_state(db[domain])
 get_state(db::DomainBuffers) = Dict(key=>get_state(val) for (key,val) in db)
 
 """
-    get_old_state(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
-    get_old_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
+    get_old_state(dbs::FerriteAssembly.DomainBuffers, domain::String)
+    get_old_state(db::Union{AbstractDomainBuffer,FerriteAssembly.DomainBuffers})
     get_old_state(sim::Simulation[, domain::String])
 
 Get the `states::StateVector{S}`, where `S` is the type of the state for each entity in the
@@ -62,7 +140,7 @@ get_old_state(db::DomainBuffers, domain::String) = get_old_state(db[domain])
 get_old_state(db::DomainBuffers) = Dict(key=>get_old_state(val) for (key,val) in db)
 
 """
-    get_material(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
+    get_material(dbs::FerriteAssembly.DomainBuffers, domain::String)
     get_material(db::AbstractDomainBuffer)
     get_material(sim::Simulation)
 
@@ -77,7 +155,7 @@ get_material(db::DomainBuffers, domain::String) = get_material(db[domain])
 
 # Update functions
 """
-    update_states!(db::Dict{String,AbstractDomainBuffer}; mode::Symbol = :copy)
+    update_states!(db::FerriteAssembly.DomainBuffers; mode::Symbol = :copy)
     update_states!(db::AbstractDomainBuffer; mode::Symbol = :copy)
     update_states!(sim::Simulation; mode::Symbol = :copy)
 
@@ -117,7 +195,7 @@ function update_states!(dbs::DomainBuffers; kwargs...)
 end
 
 """
-    revert_states!(db::Dict{String,AbstractDomainBuffer})
+    revert_states!(db::FerriteAssembly.DomainBuffers)
     revert_states!(db::AbstractDomainBuffer)
     revert_states!(sim::Simulation)
 
@@ -138,7 +216,7 @@ end
 Base.@deprecate set_new_to_old_states! revert_states!
 
 """
-    set_time_increment!(db::Dict{String,AbstractDomainBuffer}, Δt)
+    set_time_increment!(db::FerriteAssembly.DomainBuffers, Δt)
     set_time_increment!(db::AbstractDomainBuffer, Δt)
     set_time_increment!(sim::Simulation, Δt)
 
@@ -152,18 +230,18 @@ function set_time_increment!(dbs::DomainBuffers, Δt)
 end
 
 """
-    replace_material(db::Dict{String,AbstractDomainBuffer}, replacement_function)
+    replace_material(db::FerriteAssembly.DomainBuffers, replacement_function)
     replace_material(db::AbstractDomainBuffer, replacement_function)
 
 Return a new instance of `db` where as much as possible is copied by reference, and
 where the stored material, `m`, is replaced by `replacement_function(m)`.
 """
 function replace_material(dbs::DomainBuffers, replacement_function)
-    return Dict(key=>replace_material(db, replacement_function) for (key,db) in dbs)
+    return _immutabledict(key=>replace_material(db, replacement_function) for (key,db) in dbs)
 end
 
 """
-    replace_material(dbs::Dict{String,AbstractDomainBuffer}, domain::String, replacement_function)
+    replace_material(dbs::FerriteAssembly.DomainBuffers, domain::String, replacement_function)
 
 Return a new instance of `dbs` where as much as possible is copied by reference, and
 where the material, `m`, of `dbs[domain]` is replaced by `replacement_function(m)`.
@@ -171,11 +249,11 @@ Other domains are copied by reference, unchanged.
 """
 function replace_material(dbs::DomainBuffers, domain::String, replacement_function)
     haskey(dbs, domain) || throw(ArgumentError("domain \"$domain\" not found in $(collect(keys(dbs)))"))
-    return Dict(key => (key == domain ? replace_material(db, replacement_function) : db) for (key, db) in dbs)
+    return _immutabledict(key => (key == domain ? replace_material(db, replacement_function) : db) for (key, db) in dbs)
 end
 
 """
-    getset(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
+    getset(dbs::FerriteAssembly.DomainBuffers, domain::String)
     getset(db::AbstractDomainBuffer)
     getset(sim::Simulation[, domain::String])
 
@@ -248,7 +326,7 @@ end
 
 # Experimental: Insert new states, allows reusing the buffer for multiple simulations with same
 # initial state (grid, dh, etc.), but which experience different loading. Typically for RVE simulations. 
-function replace_states!(dbs::Dict{String, <:AbstractDomainBuffer}, states::Dict{String, <:StateVariables})
+function replace_states!(dbs::DomainBuffers, states::Dict{String, <:StateVariables})
     keys(dbs) == keys(states) || throw(ArgumentError("keys of dictionaries don't match"))
     for (key, db) in dbs
         replace_states!(db, states[key])

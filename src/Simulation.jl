@@ -1,9 +1,9 @@
 abstract type AbstractSimulation{DB} end
 
 const AbstractSingleDomainSim = AbstractSimulation{<:DomainBuffer}
-const AbstractMultiDomainSim = AbstractSimulation{<:Dict{String, <:DomainBuffer}}
+const AbstractMultiDomainSim = AbstractSimulation{<:Base.ImmutableDict{String, <:DomainBuffer}}
 const AbstractSingleDomainThreadedSim = AbstractSimulation{<:ThreadedDomainBuffer}
-const AbstractMultiDomainThreadedSim = AbstractSimulation{<:Dict{String, <:ThreadedDomainBuffer}}
+const AbstractMultiDomainThreadedSim = AbstractSimulation{<:Base.ImmutableDict{String, <:ThreadedDomainBuffer}}
 
 # Must be defined
 """
@@ -38,6 +38,15 @@ global degree of freedom vectors, `a` and `aold`.
 
 **Note:**
 If `a` or `aold` are not provided, the local vectors will have `NaN` values.
+
+**Note:**
+If `db::DomainBuffers`, its domain names must be unique. This is normally guaranteed (it is
+built from a `Dict`, whose keys are already unique), but `Base.ImmutableDict`'s own public
+constructor, `Base.ImmutableDict(db, name => newbuffer)`, *shadows* rather than replaces an
+already-present `name`: both the old and new buffer remain and are both visited when
+iterating (e.g. during `work!`), silently duplicating that domain's contribution. Such a `db`
+is rejected here with an `ArgumentError`; use [`replace_material`](@ref) to replace one
+domain's buffer instead.
 """
 struct Simulation{
         DB  <: Union{DomainBuffers, AbstractDomainBuffer},
@@ -47,8 +56,17 @@ struct Simulation{
     db::DB
     a::TA
     aold::TAO
+    function Simulation{DB, TA, TAO}(db::DB, a::TA, aold::TAO) where {DB, TA, TAO}
+        _check_unique_domains(db)
+        return new{DB, TA, TAO}(db, a, aold)
+    end
 end
-Simulation(db::Union{DomainBuffers, AbstractDomainBuffer}, a = nothing, aold = nothing) = Simulation(db, a, aold)
+function Simulation(db::DB, a::TA = nothing, aold::TAO = nothing) where {
+        DB  <: Union{DomainBuffers, AbstractDomainBuffer},
+        TA  <: Union{Nothing, AbstractVector},
+        TAO <: Union{Nothing, AbstractVector}}
+    return Simulation{DB, TA, TAO}(db, a, aold)
+end
 
 get_domainbuffer(sim::Simulation) = sim.db
 

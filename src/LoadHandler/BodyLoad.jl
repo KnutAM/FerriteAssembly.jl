@@ -57,7 +57,7 @@ function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv:
     end
 end
 
-function add_bodyload!(bodyloads::Dict{String,BT}, bodyload::BodyLoad, sdh::SubDofHandler) where BT
+function add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, sdh::SubDofHandler)
     material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, bodyload.fieldname)
@@ -65,20 +65,22 @@ function add_bodyload!(bodyloads::Dict{String,BT}, bodyload::BodyLoad, sdh::SubD
     cv = autogenerate_cellvalues(bodyload.cv_info, ip, ip_geo)
 
     set = bodyload.cellset===nothing ? _getcellset(sdh) : bodyload.cellset
-    
+
     domain_spec = DomainSpec(sdh, material, cv; set=set)
-    threading = BT <: ThreadedDomainBuffer
-    bodyloads[string(length(bodyloads)+1)] = setup_domainbuffer(domain_spec; threading=threading)
+    threading = valtype(bodyloads) <: ThreadedDomainBuffer
+    newbuffer = setup_domainbuffer(domain_spec; threading=threading)
+    return Base.ImmutableDict(bodyloads, string(length(bodyloads)+1) => newbuffer)
 end
 
-function add_bodyload!(bodyloads::Dict{String}, bodyload::BodyLoad, dh::DofHandler)
+function add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, dh::DofHandler)
     contribution = false
     for sdh in dh.subdofhandlers
         overlaps = overlaps_with_cellset(bodyload.cellset, _getcellset(sdh))
         if overlaps && bodyload.fieldname ∈ Ferrite.getfieldnames(sdh)
             contribution = true
-            add_bodyload!(bodyloads, bodyload, sdh)
+            bodyloads = add_bodyload!(bodyloads, bodyload, sdh)
         end
     end
     contribution || @warn "No contributions added to the LoadHandler"
+    return bodyloads
 end
