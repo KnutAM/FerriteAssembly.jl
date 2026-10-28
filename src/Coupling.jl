@@ -33,13 +33,10 @@ Return the plain, uncoupled `Simulation` that `csim` was built from - as if it h
 been coupled - by stripping the coupling wrapper from its itembuffer(s). A plain
 `Simulation` is returned unchanged (identity, no copy).
 
-Used only when building a *new* `CoupledSimulations` group, so that a `CoupledSimulation`
-(e.g. an existing group's member, `g.a`) can be passed directly as a `primaries`/`refs`
-entry instead of requiring the caller to keep the pre-coupling `Simulation` around
-separately. Not useful to call repeatedly: for an autodiff or threaded member, stripping
-rebuilds the `AutoDiffCellBuffer`/`TaskLocals` wrapper (new `JacobianConfig`/locals vector,
-though the underlying per-cell scratch and material are the same objects) - the same
-one-time cost as building any new `CoupledSimulations` group.
+!!! note
+    Rebuilds any autodiff buffers, so should not be used for repeated calls, 
+    only during setup (i.e. when building a *new* `CoupledSimulations` 
+    group from `CoupledSimulation`s.
 """
 _uncouple(sim::Simulation) = sim
 function _uncouple(csim::CoupledSimulation)
