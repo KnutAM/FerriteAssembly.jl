@@ -70,10 +70,7 @@ scatter!(sim::Simulation{<:ThreadedDomainBuffer}) = scatter!(get_itembuffer(sim)
 A handle to one primary member of a [`CoupledSimulations`](@ref) group (e.g. `group.a`).
 `sim` is a [`Simulation`](@ref) whose domain buffer(s) have been rebuilt with coupled
 itembuffers. `partners` is a `NamedTuple{name}` holding the partner `Simulation`s this member
-reads from, each in its own natural shape (`db :: AbstractDomainBuffer` if that partner is
-itself single-domain, or `db :: DomainBuffers` if multi-domain) — independent of whether this
-member's own domain structure is single or multiple domains. Iterating a multi-domain member
-(see below) slices each partner down to the one reader domain being visited.
+reads from.
 
 Forwards the ordinary [`Simulation`](@ref) accessor API (`.a`, `.aold`, `.db`,
 `get_dofhandler`, `get_state`, `set_time_increment!`, `update_states!`, etc.).
