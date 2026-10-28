@@ -207,10 +207,8 @@ function build_coupled_simulation(name::Symbol, reader_sim::Simulation, all_memb
     if reader_db isa DomainBuffers
         if isempty(reader_db)
             new_db = reader_db # nothing to couple; preserves the original (correctly-typed) empty Dict
-            partners_by_domain = Dict{String, NamedTuple}()
         else
             built = Any[]
-            partners_by_domain = Dict{String, Any}()
             for (dname, rdb) in reader_db
                 partners = NamedTuple{partner_names}(Tuple(
                     let psim_dom = partner_domain_sim(dname, pname, psim)
@@ -219,12 +217,9 @@ function build_coupled_simulation(name::Symbol, reader_sim::Simulation, all_memb
                 ))
                 ndb = build_coupled_domain(rdb, partners)
                 push!(built, dname => ndb)
-                partners_by_domain[dname] = map(p -> p.sim, partners)
             end
             new_db = Dict(built...) # infers the narrowest common concrete value type, matching MultiDomain(Threaded)Sim dispatch
         end
-        new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
-        return CoupledSimulation(new_sim, partner_sims, partners_by_domain)
     else
         partners = NamedTuple{partner_names}(Tuple(
             let psim_dom = partner_domain_sim(nothing, pname, psim)
@@ -232,9 +227,9 @@ function build_coupled_simulation(name::Symbol, reader_sim::Simulation, all_memb
             end for (pname, psim) in pairs(partner_sims)
         ))
         new_db = build_coupled_domain(reader_db, partners)
-        new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
-        return CoupledSimulation(new_sim, partner_sims, nothing)
     end
+    new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
+    return CoupledSimulation(new_sim, partner_sims)
 end
 
 _scratch_identity(cb::CellBuffer) = cb.ae # survives replace_material's setproperties (fields copied by reference)
