@@ -20,11 +20,41 @@ function reinit_buffer!(cb::CoupledCellBuffer, sim::CoupledSimulation, cellnum::
     return nothing
 end
 
-struct CoupledSimulations{P<:NamedTuple, R<:NamedTuple, M<:NamedTuple}
-    primaries::P
+struct CoupledSimulations{R<:NamedTuple, M<:NamedTuple}
     refs::R
     members::M
 end
+
+"""
+    _uncouple(sim::Simulation) -> sim
+    _uncouple(csim::CoupledSimulation) -> Simulation
+
+Return the plain, uncoupled `Simulation` that `csim` was built from - as if it had never
+been coupled - by stripping the coupling wrapper from its itembuffer(s). A plain
+`Simulation` is returned unchanged (identity, no copy).
+
+!!! note
+    Rebuilds any autodiff buffers, so should not be used for repeated calls, 
+    only during setup (i.e. when building a *new* `CoupledSimulations` 
+    group from `CoupledSimulation`s.
+"""
+_uncouple(sim::Simulation) = sim
+function _uncouple(csim::CoupledSimulation)
+    db = csim.sim.db
+    # An empty `DomainBuffers` has no itembuffer to strip; building a `Dict` from an empty
+    # generator would infer `Dict{Any,Any}` instead of the concrete `DomainBuffers` type
+    # `Simulation` requires, so reuse `db` as-is (matching `build_coupled_simulation`'s own
+    # handling of this case).
+    new_db = db isa DomainBuffers ? (isempty(db) ? db : Dict(k => _uncouple_domain(d) for (k, d) in db)) : _uncouple_domain(db)
+    return Simulation(new_db, csim.sim.a, csim.sim.aold)
+end
+
+_uncouple_domain(d::AbstractDomainBuffer) = setproperties(d; itembuffer = _uncouple_itembuffer(get_itembuffer(d)))
+
+_uncouple_itembuffer(tl::TaskLocals) =
+    TaskLocals(_uncouple_itembuffer(get_base(tl)), map(_uncouple_itembuffer, get_locals(tl)))
+_uncouple_itembuffer(cb::CoupledCellBuffer) = cb.primary
+_uncouple_itembuffer(ad::AutoDiffCellBuffer{<:CoupledCellBuffer}) = AutoDiffCellBuffer(ad.cb.primary)
 
 """
     CoupledSimulations(primaries::NamedTuple; refs::NamedTuple = NamedTuple())
@@ -32,6 +62,9 @@ end
 Build a group of mutually-wired simulations from `primaries` (members that read partners
 and are worked via the group) and, optionally, `refs` (members with no outgoing
 dependencies, still accessible/workable through the group but never rewired themselves).
+Each value in `primaries`/`refs` may be a plain `Simulation`, or a `CoupledSimulation` (e.g.
+a member of another `CoupledSimulations` group), in which case its pre-coupling
+`Simulation` is used.
 
 Each primary reads every other primary and every ref (excluded: itself). Names must be
 unique across `primaries` and `refs`. Member access is direct/nonrecursive: `g.a`'s view of
@@ -41,6 +74,7 @@ unique across `primaries` and `refs`. Member access is direct/nonrecursive: `g.a
 g = CoupledSimulations((a = sima, b = simb, c = simc))              # mutual
 g = CoupledSimulations((a = sima,); refs = (b = simb,))             # one-way: a reads b
 g = CoupledSimulations((a = sima, b = simb); refs = (c = simc,))    # mixed
+g2 = CoupledSimulations((e = sime, a = g.a); refs = (b = g.b,))     # reuse g's members as plain inputs
 
 work!(worker_a, g.a)
 ```
@@ -48,12 +82,16 @@ work!(worker_a, g.a)
 See the package documentation for the full setup-validation and replacement contract.
 """
 function CoupledSimulations(primaries::NamedTuple; refs::NamedTuple = NamedTuple())
-    isempty(primaries) && throw(ArgumentError("`primaries` must be a nonempty named tuple of `Simulation`s"))
-    all(v -> v isa Simulation, primaries) || throw(ArgumentError("`primaries` values must be `Simulation`s"))
-    all(v -> v isa Simulation, refs) || throw(ArgumentError("`refs` values must be `Simulation`s"))
+    isempty(primaries) && throw(ArgumentError("`primaries` must be a nonempty named tuple of `Simulation`s or `CoupledSimulation`s"))
+    all(v -> v isa Union{Simulation,CoupledSimulation}, primaries) || throw(ArgumentError(
+        "`primaries` values must be `Simulation`s or `CoupledSimulation`s"))
+    all(v -> v isa Union{Simulation,CoupledSimulation}, refs) || throw(ArgumentError(
+        "`refs` values must be `Simulation`s or `CoupledSimulation`s"))
+    primaries = map(_uncouple, primaries)
+    refs = map(_uncouple, refs)
     overlap = intersect(keys(primaries), keys(refs))
     isempty(overlap) || throw(ArgumentError("primary and ref names must be unique, overlap: $overlap"))
-    reserved = intersect(union(keys(primaries), keys(refs)), (:primaries, :refs, :members))
+    reserved = intersect(union(keys(primaries), keys(refs)), (:refs, :members))
     isempty(reserved) || throw(ArgumentError(
         "member name(s) $reserved are reserved and would shadow `CoupledSimulations` internals"))
 
@@ -63,11 +101,11 @@ function CoupledSimulations(primaries::NamedTuple; refs::NamedTuple = NamedTuple
     members = NamedTuple{keys(primaries)}(
         Tuple(build_coupled_simulation(name, sim, all_members) for (name, sim) in pairs(primaries))
     )
-    return CoupledSimulations(primaries, refs, members)
+    return CoupledSimulations(refs, members)
 end
 
 function Base.getproperty(cs::CoupledSimulations, name::Symbol)
-    name in (:primaries, :refs, :members) && return getfield(cs, name)
+    name in (:refs, :members) && return getfield(cs, name)
     members = getfield(cs, :members)
     haskey(members, name) && return members[name]
     refs = getfield(cs, :refs)
@@ -75,7 +113,7 @@ function Base.getproperty(cs::CoupledSimulations, name::Symbol)
     throw(ArgumentError("CoupledSimulations has no member named `$name`"))
 end
 
-Base.propertynames(cs::CoupledSimulations) = (:primaries, :refs, :members, keys(getfield(cs, :primaries))..., keys(getfield(cs, :refs))...)
+Base.propertynames(cs::CoupledSimulations) = (:refs, :members, keys(getfield(cs, :members))..., keys(getfield(cs, :refs))...)
 
 unwrap_cb(cb::CellBuffer) = cb
 unwrap_cb(ad::AutoDiffCellBuffer) = ad.cb
@@ -253,11 +291,11 @@ constructor validation and autodiff configuration construction); other members a
 reference. Previously obtained handles (from the old group) keep their prior configuration.
 """
 function replace_material(g::CoupledSimulations, member::Symbol, f; domain::Union{Nothing,String} = nothing)
-    primaries = getfield(g, :primaries)
+    members = getfield(g, :members)
     refs = getfield(g, :refs)
-    is_primary = haskey(primaries, member)
+    is_primary = haskey(members, member)
     is_primary || haskey(refs, member) || throw(ArgumentError("unknown member `$member`"))
-    old_sim = is_primary ? primaries[member] : refs[member]
+    old_sim = is_primary ? _uncouple(members[member]) : refs[member]
     if domain === nothing
         new_db = replace_material(old_sim.db, f)
     else
@@ -266,6 +304,7 @@ function replace_material(g::CoupledSimulations, member::Symbol, f; domain::Unio
         new_db = replace_material(old_sim.db, domain, f)
     end
     new_sim = Simulation(new_db, old_sim.a, old_sim.aold)
+    primaries = map(_uncouple, members)
     new_primaries = is_primary ? merge(primaries, NamedTuple{(member,)}((new_sim,))) : primaries
     new_refs = is_primary ? refs : merge(refs, NamedTuple{(member,)}((new_sim,)))
     return CoupledSimulations(new_primaries; refs = new_refs)

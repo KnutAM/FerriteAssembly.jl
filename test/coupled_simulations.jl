@@ -113,7 +113,6 @@
         # The group itself (`CoupledSimulations`) also forwards property access to its
         # members/refs, must tab-complete accordingly, and must reject unknown names.
         group_propnames = propertynames(g)
-        @test :primaries in group_propnames
         @test :refs in group_propnames
         @test :members in group_propnames
         @test :a in group_propnames
@@ -149,6 +148,55 @@
         work!(assembler, g.a) # warm up again to be safe against any first-use effects
         nalloc = @allocated work!(assembler, g.a)
         @test nalloc < 2_000_000
+
+        # `_uncouple` (used internally by `CoupledSimulations` to accept a `CoupledSimulation`
+        # as a `primaries`/`refs` entry) must recover the plain, pre-coupling `Simulation`:
+        # same `a`/`aold` vectors, same underlying state/material/scratch identity (only the
+        # itembuffer's coupling wrapper differs) - across every threading/autodiff/
+        # single-vs-multi-domain combination this testset covers.
+        # `get_state`/`get_material` on a *multi-domain* `Simulation` allocate a fresh `Dict`
+        # per call, so compare per-domain storage identity rather than the wrapper itself.
+        function same_domain_storage(sim_x::Simulation, sim_y::Simulation)
+            db_x, db_y = sim_x.db, sim_y.db
+            db_x isa Dict && return all(keys(db_x)) do k
+                FerriteAssembly.get_state(db_x[k]) === FerriteAssembly.get_state(db_y[k]) &&
+                    FerriteAssembly.get_material(db_x[k]) === FerriteAssembly.get_material(db_y[k])
+            end
+            return FerriteAssembly.get_state(db_x) === FerriteAssembly.get_state(db_y) &&
+                FerriteAssembly.get_material(db_x) === FerriteAssembly.get_material(db_y)
+        end
+        @test FerriteAssembly._uncouple(sim1) === sim1 # plain `Simulation`: returned unchanged
+        u_a = FerriteAssembly._uncouple(g.a)
+        @test u_a isa Simulation
+        @test u_a.a === sim1.a
+        @test u_a.aold === sim1.aold
+        @test same_domain_storage(u_a, sim1)
+
+        # Passing `g.a` (a `CoupledSimulation`) directly as a `primaries` entry - and `g.b`
+        # (a plain `Simulation`, since `refs` are never coupled) as a `refs` entry - when
+        # building a *new* group must behave identically to passing `sim1`/`sim2` directly:
+        # the embedded `@test`s inside `element_routine!(::CS_MA)` (checking the partner's
+        # `ae`/`aeold`/state/material/time-increment, keyed on partner name `:b`) must still
+        # pass, so the new group reuses the same member names `:a`/`:b`.
+        g2 = CoupledSimulations((a = g.a,); refs = (b = g.b,))
+        @test g2.a isa FerriteAssembly.CoupledSimulation
+        expected_b_dt[] = NaN
+        work!(assembler, g2.a)
+
+        # A `CoupledSimulation` must also be accepted as a *`refs`* entry, not just a
+        # `primaries` entry (`g.b` above is already a plain `Simulation`, since `refs` are
+        # never coupled, so it never exercised this path). Build a throwaway group where `b`
+        # is itself a primary (so `gb.b` is a genuine `CoupledSimulation`), then use `gb.b` as
+        # the `refs` entry for a fresh group.
+        gb = CoupledSimulations((b = sim2,); refs = (a = sim1,))
+        @test gb.b isa FerriteAssembly.CoupledSimulation
+        g3 = CoupledSimulations((a = sim1,); refs = (b = gb.b,))
+        @test !(g3.b isa FerriteAssembly.CoupledSimulation) # refs are stored post-uncoupling
+        @test g3.b.a === sim2.a
+        @test g3.b.aold === sim2.aold
+        @test same_domain_storage(g3.b, sim2)
+        expected_b_dt[] = NaN
+        work!(assembler, g3.a)
     end
 
     @testset "coupling allocations do not scale with cell count" begin
@@ -441,6 +489,15 @@
         @test g.a isa FerriteAssembly.CoupledSimulation
         @test g.a.db isa Dict
         @test isempty(g.a.db)
+
+        # Regression: `_uncouple`-ing a member whose own `db` is this empty `Dict` must not
+        # widen its type to `Dict{Any,Any}` (which an empty-generator `Dict(...)` comprehension
+        # would infer) - that would make the result unusable as a `primaries`/`refs` entry for
+        # a further group, since `Simulation` requires a concrete `Dict{String,<:AbstractDomainBuffer}`.
+        u = FerriteAssembly._uncouple(g.a)
+        @test u.db === empty_db
+        g2 = CoupledSimulations((a = g.a,); refs = (b = sim2,))
+        @test g2.a isa FerriteAssembly.CoupledSimulation
     end
 
     @testset "validation errors" begin
@@ -494,5 +551,27 @@
         sim_facet = Simulation(d_facet, a_f, zeros(ndofs(dh_f)))
         @test_throws ArgumentError CoupledSimulations((a = sim_facet,))
         @test_throws ArgumentError CoupledSimulations((a = sim1,); refs = (b = sim_facet,))
+
+        # Neither a `Simulation` nor a `CoupledSimulation`: rejected with the same
+        # ArgumentError as before, not a MethodError from the internal `_uncouple` call.
+        @test_throws ArgumentError CoupledSimulations((a = d1,))
+        @test_throws ArgumentError CoupledSimulations((a = sim1,); refs = (b = d2,))
+    end
+
+    @testset "chained CoupledSimulation input" begin
+        # A `CoupledSimulation` built from another `CoupledSimulation` input (not just from a
+        # plain `Simulation`) must itself be usable as a further `primaries`/`refs` entry -
+        # the `g = CoupledSimulations((e = sime, a = g0.a); refs = (b = g0.b,))` style request.
+        d1 = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu); a = a1)
+        d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2)
+        sim1 = Simulation(d1, a1, aold1)
+        sim2 = Simulation(d2, a2, aold2)
+        g0 = CoupledSimulations((a = sim1,); refs = (b = sim2,))
+        g1 = CoupledSimulations((a = g0.a,); refs = (b = g0.b,))
+        g2 = CoupledSimulations((a = g1.a,); refs = (b = g0.b,))
+        @test g2.a isa FerriteAssembly.CoupledSimulation
+        expected_b_dt[] = NaN
+        K = allocate_matrix(dh1)
+        work!(start_assemble(K, zeros(ndofs(dh1))), g2.a) # runs the @test's inside element_routine!
     end
 end
