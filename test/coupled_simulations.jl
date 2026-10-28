@@ -92,6 +92,24 @@
         @test g.a.db === g.a.sim.db
         @test g.a.db !== d1
 
+        # The requested representation: `partners` is always a flat `NamedTuple` of partner
+        # `Simulation`s (never a `Dict`), regardless of whether this member itself has one
+        # domain or many; each partner retains its own natural (unsliced) `db` shape.
+        @test g.a.partners isa NamedTuple
+        @test keys(g.a.partners) == (:b,)
+        @test g.a.partners.b === sim2
+        if !singledomain
+            # Iterating a multi-domain member must still hand each reader domain its own
+            # single-domain-sliced partner `Simulation` (needed by `reinit_buffer!`),
+            # resolved once at setup rather than re-derived from `sim2.db` on each iteration.
+            for (dname, da) in g.a
+                @test da.partners isa NamedTuple
+                @test da.partners.b isa Simulation
+                @test da.partners.b.db === sim2.db[dname]
+                @test da.partners.b.a === sim2.a
+            end
+        end
+
         # Property access must constant-propagate to a single concrete type (not a Union
         # across every forwarding branch) for both the member handle's own getproperty
         # override and the group's.
@@ -489,6 +507,12 @@
         @test g.a isa FerriteAssembly.CoupledSimulation
         @test g.a.db isa Dict
         @test isempty(g.a.db)
+
+        # Even though there are no reader domains to iterate, the flat `partners`
+        # `NamedTuple` still records the partner binding (unlike the old per-domain `Dict`
+        # representation, which had nothing to key on and so retained none).
+        @test g.a.partners isa NamedTuple
+        @test g.a.partners.b === sim2
 
         # Regression: `_uncouple`-ing a member whose own `db` is this empty `Dict` must not
         # widen its type to `Dict{Any,Any}` (which an empty-generator `Dict(...)` comprehension

@@ -65,22 +65,33 @@ scatter!(::AbstractSimulation) = nothing # only a threaded sim has task-local bu
 scatter!(sim::Simulation{<:ThreadedDomainBuffer}) = scatter!(get_itembuffer(sim))
 
 """
-    CoupledSimulation(sim, partners)
+    CoupledSimulation(sim, partners, _domain_partners)
 
 A handle to one primary member of a [`CoupledSimulations`](@ref) group (e.g. `group.a`).
 `sim` is a [`Simulation`](@ref) whose domain buffer(s) have been rebuilt with coupled
-itembuffers. `partners` holds the resolved partner `Simulation`s this member reads from: a
-`NamedTuple{name}` of partner `Simulation`s for a single-domain member, or a
-`Dict{String,<:NamedTuple}` (one `NamedTuple` of partner `Simulation`s per domain name) for a
-multi-domain member. This is the single, canonical copy of that information — passed into
-[`reinit_buffer!`](@ref) at call time rather than duplicated into every task-local buffer.
+itembuffers. `partners` is a `NamedTuple{name}` holding the partner `Simulation`s this member
+reads from, each in its own natural shape (`db :: AbstractDomainBuffer` if that partner is
+itself single-domain, or `db :: DomainBuffers` if multi-domain) — independent of whether this
+member's own domain structure is single or multiple domains.
+
+`_domain_partners` is internal plumbing, not part of the public API: for a multi-domain member
+it is a `Dict{String,<:NamedTuple}`, resolved once at [`CoupledSimulations`](@ref) setup time,
+holding the single-domain-sliced partner `Simulation`s needed to reinitialize each reader
+domain's own buffer (keyed by that domain's name); for an already single-reader-domain handle
+(either a genuinely single-domain member, or one reader domain of a multi-domain member,
+produced by iterating it) it is `nothing`, since `partners` itself is already the correctly
+sliced `NamedTuple` to use. Resolving this once at setup — rather than re-deriving a reader
+domain's partner slice from `partners` on every iteration — keeps the binding between a reader
+domain's buffer and the partner `Simulation`(s) used to reinitialize it fixed for the group's
+lifetime, immune to later in-place mutation of a partner's own (multi-domain) `db` dictionary.
 
 Forwards the ordinary [`Simulation`](@ref) accessor API (`.a`, `.aold`, `.db`,
 `get_dofhandler`, `get_state`, `set_time_increment!`, `update_states!`, etc.).
 """
-struct CoupledSimulation{DB, S <: Simulation{DB}, P} <: AbstractSimulation{DB}
+struct CoupledSimulation{DB, S <: Simulation{DB}, P, DP} <: AbstractSimulation{DB}
     sim::S
     partners::P
+    _domain_partners::DP
 end
 
 function Base.getproperty(csim::CoupledSimulation, name::Symbol)
@@ -106,7 +117,8 @@ replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
 @inline function _iterate(csim::CoupledSimulation{<:DomainBuffers}, iter)
     iter === nothing && return nothing
     ((name, sim), state) = iter
-    return ((name, CoupledSimulation(sim, csim.partners[name])), state)
+    domain_partners = getfield(csim, :_domain_partners)[name]
+    return ((name, CoupledSimulation(sim, domain_partners, nothing)), state)
 end
 Base.iterate(sim::CoupledSimulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.sim))
 Base.iterate(sim::CoupledSimulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.sim, iter))
