@@ -69,11 +69,8 @@ scatter!(sim::Simulation{<:ThreadedDomainBuffer}) = scatter!(get_itembuffer(sim)
 
 A handle to one primary member of a [`CoupledSimulations`](@ref) group (e.g. `group.a`).
 `sim` is a [`Simulation`](@ref) whose domain buffer(s) have been rebuilt with coupled
-itembuffers. `partners` holds the resolved partner `Simulation`s this member reads from: a
-`NamedTuple{name}` of partner `Simulation`s for a single-domain member, or a
-`Dict{String,<:NamedTuple}` (one `NamedTuple` of partner `Simulation`s per domain name) for a
-multi-domain member. This is the single, canonical copy of that information — passed into
-[`reinit_buffer!`](@ref) at call time rather than duplicated into every task-local buffer.
+itembuffers. `partners` is a `NamedTuple{name}` holding the partner `Simulation`s this member
+reads from.
 
 Forwards the ordinary [`Simulation`](@ref) accessor API (`.a`, `.aold`, `.db`,
 `get_dofhandler`, `get_state`, `set_time_increment!`, `update_states!`, etc.).
@@ -106,7 +103,8 @@ replace_material(::CoupledSimulation, args...; kwargs...) = throw(ArgumentError(
 @inline function _iterate(csim::CoupledSimulation{<:DomainBuffers}, iter)
     iter === nothing && return nothing
     ((name, sim), state) = iter
-    return ((name, CoupledSimulation(sim, csim.partners[name])), state)
+    domain_partners = map(mfsim -> Simulation(mfsim.db[name], mfsim.a, mfsim.aold), csim.partners)
+    return ((name, CoupledSimulation(sim, domain_partners)), state)
 end
 Base.iterate(sim::CoupledSimulation{<:DomainBuffers}) = _iterate(sim, iterate(sim.sim))
 Base.iterate(sim::CoupledSimulation{<:DomainBuffers}, iter) = _iterate(sim, iterate(sim.sim, iter))

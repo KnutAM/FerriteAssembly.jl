@@ -164,9 +164,10 @@ function validate_domain_pair(reader_db::AbstractDomainBuffer, partner_db::Abstr
     return nothing
 end
 
-# Returns (new_db, partner_sims::NamedTuple): the rebuilt domain buffer with coupled
-# itembuffer(s), and the resolved per-domain partner `Simulation`s (for the caller to store
-# on the owning `CoupledSimulation`, not on the itembuffer itself).
+# Returns the rebuilt domain buffer with coupled itembuffer(s). The resolved per-domain
+# partner `Simulation`s (needed by the caller to reinitialize those itembuffers, not stored on
+# the itembuffer itself) are `map(p -> p.sim, partners)` - left for the caller to compute, since
+# it already has `partners` in hand and not every caller needs to retain the result.
 function build_coupled_domain(reader_db::AbstractDomainBuffer, partners::NamedTuple)
     for (pname, p) in pairs(partners)
         validate_domain_pair(reader_db, p.db, pname)
@@ -175,8 +176,7 @@ function build_coupled_domain(reader_db::AbstractDomainBuffer, partners::NamedTu
     partner_containers = map(p -> get_itembuffer(p.db), partners)
     coupled_ibuf = build_coupled_itembuffer(reader_ibuf, partner_containers)
     new_db = setproperties(reader_db; itembuffer = coupled_ibuf)
-    partner_sims = map(p -> p.sim, partners)
-    return new_db, partner_sims
+    return new_db
 end
 
 # Resolve, for a single reader domain (named `dname` when the reader is a `Dict`, or
@@ -207,34 +207,29 @@ function build_coupled_simulation(name::Symbol, reader_sim::Simulation, all_memb
     if reader_db isa DomainBuffers
         if isempty(reader_db)
             new_db = reader_db # nothing to couple; preserves the original (correctly-typed) empty Dict
-            partners_by_domain = Dict{String, NamedTuple}()
         else
             built = Any[]
-            partners_by_domain = Dict{String, Any}()
             for (dname, rdb) in reader_db
                 partners = NamedTuple{partner_names}(Tuple(
                     let psim_dom = partner_domain_sim(dname, pname, psim)
                         (sim = psim_dom, db = psim_dom.db)
                     end for (pname, psim) in pairs(partner_sims)
                 ))
-                ndb, dpartner_sims = build_coupled_domain(rdb, partners)
+                ndb = build_coupled_domain(rdb, partners)
                 push!(built, dname => ndb)
-                partners_by_domain[dname] = dpartner_sims
             end
             new_db = Dict(built...) # infers the narrowest common concrete value type, matching MultiDomain(Threaded)Sim dispatch
         end
-        new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
-        return CoupledSimulation(new_sim, partners_by_domain)
     else
         partners = NamedTuple{partner_names}(Tuple(
             let psim_dom = partner_domain_sim(nothing, pname, psim)
                 (sim = psim_dom, db = psim_dom.db)
             end for (pname, psim) in pairs(partner_sims)
         ))
-        new_db, dpartner_sims = build_coupled_domain(reader_db, partners)
-        new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
-        return CoupledSimulation(new_sim, dpartner_sims)
+        new_db = build_coupled_domain(reader_db, partners)
     end
+    new_sim = Simulation(new_db, reader_sim.a, reader_sim.aold)
+    return CoupledSimulation(new_sim, partner_sims)
 end
 
 _scratch_identity(cb::CellBuffer) = cb.ae # survives replace_material's setproperties (fields copied by reference)
