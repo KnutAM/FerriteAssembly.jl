@@ -26,7 +26,7 @@ for t in timesteps
 end
 ```
 """
-mutable struct LoadHandler{DH<:Ferrite.AbstractDofHandler}
+struct LoadHandler{DH<:Ferrite.AbstractDofHandler}
     nbcs::DomainBuffers
     bodyloads::DomainBuffers
     dof_loads::Vector{<:DofLoad}
@@ -34,11 +34,11 @@ mutable struct LoadHandler{DH<:Ferrite.AbstractDofHandler}
 end
 function LoadHandler(dh::Ferrite.AbstractDofHandler; threading=false)
     BT = threading ? ThreadedDomainBuffer : DomainBuffer
-    return LoadHandler(ImmutableDict{String,BT}(), ImmutableDict{String,BT}(), DofLoad[], dh)
+    return LoadHandler(FixedDict{String,BT}(), FixedDict{String,BT}(), DofLoad[], dh)
 end
 
-Ferrite.add!(lh::LoadHandler, nbc::Neumann) = (lh.nbcs = add_neumann!(lh.nbcs, nbc, lh.dh); lh)
-Ferrite.add!(lh::LoadHandler, bl::BodyLoad) = (lh.bodyloads = add_bodyload!(lh.bodyloads, bl, lh.dh); lh)
+Ferrite.add!(lh::LoadHandler, nbc::Neumann) = (add_neumann!(lh.nbcs, nbc, lh.dh); lh)
+Ferrite.add!(lh::LoadHandler, bl::BodyLoad) = (add_bodyload!(lh.bodyloads, bl, lh.dh); lh)
 Ferrite.add!(lh::LoadHandler, dl::DofLoad) = (push!(lh.dof_loads, dl); lh)
 
 # Application of boundary conditions

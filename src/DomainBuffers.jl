@@ -1,7 +1,7 @@
 abstract type AbstractDomainBuffer end
 
 """
-    ImmutableDict{K,V} <: AbstractDict{K,V}
+    FixedDict{K,V} <: AbstractDict{K,V}
 
 A `Dict`-backed, read-only `AbstractDict`: `getindex`, `haskey`, `get`, `keys`, `values`,
 `pairs`, `length`, `isempty` and iteration all forward to an internally-wrapped `Dict{K,V}`
@@ -10,9 +10,9 @@ A `Dict`-backed, read-only `AbstractDict`: `getindex`, `haskey`, `get`, `keys`, 
 
 `Base.getproperty` is overridden to always throw, so the wrapped `Dict` cannot be read back
 out via `d.dict` (property access) - only `getfield(d, :dict)` reaches it, which is reserved
-for this file's own trusted internal use. The outer constructor, `ImmutableDict(itr)`, always
+for this file's own trusted internal use. The outer constructor, `FixedDict(itr)`, always
 builds via `Dict(itr)`, which never aliases its input (even when `itr` is itself a `Dict`,
-`Dict(itr)` makes an independent copy) - so an `ImmutableDict` can never be mutated through a
+`Dict(itr)` makes an independent copy) - so a `FixedDict` can never be mutated through a
 reference the caller happened to retain to whatever was passed in.
 
 Not to be confused with `Base.ImmutableDict` (a persistent linked-list dict with different
@@ -25,55 +25,60 @@ a [`CoupledSimulations`](@ref) group's members (each partner's `partners` keeps 
 silently mutate what every other member's view of that partner sees too, bypassing every
 documented, functional way of changing a domain buffer (e.g. [`replace_material`](@ref)).
 """
-struct ImmutableDict{K,V} <: AbstractDict{K,V}
+struct FixedDict{K,V} <: AbstractDict{K,V}
     dict::Dict{K,V}
-    global _unsafe_immutabledict(d::Dict{K,V}) where {K,V} = new{K,V}(d)
+    global _unsafe_fixeddict(d::Dict{K,V}) where {K,V} = new{K,V}(d)
 end
-ImmutableDict(itr) = _unsafe_immutabledict(Dict(itr))
-ImmutableDict{K,V}() where {K,V} = _unsafe_immutabledict(Dict{K,V}())
+FixedDict(itr) = _unsafe_fixeddict(Dict(itr))
+FixedDict{K,V}() where {K,V} = _unsafe_fixeddict(Dict{K,V}())
 
-Base.getproperty(::ImmutableDict, ::Symbol) = error(
-    "`ImmutableDict` fields are not accessible via `.`; this type has no public fields")
-Base.propertynames(::ImmutableDict) = ()
+Base.getproperty(::FixedDict, ::Symbol) = error(
+    "`FixedDict` fields are not accessible via `.`; this type has no public fields")
+Base.propertynames(::FixedDict) = ()
 
-Base.length(d::ImmutableDict) = length(getfield(d, :dict))
-Base.isempty(d::ImmutableDict) = isempty(getfield(d, :dict))
-Base.haskey(d::ImmutableDict, k) = haskey(getfield(d, :dict), k)
-Base.get(d::ImmutableDict, k, default) = get(getfield(d, :dict), k, default)
-Base.getindex(d::ImmutableDict, k) = getfield(d, :dict)[k]
-Base.iterate(d::ImmutableDict) = iterate(getfield(d, :dict))
-Base.iterate(d::ImmutableDict, state) = iterate(getfield(d, :dict), state)
+Base.length(d::FixedDict) = length(getfield(d, :dict))
+Base.isempty(d::FixedDict) = isempty(getfield(d, :dict))
+Base.haskey(d::FixedDict, k) = haskey(getfield(d, :dict), k)
+Base.get(d::FixedDict, k, default) = get(getfield(d, :dict), k, default)
+Base.getindex(d::FixedDict, k) = getfield(d, :dict)[k]
+Base.iterate(d::FixedDict) = iterate(getfield(d, :dict))
+Base.iterate(d::FixedDict, state) = iterate(getfield(d, :dict), state)
 # `keys`/`values`/`pairs` are intentionally NOT forwarded to the wrapped `Dict`: doing so
-# (e.g. `Base.keys(d::ImmutableDict) = keys(getfield(d, :dict))`) would return a `KeySet`/
+# (e.g. `Base.keys(d::FixedDict) = keys(getfield(d, :dict))`) would return a `KeySet`/
 # `ValueIterator` wrapping the *raw* `Dict`, whose own `.dict` field (unprotected) would hand
 # it right back out. Falling through to `AbstractDict`'s generic defaults instead wraps `d`
 # itself (so `keys(d).dict`/`values(d).dict` just returns `d`, which is no less protected) -
 # at no performance or allocation cost, since those defaults only need `length`/`iterate`.
 
 """
-    _internal_setindex!(d::ImmutableDict, kv::Pair)
+    _internal_setindex!(d::FixedDict, kv::Pair)
 
 Insert `kv` into `d`'s wrapped `Dict` in place (replacing, not shadowing, an already-present
 key - this is a real `Dict`, not `Base.ImmutableDict`), bypassing the public immutability.
 
-**Only call this on an `ImmutableDict` that cannot yet be aliased anywhere else** - e.g. one
-freshly built within the same function that returns it, before any caller could have stored a
-reference to it. It must never be used on an already-returned/exposed `ImmutableDict` (such
-as a struct field read by a public accessor): mutating that one in place would reintroduce
-exactly the shared-mutation hazard this type exists to prevent, for any other code already
-holding a reference to it.
+**Only call this on a `FixedDict` that is not part of its owning type's own *documented*
+public interface.** `Simulation.db` is such a documented interface (`Simulation`'s own
+docstring advertises `.db` as something user code reads directly) and must never be mutated
+this way - any code holding a `Simulation` could be relying on its `.db` staying exactly as it
+was. `LoadHandler.nbcs`/`.bodyloads`, by contrast, are undocumented implementation-detail
+fields: `LoadHandler`'s own documented interface is `add!`/`apply!` only, so mutating them in
+place here is the same category of "deliberately bypassing the documented interface" as
+reading `getfield(d, :dict)` on a `FixedDict` itself - not something this package
+protects against. When calling this on a type whose `FixedDict` field *is* public and
+documented, build a full replacement with [`FixedDict`](@ref) instead and reassign the
+field, the way `replace_material` does.
 """
-_internal_setindex!(d::ImmutableDict, kv::Pair) = (getfield(d, :dict)[kv.first] = kv.second; d)
+_internal_setindex!(d::FixedDict, kv::Pair) = (getfield(d, :dict)[kv.first] = kv.second; d)
 
 """
     DomainBuffers
 
-Alias for `ImmutableDict{String, <:AbstractDomainBuffer}`, the container used for
-`Simulation.db` when there are multiple domains. See [`ImmutableDict`](@ref) for why it is
+Alias for `FixedDict{String, <:AbstractDomainBuffer}`, the container used for
+`Simulation.db` when there are multiple domains. See [`FixedDict`](@ref) for why it is
 immutable. Changing its contents always goes through a function that returns a new
 `DomainBuffers` (e.g. [`replace_material`](@ref)), never through direct indexing assignment.
 """
-const DomainBuffers = ImmutableDict{String, <:AbstractDomainBuffer}
+const DomainBuffers = FixedDict{String, <:AbstractDomainBuffer}
 
 # Accessor functions
 """
@@ -232,7 +237,7 @@ Return a new instance of `db` where as much as possible is copied by reference, 
 where the stored material, `m`, is replaced by `replacement_function(m)`.
 """
 function replace_material(dbs::DomainBuffers, replacement_function)
-    return ImmutableDict(key=>replace_material(db, replacement_function) for (key,db) in dbs)
+    return FixedDict(key=>replace_material(db, replacement_function) for (key,db) in dbs)
 end
 
 """
@@ -244,7 +249,7 @@ Other domains are copied by reference, unchanged.
 """
 function replace_material(dbs::DomainBuffers, domain::String, replacement_function)
     haskey(dbs, domain) || throw(ArgumentError("domain \"$domain\" not found in $(collect(keys(dbs)))"))
-    return ImmutableDict(key => (key == domain ? replace_material(db, replacement_function) : db) for (key, db) in dbs)
+    return FixedDict(key => (key == domain ? replace_material(db, replacement_function) : db) for (key, db) in dbs)
 end
 
 """

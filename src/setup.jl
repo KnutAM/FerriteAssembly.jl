@@ -58,11 +58,11 @@ dictionary is not supported; use separate dictionaries (and separate calls to
 `setup_domainbuffers`/`work!`) instead.
 """
 function setup_domainbuffers(domains::Dict{String,<:DomainSpec}, suppress_warnings = false; kwargs...)
-    isempty(domains) && return ImmutableDict{String, AbstractDomainBuffer}()
+    isempty(domains) && return FixedDict{String, AbstractDomainBuffer}()
     if !allequal(_domain_entity, values(domains))
         throw(ArgumentError("Not allowed to mix different entities (e.g. cell and facet) in the same domainbuffer dictionary"))
     end
-    dbs = ImmutableDict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
+    dbs = FixedDict(name => setup_domainbuffer(domain; kwargs...) for (name, domain) in domains)
     suppress_warnings || check_input(dbs)
     return dbs
 end

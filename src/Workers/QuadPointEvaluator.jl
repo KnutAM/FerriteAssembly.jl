@@ -28,7 +28,7 @@ QuadPointEvaluator(data::ArrayOfVectorViews, qe_type::Symbol) = QuadPointEvaluat
 
 
 function QuadPointEvaluator{VT}(domainbuffer::AbstractDomainBuffer, qe_type::Union{Symbol, Function}) where {VT}
-    domain_buffers = ImmutableDict("_" => domainbuffer)
+    domain_buffers = FixedDict("_" => domainbuffer)
     return QuadPointEvaluator{VT}(domain_buffers, qe_type)
 end
 
