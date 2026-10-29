@@ -1,10 +1,83 @@
 abstract type AbstractDomainBuffer end
 
-const DomainBuffers = Dict{String, <:AbstractDomainBuffer}
+"""
+    ImmutableDict{K,V} <: AbstractDict{K,V}
+
+A `Dict`-backed, read-only `AbstractDict`: `getindex`, `haskey`, `get`, `keys`, `values`,
+`pairs`, `length`, `isempty` and iteration all forward to an internally-wrapped `Dict{K,V}`
+(so their performance and allocation behavior are identical to a plain `Dict`), but no
+`setindex!` method is defined, so `d[k] = v` throws `MethodError`.
+
+`Base.getproperty` is overridden to always throw, so the wrapped `Dict` cannot be read back
+out via `d.dict` (property access) - only `getfield(d, :dict)` reaches it, which is reserved
+for this file's own trusted internal use. The outer constructor, `ImmutableDict(itr)`, always
+builds via `Dict(itr)`, which never aliases its input (even when `itr` is itself a `Dict`,
+`Dict(itr)` makes an independent copy) - so an `ImmutableDict` can never be mutated through a
+reference the caller happened to retain to whatever was passed in.
+
+Not to be confused with `Base.ImmutableDict` (a persistent linked-list dict with different
+performance characteristics and, notably, "shadowing" rather than replacing semantics on a
+repeated key) or `Base.PersistentDict` (a persistent hash-trie dict whose iteration
+allocates) - this is FerriteAssembly's own, simpler type, used because the domain-buffer
+dictionary backing a multi-domain [`Simulation`](@ref)'s `.db` is shared by reference across
+a [`CoupledSimulations`](@ref) group's members (each partner's `partners` keeps the partner's
+*own* `Simulation`, including its `.db`), so `sim.db["name"] = newbuffer` would otherwise
+silently mutate what every other member's view of that partner sees too, bypassing every
+documented, functional way of changing a domain buffer (e.g. [`replace_material`](@ref)).
+"""
+struct ImmutableDict{K,V} <: AbstractDict{K,V}
+    dict::Dict{K,V}
+    global _unsafe_immutabledict(d::Dict{K,V}) where {K,V} = new{K,V}(d)
+end
+ImmutableDict(itr) = _unsafe_immutabledict(Dict(itr))
+ImmutableDict{K,V}() where {K,V} = _unsafe_immutabledict(Dict{K,V}())
+
+Base.getproperty(::ImmutableDict, ::Symbol) = error(
+    "`ImmutableDict` fields are not accessible via `.`; this type has no public fields")
+Base.propertynames(::ImmutableDict) = ()
+
+Base.length(d::ImmutableDict) = length(getfield(d, :dict))
+Base.isempty(d::ImmutableDict) = isempty(getfield(d, :dict))
+Base.haskey(d::ImmutableDict, k) = haskey(getfield(d, :dict), k)
+Base.get(d::ImmutableDict, k, default) = get(getfield(d, :dict), k, default)
+Base.getindex(d::ImmutableDict, k) = getfield(d, :dict)[k]
+Base.iterate(d::ImmutableDict) = iterate(getfield(d, :dict))
+Base.iterate(d::ImmutableDict, state) = iterate(getfield(d, :dict), state)
+# `keys`/`values`/`pairs` are intentionally NOT forwarded to the wrapped `Dict`: doing so
+# (e.g. `Base.keys(d::ImmutableDict) = keys(getfield(d, :dict))`) would return a `KeySet`/
+# `ValueIterator` wrapping the *raw* `Dict`, whose own `.dict` field (unprotected) would hand
+# it right back out. Falling through to `AbstractDict`'s generic defaults instead wraps `d`
+# itself (so `keys(d).dict`/`values(d).dict` just returns `d`, which is no less protected) -
+# at no performance or allocation cost, since those defaults only need `length`/`iterate`.
+
+"""
+    _internal_setindex!(d::ImmutableDict, kv::Pair)
+
+Insert `kv` into `d`'s wrapped `Dict` in place (replacing, not shadowing, an already-present
+key - this is a real `Dict`, not `Base.ImmutableDict`), bypassing the public immutability.
+
+**Only call this on an `ImmutableDict` that cannot yet be aliased anywhere else** - e.g. one
+freshly built within the same function that returns it, before any caller could have stored a
+reference to it. It must never be used on an already-returned/exposed `ImmutableDict` (such
+as a struct field read by a public accessor): mutating that one in place would reintroduce
+exactly the shared-mutation hazard this type exists to prevent, for any other code already
+holding a reference to it.
+"""
+_internal_setindex!(d::ImmutableDict, kv::Pair) = (getfield(d, :dict)[kv.first] = kv.second; d)
+
+"""
+    DomainBuffers
+
+Alias for `ImmutableDict{String, <:AbstractDomainBuffer}`, the container used for
+`Simulation.db` when there are multiple domains. See [`ImmutableDict`](@ref) for why it is
+immutable. Changing its contents always goes through a function that returns a new
+`DomainBuffers` (e.g. [`replace_material`](@ref)), never through direct indexing assignment.
+"""
+const DomainBuffers = ImmutableDict{String, <:AbstractDomainBuffer}
 
 # Accessor functions
 """
-    get_dofhandler(dbs::Dict{String,AbstractDomainBuffer})
+    get_dofhandler(dbs::FerriteAssembly.DomainBuffers)
     get_dofhandler(db::AbstractDomainBuffer)
     get_dofhandler(sim::Simulation)
 
@@ -14,7 +87,7 @@ and not the `SubDofHandler` that is local to a specific domain.
 get_dofhandler(db::DomainBuffers) = get_dofhandler(first(values(db)))
 
 """
-    get_grid(dbs::Dict{String,AbstractDomainBuffer})
+    get_grid(dbs::FerriteAssembly.DomainBuffers)
     get_grid(db::AbstractDomainBuffer)
     get_grid(sim::Simulation)
 
@@ -23,7 +96,7 @@ Get the underlying `grid::AbstractGrid` from the domain buffers
 get_grid(db) = Ferrite.get_grid(get_dofhandler(db))
 
 """
-    get_itembuffer(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
+    get_itembuffer(dbs::FerriteAssembly.DomainBuffers, domain::String)
     get_itembuffer(db::AbstractDomainBuffer)
     get_itembuffer(sim::Simulation[, domain::String])
 
@@ -34,8 +107,8 @@ is returned for a ThreadedDomainBuffer (used internally).
 get_itembuffer(db::DomainBuffers, domain::String) = get_itembuffer(db[domain])
 
 """
-    get_state(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
-    get_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
+    get_state(dbs::FerriteAssembly.DomainBuffers, domain::String)
+    get_state(db::Union{AbstractDomainBuffer,FerriteAssembly.DomainBuffers})
     get_state(sim::Simulation[, domain::String])
 
 Get the `states::StateVector{S}`, where `S` is the type of the state for each entity in the
@@ -48,8 +121,8 @@ get_state(db::DomainBuffers, domain::String) = get_state(db[domain])
 get_state(db::DomainBuffers) = Dict(key=>get_state(val) for (key,val) in db)
 
 """
-    get_old_state(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
-    get_old_state(db::Union{AbstractDomainBuffer,Dict{String,AbstractDomainBuffer}})
+    get_old_state(dbs::FerriteAssembly.DomainBuffers, domain::String)
+    get_old_state(db::Union{AbstractDomainBuffer,FerriteAssembly.DomainBuffers})
     get_old_state(sim::Simulation[, domain::String])
 
 Get the `states::StateVector{S}`, where `S` is the type of the state for each entity in the
@@ -62,7 +135,7 @@ get_old_state(db::DomainBuffers, domain::String) = get_old_state(db[domain])
 get_old_state(db::DomainBuffers) = Dict(key=>get_old_state(val) for (key,val) in db)
 
 """
-    get_material(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
+    get_material(dbs::FerriteAssembly.DomainBuffers, domain::String)
     get_material(db::AbstractDomainBuffer)
     get_material(sim::Simulation)
 
@@ -77,7 +150,7 @@ get_material(db::DomainBuffers, domain::String) = get_material(db[domain])
 
 # Update functions
 """
-    update_states!(db::Dict{String,AbstractDomainBuffer}; mode::Symbol = :copy)
+    update_states!(db::FerriteAssembly.DomainBuffers; mode::Symbol = :copy)
     update_states!(db::AbstractDomainBuffer; mode::Symbol = :copy)
     update_states!(sim::Simulation; mode::Symbol = :copy)
 
@@ -117,7 +190,7 @@ function update_states!(dbs::DomainBuffers; kwargs...)
 end
 
 """
-    revert_states!(db::Dict{String,AbstractDomainBuffer})
+    revert_states!(db::FerriteAssembly.DomainBuffers)
     revert_states!(db::AbstractDomainBuffer)
     revert_states!(sim::Simulation)
 
@@ -138,7 +211,7 @@ end
 Base.@deprecate set_new_to_old_states! revert_states!
 
 """
-    set_time_increment!(db::Dict{String,AbstractDomainBuffer}, Δt)
+    set_time_increment!(db::FerriteAssembly.DomainBuffers, Δt)
     set_time_increment!(db::AbstractDomainBuffer, Δt)
     set_time_increment!(sim::Simulation, Δt)
 
@@ -152,18 +225,18 @@ function set_time_increment!(dbs::DomainBuffers, Δt)
 end
 
 """
-    replace_material(db::Dict{String,AbstractDomainBuffer}, replacement_function)
+    replace_material(db::FerriteAssembly.DomainBuffers, replacement_function)
     replace_material(db::AbstractDomainBuffer, replacement_function)
 
 Return a new instance of `db` where as much as possible is copied by reference, and
 where the stored material, `m`, is replaced by `replacement_function(m)`.
 """
 function replace_material(dbs::DomainBuffers, replacement_function)
-    return Dict(key=>replace_material(db, replacement_function) for (key,db) in dbs)
+    return ImmutableDict(key=>replace_material(db, replacement_function) for (key,db) in dbs)
 end
 
 """
-    replace_material(dbs::Dict{String,AbstractDomainBuffer}, domain::String, replacement_function)
+    replace_material(dbs::FerriteAssembly.DomainBuffers, domain::String, replacement_function)
 
 Return a new instance of `dbs` where as much as possible is copied by reference, and
 where the material, `m`, of `dbs[domain]` is replaced by `replacement_function(m)`.
@@ -171,11 +244,11 @@ Other domains are copied by reference, unchanged.
 """
 function replace_material(dbs::DomainBuffers, domain::String, replacement_function)
     haskey(dbs, domain) || throw(ArgumentError("domain \"$domain\" not found in $(collect(keys(dbs)))"))
-    return Dict(key => (key == domain ? replace_material(db, replacement_function) : db) for (key, db) in dbs)
+    return ImmutableDict(key => (key == domain ? replace_material(db, replacement_function) : db) for (key, db) in dbs)
 end
 
 """
-    getset(dbs::Dict{String,AbstractDomainBuffer}, domain::String)
+    getset(dbs::FerriteAssembly.DomainBuffers, domain::String)
     getset(db::AbstractDomainBuffer)
     getset(sim::Simulation[, domain::String])
 
@@ -248,7 +321,7 @@ end
 
 # Experimental: Insert new states, allows reusing the buffer for multiple simulations with same
 # initial state (grid, dh, etc.), but which experience different loading. Typically for RVE simulations. 
-function replace_states!(dbs::Dict{String, <:AbstractDomainBuffer}, states::Dict{String, <:StateVariables})
+function replace_states!(dbs::DomainBuffers, states::Dict{String, <:StateVariables})
     keys(dbs) == keys(states) || throw(ArgumentError("keys of dictionaries don't match"))
     for (key, db) in dbs
         replace_states!(db, states[key])

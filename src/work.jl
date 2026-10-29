@@ -12,13 +12,13 @@ local dof-values) available on the local level via [`get_coupled_buffer`](@ref),
 [`CoupledSimulations`](@ref) group and call `work!(worker, group.member_name)` instead;
 the member handle already carries its resolved coupling.
 
-    work!(worker, db::Union{AbstractDomainBuffer, Dict}; a = nothing, aold = nothing)
+    work!(worker, db::Union{AbstractDomainBuffer, FerriteAssembly.DomainBuffers}; a = nothing, aold = nothing)
 
 Simplified interface, directly forwarded to `work!(worker, Simulation(db, a, aold))`.
 The global degree of freedom vectors, `a` and `aold`, make their corresponding local values
 available. If not passed, the local values are `NaN`s.
 
-For a `Dict{String,<:AbstractDomainBuffer}`, all domains must be either all sequential
+For a `FerriteAssembly.DomainBuffers`, all domains must be either all sequential
 or all threaded; mixing the two in the same dictionary is not supported.
 """
 function work!(worker, multisim::AbstractMultiDomainSim)
