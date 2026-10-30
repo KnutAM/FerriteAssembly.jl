@@ -197,12 +197,20 @@ function work_domain_threaded!(workers, sim::AbstractSingleDomainThreadedSim)
         # well as direct keyword arguments ... is currently not supported`.)
         #
         # Note: `abort[]` here only helps *other, still-running* tasks stop early once one has
-        # failed - it does not, by itself, fix Finding 2's two caveats. Getting a caller
-        # InterruptException to actually abort cleanly, and getting the *first actual* failure
-        # (not just whichever worker's `fetch` happens to run first) reported when more than
-        # one task fails, would still need sync_with_abort's drain-with-retry loop and CAS
-        # wrapped around this `tforeach` call - at which point most of what this sketch saves
-        # relative to Part A has been added back.
+        # failed - it does not, by itself, fix Finding 2's two caveats, and unlike in Part A,
+        # those can't just be patched on by wrapping this `tforeach` call in sync_with_abort's
+        # own drain-with-retry loop: that loop operates on *its own* spawned `Task`s, which it
+        # gets to create itself - it has no access to OhMyThreads' internal worker tasks to
+        # retry waiting on them individually, and no way to see which one failed before
+        # OhMyThreads' own `fetch`-based selection already has. Getting the *first actual*
+        # failure reported correctly would instead mean having each mapping-callback
+        # invocation record its own failure via a shared CAS *before* letting the exception
+        # propagate through OhMyThreads' machinery (moving the CAS into the closure above,
+        # not wrapping outside `tforeach`). Getting interrupt-safety back would mean running
+        # this whole `tforeach` call inside one more spawned task and retry-waiting on *that*
+        # - which protects the caller from an interrupt landing badly, but still cannot force
+        # OhMyThreads' own internal drain to keep going if an interrupt reaches *it* first;
+        # that failure mode would remain.
     end
     gather!(itembuffers)
     gather!(workers)
@@ -224,8 +232,10 @@ note claimed the *whole* drain/rethrow half, which Finding 2's two caveats rule 
 - the abort-flag concept (Finding 5), just moved from `sync_with_abort` into an explicit
   `try/catch` around the closure passed to `tforeach`,
 - the caller-interrupt retry loop or the CAS-based true-first-failure tracking (Finding 2) -
-  `sync_with_abort`'s drain loop would still need to wrap the `tforeach` call to get either of
-  those back, exactly as sketched above.
+  and not just by wrapping `sync_with_abort` around the `tforeach` call, since it would have no
+  access to OhMyThreads' own internal worker tasks to retry-wait on individually; getting
+  either guarantee back needs a different adjustment in each case, detailed in the sketch's
+  own comments above.
 
 ## Recommendation
 

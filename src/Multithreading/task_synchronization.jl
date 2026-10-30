@@ -17,9 +17,12 @@ If one or more invocations of `f` throw, every task is still waited for (`abort[
 well-behaved siblings stop early instead of continuing wasted work), and then one exception is
 rethrown, wrapped in a plain `TaskFailedException` (never a `CompositeException`, unlike plain
 `@sync`): the first one *recorded* by a `compare_and_set!` race between the tasks' own `catch`
-blocks. In practice this is the first task to actually fail, but note that if two tasks fail
-near-simultaneously on different threads, this is a race decided by which `catch` block's CAS
-runs first, not a hardware-level global clock ordering. A task's own failure always takes
+blocks (each does the CAS *before* setting `abort[]`, so a sibling that observes `abort[]` and
+only then fails itself can never win this race against the failure it just observed - it is
+only a race between failures with no such causal relationship between them). In practice this
+is the first task to actually fail, but note that if two tasks fail near-simultaneously with
+neither having observed the other's `abort[]` write yet, this is decided by which `catch`
+block's CAS runs first, not a hardware-level global clock ordering. A task's own failure always takes
 precedence over a remembered caller interrupt (see below), even if the interrupt happened
 "first": the semantics are "this call failed", with the interrupt as a secondary detail about
 how the wait went.
@@ -42,8 +45,14 @@ function sync_with_abort(f, num_tasks::Int)
             try
                 f(taskid, abort)
             catch
-                abort[] = true
+                # Order matters: the CAS must happen *before* `abort[] = true`, not after.
+                # Any task observing `abort[]` can then be certain that whichever task set it
+                # had already completed its own CAS attempt first (that's a same-task program-
+                # order guarantee, unlike the relative timing of two different tasks) - so a
+                # sibling that waits on `abort[]` before failing itself can never win the CAS
+                # against a failure that was already underway when it started waiting.
                 Threads.atomic_cas!(first_failed, 0, taskid)
+                abort[] = true
                 rethrow()
             end
         end

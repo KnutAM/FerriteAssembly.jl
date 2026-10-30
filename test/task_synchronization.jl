@@ -139,6 +139,14 @@
         catch e
             caught = e
         end
+        # Snapshot `finished[]` the instant `sync_with_abort` returns/throws, *before* waiting
+        # for the interruptor below: that wait only returns once `release[]` is set, which lets
+        # task 1 finish independently of whether `sync_with_abort` itself waited correctly - so
+        # reading `finished[]` afterwards would pass even for a broken helper that returns as
+        # soon as the interrupt arrives (confirmed: a deliberately-broken in-memory variant,
+        # with the interrupt retry's `continue` replaced by `break`, passed this assertion in
+        # 3 of 5 runs when checked only after that wait).
+        finished_at_return = finished[]
         # Defensive: a timed-out handshake above would make the interruptor task fail (not
         # throw into `maintask`); don't let that crash the whole test suite.
         try
@@ -146,6 +154,6 @@
         catch
         end
         @test caught isa InterruptException
-        @test finished[] # the slow task had already finished by the time the call returned
+        @test finished_at_return # the slow task had already finished by the time the call returned
     end
 end
