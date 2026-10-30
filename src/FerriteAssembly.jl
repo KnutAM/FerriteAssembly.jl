@@ -12,6 +12,7 @@ include("states.jl")
 
 include("ItemBuffers/AbstractItemBuffer.jl")
 
+include("internal_types.jl")
 include("DomainBuffers.jl")
 include("Simulation.jl")
 include("setup.jl")

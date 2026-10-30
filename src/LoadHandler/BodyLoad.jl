@@ -57,7 +57,11 @@ function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv:
     end
 end
 
-function _bodyload_buffer(bodyload::BodyLoad, sdh::SubDofHandler, threading::Bool)
+# See the matching note on `_add_neumann!`: `bodyloads` is mutated in place and this is not
+# atomic across `SubDofHandler`s - a failure partway through a multi-subdomain `add!` leaves
+# earlier contributions installed; discard the `LoadHandler` and start over rather than retry
+# it in place.
+function _add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, sdh::SubDofHandler)
     material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, bodyload.fieldname)
@@ -67,26 +71,21 @@ function _bodyload_buffer(bodyload::BodyLoad, sdh::SubDofHandler, threading::Boo
     set = bodyload.cellset===nothing ? _getcellset(sdh) : bodyload.cellset
 
     domain_spec = DomainSpec(sdh, material, cv; set=set)
-    return setup_domainbuffer(domain_spec; threading=threading)
+    threading = valtype(bodyloads) <: ThreadedDomainBuffer
+    newbuffer = setup_domainbuffer(domain_spec; threading=threading)
+    _internal_setindex!(bodyloads, string(length(bodyloads)+1) => newbuffer)
+    return nothing
 end
 
-# See the matching comment in `add_neumann!`: `bodyloads` is mutated in place, but only after
-# every new buffer for this `add!` call has been built successfully, so a failure partway
-# through leaves `bodyloads` unchanged rather than partially (and, on retry, doubly) updated.
 function add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, dh::DofHandler)
-    threading = valtype(bodyloads) <: ThreadedDomainBuffer
-    next_key = length(bodyloads)
-    new_entries = Pair{String, valtype(bodyloads)}[]
+    contribution = false
     for sdh in dh.subdofhandlers
         overlaps = overlaps_with_cellset(bodyload.cellset, _getcellset(sdh))
         if overlaps && bodyload.fieldname ∈ Ferrite.getfieldnames(sdh)
-            next_key += 1
-            push!(new_entries, string(next_key) => _bodyload_buffer(bodyload, sdh, threading))
+            contribution = true
+            _add_bodyload!(bodyloads, bodyload, sdh)
         end
     end
-    isempty(new_entries) && @warn "No contributions added to the LoadHandler"
-    for kv in new_entries
-        _internal_setindex!(bodyloads, kv)
-    end
+    contribution || @warn "No contributions added to the LoadHandler"
     return nothing
 end
