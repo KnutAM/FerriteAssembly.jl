@@ -500,6 +500,9 @@
         raw["left"] = newbuffer
         @test wrapped["left"] !== newbuffer
         @test wrapped["left"] === d1m["left"]
+        @test isempty(propertynames(wrapped))
+        @test get(wrapped, "left", newbuffer) === d1m["left"]
+        @test get(wrapped, "missing", newbuffer) === newbuffer
     end
 
     @testset "CoupledCellBuffer forwarding (dof_range, direct replace_material)" begin
