@@ -183,7 +183,7 @@ end
     @test_logs (:warn,) add!(lh, Neumann(:u, 2, getfacetset(grid, "left"), f_2d))
 end
 
-@testset "add! rolls back only this call's contributions on failure across SubDofHandlers" begin
+@testset "add! rolls back only this call's contributions on failure across SubDofHandlers (BodyLoad)" begin
     # A single `add!` call may need to build a buffer for several `SubDofHandler`s (one per
     # matching subdomain), installing each as soon as it is built. If a later one fails (e.g.
     # an explicit quadrature rule incompatible with that subdomain's cell type), only the
@@ -214,6 +214,36 @@ end
     # installed earlier in this same failing call, is rolled back along with it.
     @test_throws MethodError add!(lh, BodyLoad(:u, QuadratureRule{RefQuadrilateral}(1), Returns(1.0)))
     @test length(lh.bodyloads) == 2 # back to the state before this failing call
+end
+
+@testset "add! rolls back only this call's contributions on failure across SubDofHandlers (Neumann)" begin
+    # Same rollback contract as the `BodyLoad` case above, but for `nbcs`/`_add_neumann!`.
+    nodes = [
+        Node(Vec((0.0, 0.0))), Node(Vec((1.0, 0.0))), Node(Vec((1.0, 1.0))), Node(Vec((0.0, 1.0))),
+        Node(Vec((2.0, 0.0))), Node(Vec((3.0, 0.0))), Node(Vec((2.5, 1.0))),
+    ]
+    cells = Ferrite.AbstractCell[Quadrilateral((1,2,3,4)), Triangle((5,6,7))]
+    grid = Grid(cells, nodes)
+    dh = DofHandler(grid)
+    sdh_quad = SubDofHandler(dh, Set([1]))
+    add!(sdh_quad, :u, Lagrange{RefQuadrilateral,1}())
+    sdh_tri = SubDofHandler(dh, Set([2]))
+    add!(sdh_tri, :u, Lagrange{RefTriangle,1}())
+    close!(dh)
+
+    facetset = Set([FacetIndex(1, 1), FacetIndex(2, 1)])
+
+    lh = LoadHandler(dh)
+    # A prior, successful `add!` call's contributions must survive a later call's failure.
+    add!(lh, Neumann(:u, 1, facetset, Returns(1.0)))
+    @test length(lh.nbcs) == 2
+
+    # An explicit `RefQuadrilateral` facet quadrature rule matches the first `SubDofHandler`
+    # (quad) but not the second (triangle): `autogenerate_facetvalues` has no method for that
+    # `RefShape` mismatch, so the triangle subdomain throws. The quad subdomain's buffer,
+    # installed earlier in this same failing call, is rolled back along with it.
+    @test_throws MethodError add!(lh, Neumann(:u, FacetQuadratureRule{RefQuadrilateral}(1), facetset, Returns(1.0)))
+    @test length(lh.nbcs) == 2 # back to the state before this failing call
 end
 
 @testset "DofLoad" begin
