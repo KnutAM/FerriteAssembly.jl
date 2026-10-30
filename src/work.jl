@@ -20,6 +20,10 @@ available. If not passed, the local values are `NaN`s.
 
 For a `FerriteAssembly.DomainBuffers`, all domains must be either all sequential
 or all threaded; mixing the two in the same dictionary is not supported.
+
+**Threaded error behavior:** if an element routine throws during threaded work, the other
+spawned tasks are not cancelled, but all of them are finished (not left running in the
+background) before the exception propagates out of `work!`.
 """
 function work!(worker, multisim::AbstractMultiDomainSim)
     for (name, sim) in multisim
@@ -69,22 +73,65 @@ function work_domain_threaded!(workers, sim::AbstractSingleDomainThreadedSim)
     num_tasks = get_num_tasks(sim) # Default to Threads.nthreads()
     for chunk_vector in get_chunks(sim)
         taskchunks = TaskChunks(chunk_vector)
-        Base.Experimental.@sync begin
-            for taskid in 1:num_tasks
-                itembuffer = get_local(itembuffers, taskid)
-                worker = get_local(workers, taskid)
-                Threads.@spawn begin
-                    while true
+        # `abort` lets the other tasks stop early (before a new chunk, and before each
+        # remaining item in the chunk they are currently on) once one task has failed.
+        # `first_failed` separately records which task failed first (by a `compare_and_set!`
+        # race on the catch path, not by spawn order), so that the exception rethrown below
+        # matches the one a caller would have seen first.
+        abort = Threads.Atomic{Bool}(false)
+        first_failed = Threads.Atomic{Int}(0)
+        tasks = Vector{Task}(undef, num_tasks)
+        for taskid in 1:num_tasks
+            itembuffer = get_local(itembuffers, taskid)
+            worker = get_local(workers, taskid)
+            tasks[taskid] = Threads.@spawn begin
+                try
+                    while !abort[]
                         taskchunk = get_chunk(taskchunks) # Union{Vector{Int}, Nothing}
                         taskchunk === nothing && break
                         for itemnr in taskchunk
+                            abort[] && break
                             reinit_buffer!(itembuffer, sim, itemnr)
                             work_single!(worker, itembuffer)
                         end # itemnr
                     end #chunk
-                end #spawn
-            end #taskid
-        end #sync
+                catch
+                    abort[] = true
+                    Threads.atomic_cas!(first_failed, 0, taskid)
+                    rethrow()
+                end
+            end #spawn
+        end #taskid
+        # Wait for every task (the failed one and any still finishing their current item)
+        # before deciding whether to continue, so no task from this call is ever left running
+        # concurrently with a subsequent `work!` call on the same task-local buffers.
+        # `wait(t)` can throw for two different reasons: `t` itself failed (already recorded in
+        # `first_failed` on its own catch path above), or an `InterruptException` was delivered
+        # to *this* (waiting) task asynchronously (e.g. Ctrl-C) - which says nothing about
+        # whether `t` has finished. Only the latter is retried (on the same `t`, until it is
+        # actually done); the interrupt is remembered and rethrown below, once every task has
+        # been waited for, so it still reaches the caller instead of being swallowed.
+        interrupted = false
+        foreach(tasks) do t
+            while true
+                try
+                    wait(t)
+                    break
+                catch e
+                    if e isa InterruptException
+                        interrupted = true
+                        continue
+                    end
+                    break
+                end
+            end
+        end
+        failed_taskid = first_failed[]
+        if failed_taskid != 0
+            throw(TaskFailedException(tasks[failed_taskid]))
+        elseif interrupted
+            throw(InterruptException())
+        end
     end #chunk_vectors
     gather!(itembuffers)
     gather!(workers)
