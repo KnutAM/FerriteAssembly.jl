@@ -142,14 +142,14 @@
             cell_db = setup_domainbuffer(DomainSpec(dh, nothing, cv; set=empty_cellset); threading)
             @test isempty(FerriteAssembly.getset(cell_db))
             v = SimpleIntegrator(Returns(1.0), 0.0)
-            work!(v, FerriteAssembly.FixedDict("cells" => cell_db))
+            work!(v, FerriteAssembly.DomainBuffers("cells" => cell_db))
             @test v.val == 0.0
         end
         for threading in (false, true)
             facet_db = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=FacetIndex[]); threading)
             @test isempty(FerriteAssembly.getset(facet_db))
             v = SimpleIntegrator(Returns(1.0), 0.0)
-            work!(v, FerriteAssembly.FixedDict("facets" => facet_db))
+            work!(v, FerriteAssembly.DomainBuffers("facets" => facet_db))
             @test v.val == 0.0
         end
 

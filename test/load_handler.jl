@@ -183,13 +183,13 @@ end
     @test_logs (:warn,) add!(lh, Neumann(:u, 2, getfacetset(grid, "left"), f_2d))
 end
 
-@testset "add! is not atomic across SubDofHandlers (known limitation)" begin
+@testset "add! clears all contributions on failure across SubDofHandlers" begin
     # A single `add!` call may need to build a buffer for several `SubDofHandler`s (one per
     # matching subdomain), installing each as soon as it is built. If a later one fails (e.g.
-    # an explicit quadrature rule incompatible with that subdomain's cell type), earlier
-    # contributions from this same `add!` call are *not* rolled back - this documents that
-    # known, accepted limitation: discard the `LoadHandler` and start over after such a
-    # failure, rather than retrying the same call in place (which would double-count them).
+    # an explicit quadrature rule incompatible with that subdomain's cell type), the entire
+    # `bodyloads`/`nbcs` container - including contributions from earlier, successful `add!`
+    # calls - is wiped, and the original exception is rethrown: a `LoadHandler` that has seen
+    # any failed `add!` must be discarded, never retried or reused in place.
     nodes = [
         Node(Vec((0.0, 0.0))), Node(Vec((1.0, 0.0))), Node(Vec((1.0, 1.0))), Node(Vec((0.0, 1.0))),
         Node(Vec((2.0, 0.0))), Node(Vec((3.0, 0.0))), Node(Vec((2.5, 1.0))),
@@ -204,11 +204,16 @@ end
     close!(dh)
 
     lh = LoadHandler(dh)
+    # A prior, successful `add!` call's contribution must also be wiped by a later failure,
+    # not just the entries from the failing call itself.
+    add!(lh, BodyLoad(:u, 1, Returns(1.0)))
+    @test length(lh.bodyloads) == 2
+
     # An explicit `RefQuadrilateral` quadrature rule matches the first `SubDofHandler` (quad)
     # but not the second (triangle): `autogenerate_cellvalues` has no method for that
     # `RefShape` mismatch, so the triangle subdomain throws.
     @test_throws MethodError add!(lh, BodyLoad(:u, QuadratureRule{RefQuadrilateral}(1), Returns(1.0)))
-    @test length(lh.bodyloads) == 1 # the quad subdomain's buffer is left behind, not rolled back
+    @test isempty(lh.bodyloads)
 end
 
 @testset "DofLoad" begin

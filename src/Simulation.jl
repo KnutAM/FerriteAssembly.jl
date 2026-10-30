@@ -1,9 +1,9 @@
 abstract type AbstractSimulation{DB} end
 
 const AbstractSingleDomainSim = AbstractSimulation{<:DomainBuffer}
-const AbstractMultiDomainSim = AbstractSimulation{<:FixedDict{String, <:DomainBuffer}}
+const AbstractMultiDomainSim = AbstractSimulation{<:DomainBuffers{<:DomainBuffer}}
 const AbstractSingleDomainThreadedSim = AbstractSimulation{<:ThreadedDomainBuffer}
-const AbstractMultiDomainThreadedSim = AbstractSimulation{<:FixedDict{String, <:ThreadedDomainBuffer}}
+const AbstractMultiDomainThreadedSim = AbstractSimulation{<:DomainBuffers{<:ThreadedDomainBuffer}}
 
 # Must be defined
 """

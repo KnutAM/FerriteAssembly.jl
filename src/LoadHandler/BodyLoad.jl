@@ -57,10 +57,8 @@ function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv:
     end
 end
 
-# See the matching note on `_add_neumann!`: `bodyloads` is mutated in place and this is not
-# atomic across `SubDofHandler`s - a failure partway through a multi-subdomain `add!` leaves
-# earlier contributions installed; discard the `LoadHandler` and start over rather than retry
-# it in place.
+# See the matching note on `_add_neumann!`: `bodyloads` is mutated in place via
+# `_internal_setindex!`.
 function _add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, sdh::SubDofHandler)
     material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
 
@@ -77,13 +75,22 @@ function _add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, sdh::SubDo
     return nothing
 end
 
+# See the matching note on `add_neumann!`: if any `SubDofHandler` fails, the entire
+# `bodyloads` (including contributions from earlier, successful `add!` calls) is wiped
+# rather than rolling back only this call's additions.
 function add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, dh::DofHandler)
     contribution = false
     for sdh in dh.subdofhandlers
         overlaps = overlaps_with_cellset(bodyload.cellset, _getcellset(sdh))
         if overlaps && bodyload.fieldname ∈ Ferrite.getfieldnames(sdh)
             contribution = true
-            _add_bodyload!(bodyloads, bodyload, sdh)
+            try
+                _add_bodyload!(bodyloads, bodyload, sdh)
+            catch
+                _internal_empty!(bodyloads)
+                @info "add_bodyload! failed on a SubDofHandler; removing all body load contributions from this LoadHandler"
+                rethrow()
+            end
         end
     end
     contribution || @warn "No contributions added to the LoadHandler"

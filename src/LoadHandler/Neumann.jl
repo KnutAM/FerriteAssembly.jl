@@ -58,12 +58,6 @@ end
 # `nbcs` is mutated in place via `_internal_setindex!` (safe here: `LoadHandler.nbcs` is not
 # part of `LoadHandler`'s own documented public interface, only `add!`/`apply!` are - see the
 # note on `_internal_setindex!`).
-#
-# **Not atomic across `SubDofHandler`s:** if `dh` has several matching subdomains and one
-# fails after an earlier one has already been installed (e.g. an explicit quadrature rule
-# incompatible with that subdomain's cell type), `nbcs` is left with that earlier contribution
-# in place. A corrected retry on the *same* `LoadHandler` would then double-count it; discard
-# the `LoadHandler` and start over after such a failure instead of retrying it in place.
 function _add_neumann!(nbcs::DomainBuffers, nbc::Neumann, sdh::SubDofHandler)
     material = NeumannMaterial(nbc.f, dof_range(sdh, nbc.fieldname))
 
@@ -78,13 +72,24 @@ function _add_neumann!(nbcs::DomainBuffers, nbc::Neumann, sdh::SubDofHandler)
     return nothing
 end
 
+# If any `SubDofHandler` fails (e.g. an explicit quadrature rule incompatible with that
+# subdomain's cell type), `nbcs` is left in an inconsistent, partially-built state - some
+# subdomains' contributions present, others missing. Rather than track and roll back only
+# this call's additions, the entire `nbcs` (including contributions from earlier, successful
+# `add!` calls) is wiped: a `LoadHandler` with any failed `add!` must not be used further.
 function add_neumann!(nbcs::DomainBuffers, nbc::Neumann, dh::DofHandler)
     contribution = false
     for sdh in dh.subdofhandlers
         overlaps = overlaps_with_cellset(nbc.facetset, _getcellset(sdh))
         if overlaps && nbc.fieldname ∈ Ferrite.getfieldnames(sdh)
             contribution = true
-            _add_neumann!(nbcs, nbc, sdh)
+            try
+                _add_neumann!(nbcs, nbc, sdh)
+            catch
+                _internal_empty!(nbcs)
+                @info "add_neumann! failed on a SubDofHandler; removing all Neumann contributions from this LoadHandler"
+                rethrow()
+            end
         end
     end
     contribution || @warn "No contributions added to the LoadHandler"

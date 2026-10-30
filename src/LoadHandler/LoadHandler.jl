@@ -34,7 +34,7 @@ struct LoadHandler{DH<:Ferrite.AbstractDofHandler}
 end
 function LoadHandler(dh::Ferrite.AbstractDofHandler; threading=false)
     BT = threading ? ThreadedDomainBuffer : DomainBuffer
-    return LoadHandler(FixedDict{String,BT}(), FixedDict{String,BT}(), DofLoad[], dh)
+    return LoadHandler(DomainBuffers{BT}(), DomainBuffers{BT}(), DofLoad[], dh)
 end
 
 Ferrite.add!(lh::LoadHandler, nbc::Neumann) = (add_neumann!(lh.nbcs, nbc, lh.dh); lh)
