@@ -4,14 +4,14 @@ At the top level, the user of `FerriteAssembly` needs to interact with two main 
 * Domain buffers
 * Workers
 
-## Workers
+## [Workers](@id design_workers)
 A worker is the simplest object, and determines what is done for each item in a domain.
 
 ## Domain buffer
 A domain buffer contains the data to perform work on a given domain. 
 Multiple domain buffers are collected in the immutable `Dict`-like container, [`FerriteAssembly.DomainBuffers`](@ref), for each domain.
 
-Two domain buffer types are implemented, a regular [`DomainBuffer`](@ref) and a threaded [`ThreadedDomainBuffer`](@ref) version. 
+Two domain buffer types are implemented, a regular `DomainBuffer` and a threaded `ThreadedDomainBuffer` version. 
 To understand the structure, it sufficies to to understand the regular `DomainBuffer`, as the version just contains additional values, e.g. per-task buffers.
 
 The key fields of the `DomainBuffer` type are 

@@ -183,13 +183,13 @@ end
     @test_logs (:warn,) add!(lh, Neumann(:u, 2, getfacetset(grid, "left"), f_2d))
 end
 
-@testset "add! clears all contributions on failure across SubDofHandlers" begin
+@testset "add! rolls back only this call's contributions on failure across SubDofHandlers" begin
     # A single `add!` call may need to build a buffer for several `SubDofHandler`s (one per
     # matching subdomain), installing each as soon as it is built. If a later one fails (e.g.
-    # an explicit quadrature rule incompatible with that subdomain's cell type), the entire
-    # `bodyloads`/`nbcs` container - including contributions from earlier, successful `add!`
-    # calls - is wiped, and the original exception is rethrown: a `LoadHandler` that has seen
-    # any failed `add!` must be discarded, never retried or reused in place.
+    # an explicit quadrature rule incompatible with that subdomain's cell type), only the
+    # buffer(s) installed by *this* `add!` call are rolled back (via `_internal_deletekeys!`),
+    # and the original exception is rethrown; contributions from earlier, successful `add!`
+    # calls on the same `LoadHandler` are left untouched.
     nodes = [
         Node(Vec((0.0, 0.0))), Node(Vec((1.0, 0.0))), Node(Vec((1.0, 1.0))), Node(Vec((0.0, 1.0))),
         Node(Vec((2.0, 0.0))), Node(Vec((3.0, 0.0))), Node(Vec((2.5, 1.0))),
@@ -204,16 +204,16 @@ end
     close!(dh)
 
     lh = LoadHandler(dh)
-    # A prior, successful `add!` call's contribution must also be wiped by a later failure,
-    # not just the entries from the failing call itself.
+    # A prior, successful `add!` call's contributions must survive a later call's failure.
     add!(lh, BodyLoad(:u, 1, Returns(1.0)))
     @test length(lh.bodyloads) == 2
 
     # An explicit `RefQuadrilateral` quadrature rule matches the first `SubDofHandler` (quad)
     # but not the second (triangle): `autogenerate_cellvalues` has no method for that
-    # `RefShape` mismatch, so the triangle subdomain throws.
+    # `RefShape` mismatch, so the triangle subdomain throws. The quad subdomain's buffer,
+    # installed earlier in this same failing call, is rolled back along with it.
     @test_throws MethodError add!(lh, BodyLoad(:u, QuadratureRule{RefQuadrilateral}(1), Returns(1.0)))
-    @test isempty(lh.bodyloads)
+    @test length(lh.bodyloads) == 2 # back to the state before this failing call
 end
 
 @testset "DofLoad" begin
