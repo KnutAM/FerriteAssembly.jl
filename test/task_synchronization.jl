@@ -1,0 +1,135 @@
+# Fast, isolated tests for `FerriteAssembly.sync_with_abort` (src/Multithreading/
+# task_synchronization.jl), the primitive extracted from `work_domain_threaded!` that
+# replaces `Base.Experimental.@sync` for this use case. No grid/CellValues/DomainBuffer
+# machinery is needed here: these tests exercise the primitive directly with trivial
+# closures, so they're quick and - unlike driving the same guarantees through a full
+# threaded assembly - not sensitive to scheduling noise under load.
+#
+# Ordering between tasks is established with explicit handshakes (a task waits on a flag
+# another task sets), never by guessing relative `sleep` durations: a wrong guess could make
+# a test pass vacuously (e.g. a "slow" sibling that happens to finish before the "fast"
+# failure) instead of actually exercising the intended race.
+@testset "sync_with_abort" begin
+    function wait_for(cond; timeout = 10.0)
+        t0 = time()
+        while !cond()
+            time() - t0 > timeout && return false
+            sleep(0.001) # see test/threading_errors.jl for why not `yield()`
+        end
+        return true
+    end
+
+    @testset "all tasks succeed" begin
+        calls = Threads.Atomic{Int}(0)
+        seen = fill(false, 4)
+        lk = ReentrantLock()
+        FerriteAssembly.sync_with_abort(4) do taskid, abort
+            Threads.atomic_add!(calls, 1)
+            lock(lk) do
+                seen[taskid] = true
+            end
+        end
+        @test calls[] == 4
+        @test all(seen)
+    end
+
+    @testset "one failure: siblings observe abort, all are waited for" begin
+        done = Threads.Atomic{Int}(0)
+        abort_observed = fill(false, 3)
+        e = nothing
+        try
+            FerriteAssembly.sync_with_abort(4) do taskid, abort
+                if taskid == 1
+                    error("boom from 1")
+                else
+                    # Deterministic: wait on the very signal we need, not a guessed delay.
+                    ok = wait_for(() -> abort[])
+                    abort_observed[taskid - 1] = ok
+                    Threads.atomic_add!(done, 1)
+                end
+            end
+        catch caught
+            e = caught
+        end
+        @test e isa TaskFailedException
+        @test e.task.exception isa ErrorException
+        @test e.task.exception.msg == "boom from 1"
+        @test all(abort_observed) # every sibling actually saw `abort[] == true`
+        @test done[] == 3 # ... and every sibling was actually waited for before returning
+    end
+
+    @testset "first *actual* failure is reported, not the lowest taskid" begin
+        # taskid 3 is made to fail before taskid 1, despite 1 < 3, via an explicit handshake:
+        # 1 waits until 3 has already set a flag (right before 3 itself errors) before 1
+        # errors. This directly tests that `sync_with_abort` records failures by actual
+        # order, not by iterating `1:num_tasks`.
+        task3_failed = Threads.Atomic{Bool}(false)
+        e = nothing
+        try
+            FerriteAssembly.sync_with_abort(4) do taskid, abort
+                if taskid == 3
+                    task3_failed[] = true
+                    error("boom from 3")
+                elseif taskid == 1
+                    wait_for(() -> task3_failed[]) || error("handshake timed out")
+                    sleep(0.05) # give task 3's own catch-block a comfortable head start
+                    error("boom from 1")
+                else
+                    wait_for(() -> abort[])
+                end
+            end
+        catch caught
+            e = caught
+        end
+        @test e isa TaskFailedException
+        @test e.task.exception isa ErrorException
+        @test e.task.exception.msg == "boom from 3"
+    end
+
+    @testset "a child's own InterruptException is reported like any other failure" begin
+        # Distinguishes a task failing *with* an InterruptException (just another error, as
+        # far as sync_with_abort is concerned) from an InterruptException delivered to the
+        # *caller* while it waits (tested below) - the latter must not be confused with the
+        # former by the drain loop's `catch e; e isa InterruptException` check, since `wait`
+        # on a task that failed throws `TaskFailedException`, not the bare `InterruptException`.
+        e = nothing
+        try
+            FerriteAssembly.sync_with_abort(2) do taskid, abort
+                if taskid == 1
+                    throw(InterruptException())
+                else
+                    wait_for(() -> abort[])
+                end
+            end
+        catch caught
+            e = caught
+        end
+        @test e isa TaskFailedException
+        @test e.task.exception isa InterruptException
+    end
+
+    @testset "InterruptException delivered to the waiting caller does not skip draining" begin
+        started = Threads.Atomic{Bool}(false)
+        finished = Threads.Atomic{Bool}(false)
+        maintask = current_task()
+        interruptor = Threads.@spawn begin
+            wait_for(() -> started[]) || error("handshake timed out")
+            schedule(maintask, InterruptException(); error = true)
+        end
+        caught = nothing
+        try
+            FerriteAssembly.sync_with_abort(2) do taskid, abort
+                if taskid == 1
+                    started[] = true
+                    sleep(0.3) # gives the interrupt time to arrive while this is in flight
+                    finished[] = true
+                end
+            end
+        catch e
+            caught = e
+        end
+        wait(interruptor)
+        @test caught isa InterruptException
+        @test finished[] # the slow task had already finished by the time the call returned
+    end
+end
