@@ -55,26 +55,33 @@ function facet_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::AbstractF
     end
 end
 
-function add_neumann!(nbcs::Dict{String,BT}, nbc::Neumann, sdh::SubDofHandler) where BT
+function _add_neumann!(nbcs::DomainBuffers{BT}, nbc::Neumann, sdh::SubDofHandler) where {BT}
     material = NeumannMaterial(nbc.f, dof_range(sdh, nbc.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
     ip_geo = geometric_interpolation(getcelltype(sdh))
     fv = autogenerate_facetvalues(nbc.fv_info, ip, ip_geo)
-    
+
     domain_spec = DomainSpec(sdh, material, fv; set=nbc.facetset)
     threading = BT <: ThreadedDomainBuffer
-    nbcs[string(length(nbcs)+1)] = setup_domainbuffer(domain_spec; threading=threading)
+    newbuffer = setup_domainbuffer(domain_spec; threading=threading)
+    _internal_setindex!(nbcs, string(length(nbcs)+1) => newbuffer)
+    return nothing
 end
 
-function add_neumann!(nbcs::Dict{String}, nbc::Neumann, dh::DofHandler)
-    contribution = false
+function _add_neumann!(nbcs::DomainBuffers, nbc::Neumann, dh::DofHandler)
+    old_keys = Set(keys(nbcs))
     for sdh in dh.subdofhandlers
         overlaps = overlaps_with_cellset(nbc.facetset, _getcellset(sdh))
         if overlaps && nbc.fieldname ∈ Ferrite.getfieldnames(sdh)
-            contribution = true
-            add_neumann!(nbcs, nbc, sdh)
+            try
+                _add_neumann!(nbcs, nbc, sdh)
+            catch
+                _internal_deletekeys!(nbcs, setdiff(keys(nbcs), old_keys))
+                rethrow()
+            end
         end
     end
-    contribution || @warn "No contributions added to the LoadHandler"
+    length(nbcs) == length(old_keys) && @warn "No contributions added to the LoadHandler"
+    return nothing
 end

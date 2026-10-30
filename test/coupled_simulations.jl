@@ -176,7 +176,7 @@
         # per call, so compare per-domain storage identity rather than the wrapper itself.
         function same_domain_storage(sim_x::Simulation, sim_y::Simulation)
             db_x, db_y = sim_x.db, sim_y.db
-            db_x isa Dict && return all(keys(db_x)) do k
+            db_x isa FerriteAssembly.DomainBuffers && return all(keys(db_x)) do k
                 FerriteAssembly.get_state(db_x[k]) === FerriteAssembly.get_state(db_y[k]) &&
                     FerriteAssembly.get_material(db_x[k]) === FerriteAssembly.get_material(db_y[k])
             end
@@ -469,6 +469,42 @@
         @test_throws ArgumentError FerriteAssembly.replace_material(gs, :a, identity; domain = "left")
     end
 
+    @testset "db is immutable (FerriteAssembly.DomainBuffers), not a mutable Dict" begin
+        # `g.a.db` (a multi-domain `DomainBuffers`) is the same object referenced by
+        # `g.b.partners.a.db` (the ref `b`'s view of partner `a`). Were it a mutable `Dict`,
+        # `g.a.db["left"] = newbuffer` would silently also change what `g.b` sees for `a`,
+        # bypassing every documented way of changing a domain buffer (which all return a new
+        # `DomainBuffers` rather than mutating one in place). `DomainBuffers` has no
+        # `setindex!` method, so the unsupported direct-mutation pattern now errors instead
+        # of silently corrupting shared state.
+        sets = Dict(k => getcellset(grid, k) for k in ("left", "right"))
+        d1m = setup_domainbuffers(Dict(k => DomainSpec(dh1, CS_MA(), cvu; set) for (k, set) in sets); a = a1)
+        d2m = setup_domainbuffers(Dict(k => DomainSpec(dh2, CS_MB(), cvv; set) for (k, set) in sets); a = a2)
+        sim1m = Simulation(d1m, a1, aold1)
+        sim2m = Simulation(d2m, a2, aold2)
+        g = CoupledSimulations((a = sim1m,); refs = (b = sim2m,))
+        @test g.a.db isa FerriteAssembly.DomainBuffers
+        newbuffer = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu; set=sets["left"]); a = a1)
+        @test_throws MethodError (g.a.db["left"] = newbuffer)
+
+        # Regression: the wrapped `Dict` must not be reachable via property access either -
+        # otherwise `g.a.db.<whatever the field is called>["left"] = newbuffer` would be an
+        # equally effective backdoor around the missing `setindex!`.
+        @test_throws ErrorException getproperty(g.a.db, :dict)
+        @test_throws ErrorException g.a.db.dict
+
+        # Regression: wrapping an existing `Dict` must not alias it - mutating the original
+        # variable afterwards must not be visible through the `DomainBuffers`.
+        raw = Dict("left" => d1m["left"])
+        wrapped = FerriteAssembly.DomainBuffers(raw)
+        raw["left"] = newbuffer
+        @test wrapped["left"] !== newbuffer
+        @test wrapped["left"] === d1m["left"]
+        @test isempty(propertynames(wrapped))
+        @test get(wrapped, "left", newbuffer) === d1m["left"]
+        @test get(wrapped, "missing", newbuffer) === newbuffer
+    end
+
     @testset "CoupledCellBuffer forwarding (dof_range, direct replace_material)" begin
         d1 = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu); a = a1)
         d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2)
@@ -496,16 +532,16 @@
         # Construction-only edge case: a primary member whose own `db` is an empty domain
         # dictionary must succeed (nothing to couple), rather than erroring while trying to
         # iterate it. This does not imply such a member is workable via `work!` afterwards
-        # (its `Dict` value type is the abstract `AbstractDomainBuffer`, which does not match
-        # the concrete-eltype bound `work!`'s multi-domain dispatch requires) - only that
+        # (its value type is the abstract `AbstractDomainBuffer`, which does not match the
+        # concrete-eltype bound `work!`'s multi-domain dispatch requires) - only that
         # `CoupledSimulations` construction itself tolerates it.
-        empty_db = Dict{String, FerriteAssembly.AbstractDomainBuffer}()
+        empty_db = FerriteAssembly.DomainBuffers{FerriteAssembly.AbstractDomainBuffer}()
         sim_empty = Simulation(empty_db, Float64[], Float64[])
         d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2)
         sim2 = Simulation(d2, a2, aold2)
         g = CoupledSimulations((a = sim_empty,); refs = (b = sim2,))
         @test g.a isa FerriteAssembly.CoupledSimulation
-        @test g.a.db isa Dict
+        @test g.a.db isa FerriteAssembly.DomainBuffers
         @test isempty(g.a.db)
 
         # Even though there are no reader domains to iterate, the flat `partners`
@@ -514,10 +550,11 @@
         @test g.a.partners isa NamedTuple
         @test g.a.partners.b === sim2
 
-        # Regression: `_uncouple`-ing a member whose own `db` is this empty `Dict` must not
-        # widen its type to `Dict{Any,Any}` (which an empty-generator `Dict(...)` comprehension
-        # would infer) - that would make the result unusable as a `primaries`/`refs` entry for
-        # a further group, since `Simulation` requires a concrete `Dict{String,<:AbstractDomainBuffer}`.
+        # Regression: `_uncouple`-ing a member whose own `db` is this empty `DomainBuffers`
+        # must not try to rebuild it via an empty-generator `DomainBuffers(...)`
+        # comprehension (which would raise a `MethodError`, since `Dict(empty_gen)` infers
+        # `Dict{Any,Any}` and the inner constructor requires `Dict{String,V}`) - `_uncouple`
+        # must instead reuse `db` as-is for the empty case.
         u = FerriteAssembly._uncouple(g.a)
         @test u.db === empty_db
         g2 = CoupledSimulations((a = g.a,); refs = (b = sim2,))
@@ -545,7 +582,7 @@
         # Missing domain coverage (multi-domain reader, partner missing a domain)
         sets = Dict(k => getcellset(grid, k) for k in ("left", "right"))
         d1m = setup_domainbuffers(Dict(k => DomainSpec(dh1, CS_MA(), cvu; set) for (k, set) in sets); a = a1)
-        d2m_partial = Dict("left" => setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv; set=sets["left"]); a = a2))
+        d2m_partial = FerriteAssembly.DomainBuffers("left" => setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv; set=sets["left"]); a = a2))
         sim1m = Simulation(d1m, a1, aold1)
         sim2m_partial = Simulation(d2m_partial, a2, aold2)
         @test_throws ArgumentError CoupledSimulations((a = sim1m,); refs = (b = sim2m_partial,))

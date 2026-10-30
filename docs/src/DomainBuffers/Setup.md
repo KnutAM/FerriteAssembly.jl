@@ -10,9 +10,11 @@ setup_domainbuffers
 ```
 
 ## AbstractDomainBuffer
-The domain buffer be a `DomainBuffer`, `ThreadedDomainBuffer`, or a `Dict{String}` with eltype 
-of one of the former. The following functions are defined for these buffers:
+The domain buffer be a `DomainBuffer`, `ThreadedDomainBuffer`, or a [`FerriteAssembly.DomainBuffers`](@ref)
+(an immutable `AbstractDict{String}`) with eltype of one of the former. The
+following functions are defined for these buffers:
 ```@docs
+FerriteAssembly.DomainBuffers
 FerriteAssembly.get_material(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.get_dofhandler(::FerriteAssembly.DomainBuffers)
 FerriteAssembly.get_state(::FerriteAssembly.DomainBuffers, ::String)

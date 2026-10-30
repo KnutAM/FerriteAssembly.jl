@@ -20,7 +20,7 @@
         buffers_ad = setup_domainbuffers(domains; autodiffbuffer=true)
         aold_value = rand()
         aold = ones(ndofs(dh))*aold_value
-        _getdomain(dbs::Dict, key::String) = dbs[key]
+        _getdomain(dbs::FerriteAssembly.DomainBuffers, key::String) = dbs[key]
         _getdomain(sim::Simulation, key) = Simulation(sim.db[key], sim.a, sim.aold)
         for container in (buffers, buffers_ad, Simulation(buffers, nothing, aold), Simulation(buffers_ad, nothing, aold))
             # Basic access functions
@@ -142,14 +142,14 @@
             cell_db = setup_domainbuffer(DomainSpec(dh, nothing, cv; set=empty_cellset); threading)
             @test isempty(FerriteAssembly.getset(cell_db))
             v = SimpleIntegrator(Returns(1.0), 0.0)
-            work!(v, Dict("cells" => cell_db))
+            work!(v, FerriteAssembly.DomainBuffers("cells" => cell_db))
             @test v.val == 0.0
         end
         for threading in (false, true)
             facet_db = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=FacetIndex[]); threading)
             @test isempty(FerriteAssembly.getset(facet_db))
             v = SimpleIntegrator(Returns(1.0), 0.0)
-            work!(v, Dict("facets" => facet_db))
+            work!(v, FerriteAssembly.DomainBuffers("facets" => facet_db))
             @test v.val == 0.0
         end
 

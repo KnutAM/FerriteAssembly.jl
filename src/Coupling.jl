@@ -45,7 +45,7 @@ function _uncouple(csim::CoupledSimulation)
     # generator would infer `Dict{Any,Any}` instead of the concrete `DomainBuffers` type
     # `Simulation` requires, so reuse `db` as-is (matching `build_coupled_simulation`'s own
     # handling of this case).
-    new_db = db isa DomainBuffers ? (isempty(db) ? db : Dict(k => _uncouple_domain(d) for (k, d) in db)) : _uncouple_domain(db)
+    new_db = db isa DomainBuffers ? (isempty(db) ? db : DomainBuffers(k => _uncouple_domain(d) for (k, d) in db)) : _uncouple_domain(db)
     return Simulation(new_db, csim.sim.a, csim.sim.aold)
 end
 
@@ -218,7 +218,7 @@ function build_coupled_simulation(name::Symbol, reader_sim::Simulation, all_memb
                 ndb = build_coupled_domain(rdb, partners)
                 push!(built, dname => ndb)
             end
-            new_db = Dict(built...) # infers the narrowest common concrete value type, matching MultiDomain(Threaded)Sim dispatch
+            new_db = DomainBuffers(built) # infers the narrowest common concrete value type, matching MultiDomain(Threaded)Sim dispatch
         end
     else
         partners = NamedTuple{partner_names}(Tuple(
