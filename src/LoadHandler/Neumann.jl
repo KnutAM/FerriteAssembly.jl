@@ -55,10 +55,7 @@ function facet_residual!(fe::Vector, ::Vector, m::NeumannMaterial, fv::AbstractF
     end
 end
 
-# `nbcs` is mutated in place via `_internal_setindex!` (safe here: `LoadHandler.nbcs` is not
-# part of `LoadHandler`'s own documented public interface, only `add!`/`apply!` are - see the
-# note on `_internal_setindex!`).
-function _add_neumann!(nbcs::DomainBuffers, nbc::Neumann, sdh::SubDofHandler)
+function _add_neumann!(nbcs::DomainBuffers{BT}, nbc::Neumann, sdh::SubDofHandler) where {BT}
     material = NeumannMaterial(nbc.f, dof_range(sdh, nbc.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, nbc.fieldname)
@@ -66,32 +63,25 @@ function _add_neumann!(nbcs::DomainBuffers, nbc::Neumann, sdh::SubDofHandler)
     fv = autogenerate_facetvalues(nbc.fv_info, ip, ip_geo)
 
     domain_spec = DomainSpec(sdh, material, fv; set=nbc.facetset)
-    threading = valtype(nbcs) <: ThreadedDomainBuffer
+    threading = BT <: ThreadedDomainBuffer
     newbuffer = setup_domainbuffer(domain_spec; threading=threading)
     _internal_setindex!(nbcs, string(length(nbcs)+1) => newbuffer)
     return nothing
 end
 
-# If any `SubDofHandler` fails (e.g. an explicit quadrature rule incompatible with that
-# subdomain's cell type), `nbcs` is left in an inconsistent, partially-built state - some
-# subdomains' contributions present, others missing. Rather than track and roll back only
-# this call's additions, the entire `nbcs` (including contributions from earlier, successful
-# `add!` calls) is wiped: a `LoadHandler` with any failed `add!` must not be used further.
-function add_neumann!(nbcs::DomainBuffers, nbc::Neumann, dh::DofHandler)
-    contribution = false
+function _add_neumann!(nbcs::DomainBuffers, nbc::Neumann, dh::DofHandler)
+    old_keys = Set(keys(nbcs))
     for sdh in dh.subdofhandlers
         overlaps = overlaps_with_cellset(nbc.facetset, _getcellset(sdh))
         if overlaps && nbc.fieldname ∈ Ferrite.getfieldnames(sdh)
-            contribution = true
             try
                 _add_neumann!(nbcs, nbc, sdh)
             catch
-                _internal_empty!(nbcs)
-                @info "add_neumann! failed on a SubDofHandler; removing all Neumann contributions from this LoadHandler"
+                _internal_deletekeys!(nbcs, setdiff(keys(nbcs), old_keys))
                 rethrow()
             end
         end
     end
-    contribution || @warn "No contributions added to the LoadHandler"
+    length(nbcs) == length(old_keys) && @warn "No contributions added to the LoadHandler"
     return nothing
 end

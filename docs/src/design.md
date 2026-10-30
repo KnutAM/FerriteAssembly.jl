@@ -1,14 +1,22 @@
 # Package design
 
-At the top level, the user of `FerriteAssembly` needs to interact with two main types of objects, a *domain buffer* (or an immutable `Dict`-like container, [`FerriteAssembly.DomainBuffers`](@ref), of multiple domain buffers) and a *worker*
-(for example an assembler). 
+At the top level, the user of `FerriteAssembly` needs to interact with two main types of objects, 
+* Domain buffers
+* Workers
 
-## Worker 
-The worker is the simplest object, and determines what is done for each item in the domain(s).
+## Workers
+A worker is the simplest object, and determines what is done for each item in a domain.
 
 ## Domain buffer
-Two domain buffer types are implemented, a regular and a threaded version. To understand the structure, it sufficies to to understand the regular buffer. The threaded version just contains additional values to have per-task buffers etc. 
-The key fields of the `DomainBuffer` type are (1) a `set` of items to iterate over (for example a vector of `Int` for a list of cells or a vector of `FacetIndex` for a list of facets) and an `itembuffer` (e.g., `CellBuffer` or `FacetBuffer`) containing the data required to do something for each entity. 
+A domain buffer contains the data to perform work on a given domain. 
+Multiple domain buffers are collected in the immutable `Dict`-like container, [`FerriteAssembly.DomainBuffers`](@ref), for each domain.
+
+Two domain buffer types are implemented, a regular [`DomainBuffer`](@ref) and a threaded [`ThreadedDomainBuffer`](@ref) version. 
+To understand the structure, it sufficies to to understand the regular `DomainBuffer`, as the version just contains additional values, e.g. per-task buffers.
+
+The key fields of the `DomainBuffer` type are 
+* A `set` of entities to iterate over (for example a vector of `Int` for a list of cells or a vector of `FacetIndex` for a list of facets)
+* An `itembuffer` (e.g., `CellBuffer` or `FacetBuffer`) containing the data required to do something for each entity.
 
 ### ItemBuffer
 The most important fields in an item buffer are the user-defined `material` and the `FEValues` (e.g. `CellValues` or `FacetValues`). 
@@ -36,12 +44,10 @@ This is because the the `CellBuffer` would contain different `material` types fo
 
 Figure 1: Domains
 
-When setting up the domains, we collect all domains into a `Dict`, which is 
-done by calling `setup_domainbuffers(::Dict{String,DomainSpec}; kwargs...)`,
-where the keyword arguments are the same as for a single domainbuffer. The returned
-collection of domain buffers is an immutable [`FerriteAssembly.DomainBuffers`](@ref), not a
-`Dict`: it must be rebuilt (e.g. via `replace_material`) rather than mutated in place,
-since it may be referenced by more than one [`CoupledSimulations`](@ref) member. 
+When setting up the domains, we collect all domains into an immutable
+[`FerriteAssembly.DomainBuffers`](@ref) by calling
+`setup_domainbuffers(::Dict{String,DomainSpec}; kwargs...)`,
+where the keyword arguments are the same as for a single domainbuffer.
 
 ### User-defined overloaded functions
 The user interacts with `FerriteAssembly` on the top level, when setting up the domain buffer and the worker. But to make it work, the user must also overload 

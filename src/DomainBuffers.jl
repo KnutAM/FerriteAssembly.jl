@@ -3,17 +3,15 @@ abstract type AbstractDomainBuffer end
 """
     DomainBuffers{V<:AbstractDomainBuffer} <: AbstractDict{String,V}
 
-The container used for `Simulation.db` when there are multiple domains. It is publicly fixed
-(immutable): `getindex`, `haskey`, `get`, `keys`, `values`, `pairs`, `length`, `isempty` and
-iteration all forward to an internally-wrapped `Dict{String,V}` (so their performance and
-allocation behavior are identical to a plain `Dict`), but no `setindex!` is defined, and
-`getproperty` always throws, so nothing outside this file can reach or mutate the wrapped
-`Dict`. Changing its contents always goes through a function that returns a new
-`DomainBuffers` (e.g. [`replace_material`](@ref)), never through direct indexing assignment.
+Container for multiple domain buffers. It is publicly fixed (immutable), with 
+`getindex`, `haskey`, `get`, `keys`, `values`, `pairs`, `length`, `isempty` and
+iteration all forwarded to an internally-wrapped `Dict{String,V}`.
 
-Internally, the wrapped `Dict` remains reachable via `getfield(d, :dict)`, and can still be
+`setindex!` (i.e. `dbs["a"] = db`) and `getproperty` (i.e. `dbs.dict`) are not defined.
+
+Internally, the wrapped `Dict` remains reachable via `_getdict(d)`, and can still be
 mutated in place when that is actually safe to do - see `_internal_setindex!`/
-`_internal_empty!`.
+`_internal_deletekeys!`.
 """
 struct DomainBuffers{V<:AbstractDomainBuffer} <: AbstractDict{String,V}
     dict::Dict{String,V}
@@ -26,15 +24,16 @@ Base.getproperty(::DomainBuffers, ::Symbol) = error(
     "`DomainBuffers` fields are not accessible via `.`; this type has no public fields")
 Base.propertynames(::DomainBuffers) = ()
 
-Base.length(d::DomainBuffers) = length(getfield(d, :dict))
-Base.isempty(d::DomainBuffers) = isempty(getfield(d, :dict))
-Base.haskey(d::DomainBuffers, k) = haskey(getfield(d, :dict), k)
-Base.get(d::DomainBuffers, k, default) = get(getfield(d, :dict), k, default)
-Base.getindex(d::DomainBuffers, k) = getfield(d, :dict)[k]
-Base.iterate(d::DomainBuffers) = iterate(getfield(d, :dict))
-Base.iterate(d::DomainBuffers, state) = iterate(getfield(d, :dict), state)
+_getdict(d::DomainBuffers) = getfield(d, :dict)
+Base.length(d::DomainBuffers) = length(_getdict(d))
+Base.isempty(d::DomainBuffers) = isempty(_getdict(d))
+Base.haskey(d::DomainBuffers, k) = haskey(_getdict(d), k)
+Base.get(d::DomainBuffers, k, default) = get(_getdict(d), k, default)
+Base.getindex(d::DomainBuffers, k) = _getdict(d)[k]
+Base.iterate(d::DomainBuffers) = iterate(_getdict(d))
+Base.iterate(d::DomainBuffers, state) = iterate(_getdict(d), state)
 # `keys`/`values`/`pairs` are intentionally NOT forwarded to the wrapped `Dict`: doing so
-# (e.g. `Base.keys(d::DomainBuffers) = keys(getfield(d, :dict))`) would return a `KeySet`/
+# (e.g. `Base.keys(d::DomainBuffers) = keys(_getdict(d))`) would return a `KeySet`/
 # `ValueIterator` wrapping the *raw* `Dict`, whose own `.dict` field (unprotected) would hand
 # it right back out. Falling through to `AbstractDict`'s generic defaults instead wraps `d`
 # itself (so `keys(d).dict`/`values(d).dict` just returns `d`, which is no less protected) -
@@ -45,29 +44,18 @@ Base.iterate(d::DomainBuffers, state) = iterate(getfield(d, :dict), state)
 
 Insert `kv` into `d`'s wrapped `Dict` in place (replacing an already-present key - this is a
 real `Dict`), bypassing the public immutability.
-
-**Only call this on a `DomainBuffers` that is not part of its owning type's own *documented*
-public interface.** `Simulation.db` is such a documented interface (`Simulation`'s own
-docstring advertises `.db` as something user code reads directly) and must never be mutated
-this way - any code holding a `Simulation` could be relying on its `.db` staying exactly as it
-was. `LoadHandler.nbcs`/`.bodyloads`, by contrast, are undocumented implementation-detail
-fields: `LoadHandler`'s own documented interface is `add!`/`apply!` only, so mutating them in
-place here is the same category of "deliberately bypassing the documented interface" as
-reading `getfield(d, :dict)` on a `DomainBuffers` itself - not something this package
-protects against. When calling this on a type whose `DomainBuffers` field *is* public and
-documented, build a full replacement with `DomainBuffers` instead and reassign the field, the
-way `replace_material` does.
+Usage must be safe wrt. possible multiple references to `d`.
 """
-_internal_setindex!(d::DomainBuffers, kv::Pair) = (getfield(d, :dict)[kv.first] = kv.second; d)
+_internal_setindex!(d::DomainBuffers, kv::Pair) = (_getdict(d)[kv.first] = kv.second; d)
 
 """
-    _internal_empty!(d::DomainBuffers)
+    _internal_deletekeys!(d::DomainBuffers, keys)
 
-Remove all entries from `d`'s wrapped `Dict` in place, bypassing the public immutability.
-Subject to the same restriction as `_internal_setindex!`: only call this on a
-`DomainBuffers` that is not part of its owning type's own documented public interface.
+Remove the entries in `d`'s wrapped `Dict` in place with key in keys,
+bypassing the public immutability.
+Usage must be safe wrt. possible multiple references to `d`.
 """
-_internal_empty!(d::DomainBuffers) = (empty!(getfield(d, :dict)); d)
+_internal_deletekeys!(d::DomainBuffers, keys) = foreach(k -> delete!(_getdict(d), k), keys)
 
 # Accessor functions
 """

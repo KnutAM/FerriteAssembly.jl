@@ -57,9 +57,7 @@ function element_residual!(fe::Vector, ::Any, ::Vector, m::BodyLoadMaterial, cv:
     end
 end
 
-# See the matching note on `_add_neumann!`: `bodyloads` is mutated in place via
-# `_internal_setindex!`.
-function _add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, sdh::SubDofHandler)
+function _add_bodyload!(bodyloads::DomainBuffers{BT}, bodyload::BodyLoad, sdh::SubDofHandler) where {BT}
     material = BodyLoadMaterial(bodyload.f, dof_range(sdh, bodyload.fieldname))
 
     ip = Ferrite.getfieldinterpolation(sdh, bodyload.fieldname)
@@ -69,30 +67,25 @@ function _add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, sdh::SubDo
     set = bodyload.cellset===nothing ? _getcellset(sdh) : bodyload.cellset
 
     domain_spec = DomainSpec(sdh, material, cv; set=set)
-    threading = valtype(bodyloads) <: ThreadedDomainBuffer
+    threading = BT <: ThreadedDomainBuffer
     newbuffer = setup_domainbuffer(domain_spec; threading=threading)
     _internal_setindex!(bodyloads, string(length(bodyloads)+1) => newbuffer)
     return nothing
 end
 
-# See the matching note on `add_neumann!`: if any `SubDofHandler` fails, the entire
-# `bodyloads` (including contributions from earlier, successful `add!` calls) is wiped
-# rather than rolling back only this call's additions.
-function add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, dh::DofHandler)
-    contribution = false
+function _add_bodyload!(bodyloads::DomainBuffers, bodyload::BodyLoad, dh::DofHandler)
+    old_keys = Set(keys(bodyloads))
     for sdh in dh.subdofhandlers
         overlaps = overlaps_with_cellset(bodyload.cellset, _getcellset(sdh))
         if overlaps && bodyload.fieldname ∈ Ferrite.getfieldnames(sdh)
-            contribution = true
             try
                 _add_bodyload!(bodyloads, bodyload, sdh)
             catch
-                _internal_empty!(bodyloads)
-                @info "add_bodyload! failed on a SubDofHandler; removing all body load contributions from this LoadHandler"
+                _internal_deletekeys!(bodyloads, setdiff(keys(bodyloads), old_keys))
                 rethrow()
             end
         end
     end
-    contribution || @warn "No contributions added to the LoadHandler"
+    length(bodyloads) == length(old_keys) && @warn "No contributions added to the LoadHandler"
     return nothing
 end
