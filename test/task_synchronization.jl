@@ -59,20 +59,20 @@
     end
 
     @testset "first *actual* failure is reported, not the lowest taskid" begin
-        # taskid 3 is made to fail before taskid 1, despite 1 < 3, via an explicit handshake:
-        # 1 waits until 3 has already set a flag (right before 3 itself errors) before 1
-        # errors. This directly tests that `sync_with_abort` records failures by actual
-        # order, not by iterating `1:num_tasks`.
-        task3_failed = Threads.Atomic{Bool}(false)
+        # taskid 3 is made to fail before taskid 1, despite 1 < 3. Task 1 waits for `abort[]`
+        # itself (not a separate flag) before failing: `abort[]` is only ever set *inside* a
+        # catch block, right next to the CAS that records the failure, so by the time task 1
+        # observes it, task 3's own catch block (including its CAS) has already run - no
+        # sleep-based margin needed, this is the actual guarantee being tested, used as its own
+        # synchronization. This directly tests that `sync_with_abort` records failures by
+        # actual order, not by iterating `1:num_tasks`.
         e = nothing
         try
             FerriteAssembly.sync_with_abort(4) do taskid, abort
                 if taskid == 3
-                    task3_failed[] = true
                     error("boom from 3")
                 elseif taskid == 1
-                    wait_for(() -> task3_failed[]) || error("handshake timed out")
-                    sleep(0.05) # give task 3's own catch-block a comfortable head start
+                    wait_for(() -> abort[]) || error("handshake timed out")
                     error("boom from 1")
                 else
                     wait_for(() -> abort[])
@@ -109,26 +109,42 @@
     end
 
     @testset "InterruptException delivered to the waiting caller does not skip draining" begin
+        # Task 1 cannot finish until `release[]` is set - its completion is gated explicitly,
+        # not by a guessed sleep duration, so there is no way for it to race ahead of the
+        # interrupt. The *interruptor* task both delivers the interrupt and (after a short,
+        # one-directional grace period - not a guess about *this* test's correctness, only
+        # about how long an already-sent, same-process async exception takes to land) sets
+        # `release[]` itself, in that order on a single task, so "interrupt sent" strictly
+        # precedes "task 1 allowed to finish" with no race between those two steps either.
         started = Threads.Atomic{Bool}(false)
+        release = Threads.Atomic{Bool}(false)
         finished = Threads.Atomic{Bool}(false)
         maintask = current_task()
         interruptor = Threads.@spawn begin
-            wait_for(() -> started[]) || error("handshake timed out")
-            schedule(maintask, InterruptException(); error = true)
+            if wait_for(() -> started[])
+                schedule(maintask, InterruptException(); error = true)
+                sleep(0.05) # let the already-sent exception actually land in `maintask`
+            end
+            release[] = true
         end
         caught = nothing
         try
             FerriteAssembly.sync_with_abort(2) do taskid, abort
                 if taskid == 1
                     started[] = true
-                    sleep(0.3) # gives the interrupt time to arrive while this is in flight
+                    wait_for(() -> release[]; timeout = 30.0)
                     finished[] = true
                 end
             end
         catch e
             caught = e
         end
-        wait(interruptor)
+        # Defensive: a timed-out handshake above would make the interruptor task fail (not
+        # throw into `maintask`); don't let that crash the whole test suite.
+        try
+            wait(interruptor)
+        catch
+        end
         @test caught isa InterruptException
         @test finished[] # the slow task had already finished by the time the call returned
     end

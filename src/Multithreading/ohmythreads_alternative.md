@@ -60,7 +60,7 @@ happens to fail, later tasks in the list are never waited for - the same orphane
 This is not a version-specific quirk; it's inherent to doing `mapreduce(fetch, op, tasks)`
 without a pre-drain.
 
-## Finding 2: `GreedyScheduler` does not have this bug
+## Finding 2: `GreedyScheduler` does not have *that* bug - but has two narrower ones of its own
 
 ```julia
 tforeach(1:4; scheduler=:greedy, ntasks=4) do i
@@ -70,13 +70,50 @@ end
 ```
 
 `elapsed` now matches the full 1.0 s sleep, and `active == 0`/`slowdone == true`: every task
-was actually finished before the call returned. `GreedyScheduler`'s implementation
-(`_tmapreduce` for `GreedyScheduler`, same file) explicitly drains every spawned task with
-`wait_nothrow` (`wait(t; throw=false)`, or `Base._wait` pre-1.12) *before* its own
-`mapreduce(fetch, op, tasks)` step - i.e. it already does the "wait for everyone, then extract
-the first failure" pattern that `sync_with_abort` (`task_synchronization.jl`) implements by
-hand. It also already throws a plain `TaskFailedException`, never a `CompositeException`
-(unlike plain `@sync`, which always wraps - see the PR discussion this note originates from).
+was actually finished before the call returned when an *ordinary child task* fails.
+`GreedyScheduler`'s implementation (`_tmapreduce` for `GreedyScheduler`, same file) explicitly
+drains every spawned task with `wait_nothrow` (`wait(t; throw=false)`, or `Base._wait`
+pre-1.12) *before* its own `mapreduce(fetch, op, tasks)` step, and already throws a plain
+`TaskFailedException`, never a `CompositeException` (unlike plain `@sync`, which always wraps).
+
+However, `wait_nothrow` only suppresses a task's *own* failure being rethrown by `wait` - it
+does nothing about an `InterruptException` delivered to the *waiting caller itself* (e.g.
+Ctrl-C), which is a different mechanism entirely. Repeating Finding 1's probe but interrupting
+the caller instead of making item 1 fail (and gating item 4's "slow" branch on an explicit
+`STARTED` flag so the interrupt reliably fires while it is actually running, not before):
+
+```julia
+tforeach(1:4; scheduler=:greedy, ntasks=4) do i
+    if i == 4
+        STARTED[] = true
+        sleep(1.0); SLOWDONE[] = true
+    end
+end
+# (after firing an InterruptException at the waiting caller once STARTED[] is seen)
+# => (caught = InterruptException, elapsed ≈ 0.0001, active_immediately = 1, slowdone = false)
+```
+
+Same orphaned-task symptom as Finding 1, just triggered by a different cause:
+`sync_with_abort`'s interrupt-vs-child-failure handling (added specifically in response to a
+review finding on this same PR) is not something `GreedyScheduler` provides for free.
+
+Second, when *multiple* tasks fail, `GreedyScheduler` does not reliably report the one that
+actually failed first. Its final `mapreduce(fetch, op, tasks)` iterates the spawned *worker*
+tasks in their spawn-index order, not in the order their *items* failed - and under
+`chunking=false` greedy pulling, which worker ends up processing which item is not
+predictable. Repeating `sync_with_abort`'s own "item 3 fails, item 1 waits for that and fails
+0.1 s later" scenario (test/task_synchronization.jl) eight times against
+`tforeach(...; scheduler=:greedy, ntasks=4, chunking=false)`:
+
+```
+1: boom from 1   2: boom from 3   3: boom from 1   4: boom from 1
+5: boom from 1   6: boom from 1   7: boom from 1   8: boom from 1
+```
+
+Item 3 fails first by construction every time, yet it was reported in only 1 of 8 trials.
+`sync_with_abort`'s CAS-based `first_failed` (added for exactly this reason, after an earlier
+review finding on this same PR flagged a naive `findfirst`-style approach as equally
+unreliable) does not have this problem.
 
 ## Finding 3: persistent per-task buffer selection *is* available on the plain functional API
 
@@ -101,8 +138,11 @@ end), chunk_vector; scheduler=:greedy, ntasks=4, chunking=false)
 ```
 
 Confirmed working (distinct task indices actually used, each handling a share of the 40
-chunks) and confirmed to preserve Finding 2's exception-safety with `WithTaskIndex` added
-(`elapsed ≈ 1.08 s`, `active == 0`, `slowdone == true`, same probe body as above).
+chunks) and confirmed to preserve Finding 2's ordinary-child-failure draining with
+`WithTaskIndex` added (`elapsed ≈ 1.08 s`, `active == 0`, `slowdone == true`, same probe body
+as above) - Finding 2's two caveats (caller-interrupt safety, failure-order under multiple
+failures) are unaffected by `WithTaskIndex` either way; they're properties of the scheduler,
+not of how the mapping function receives its task index.
 
 `chunking=false` is what makes `GreedyScheduler` treat `chunk_vector` itself as the sequence of
 "items" to greedily pull one at a time from a shared channel - each item being one of *our*
@@ -150,17 +190,19 @@ function work_domain_threaded!(workers, sim::AbstractSingleDomainThreadedSim)
                 reinit_buffer!(itembuffer, sim, itemnr)
                 work_single!(worker, itembuffer)
             end
-        end), chunk_vector; scheduler = GreedyScheduler(ntasks = num_tasks), chunking = false)
-        # Note: not wrapped to set `abort[]` on the first failure - GreedyScheduler's own
-        # exception handling (Finding 2) already waits for everyone and surfaces the first
-        # failure as a plain TaskFailedException, so that part doesn't need `sync_with_abort`
-        # at all. `abort` only helps *other, still-running* tasks stop early - which requires
-        # a caller-visible failure signal *before* `tforeach` itself returns, i.e. still an
-        # explicit flag set from inside the failing closure, e.g. via a `try/catch` around the
-        # body above that sets `abort[] = true` before `rethrow()`-ing. Doing that only
-        # matters for *this specific `chunk_vector`'s remaining work*, since a later
-        # `chunk_vector` (color) in the outer `for` loop is never reached anyway once
-        # `tforeach` has thrown.
+        end), chunk_vector; scheduler = GreedyScheduler(ntasks = num_tasks, chunking = false))
+        # (`chunking` must be passed to the `GreedyScheduler(...)` constructor, not as a
+        # separate `tforeach` keyword - OhMyThreads rejects a plain-instance `scheduler=` mixed
+        # with other keywords, confirmed: `ArgumentError: Providing an explicit scheduler as
+        # well as direct keyword arguments ... is currently not supported`.)
+        #
+        # Note: `abort[]` here only helps *other, still-running* tasks stop early once one has
+        # failed - it does not, by itself, fix Finding 2's two caveats. Getting a caller
+        # InterruptException to actually abort cleanly, and getting the *first actual* failure
+        # (not just whichever worker's `fetch` happens to run first) reported when more than
+        # one task fails, would still need sync_with_abort's drain-with-retry loop and CAS
+        # wrapped around this `tforeach` call - at which point most of what this sketch saves
+        # relative to Part A has been added back.
     end
     gather!(itembuffers)
     gather!(workers)
@@ -171,27 +213,35 @@ package's actual `Simulation`/`TaskLocals`/`get_chunks` types.)
 
 This sketch is clean and would let us delete the *runtime queue* half of `TaskChunks.jl` (the
 `TaskChunks` struct and `get_chunk`, replaced by `GreedyScheduler`'s own channel) and the
-drain/rethrow half of `sync_with_abort`. It would **not** let us delete:
+*ordinary-failure* half of `sync_with_abort`'s drain/rethrow logic (an earlier draft of this
+note claimed the *whole* drain/rethrow half, which Finding 2's two caveats rule out). It would
+**not** let us delete:
 - `TaskLocals`/`ThreadedDomainBuffer.itembuffer` (Finding 4),
 - the chunk *construction* utilities in `TaskChunks.jl` - `split_in_chunks`, `create_chunks`,
   `convert_chunk` - which `setup_domainbuffer` still needs regardless of what consumes their
   output (an earlier draft of this note overstated this as "delete `TaskChunks.jl`"; only the
   queue half of that file is actually redundant),
 - the abort-flag concept (Finding 5), just moved from `sync_with_abort` into an explicit
-  `try/catch` around the closure passed to `tforeach`.
+  `try/catch` around the closure passed to `tforeach`,
+- the caller-interrupt retry loop or the CAS-based true-first-failure tracking (Finding 2) -
+  `sync_with_abort`'s drain loop would still need to wrap the `tforeach` call to get either of
+  those back, exactly as sketched above.
 
 ## Recommendation
 
-Even setting the `Project.toml` rule aside: this is a real, fairly clean simplification for the
-"spawn + wait + extract first failure" half of the problem (Findings 2 and 3 in particular are
-more capable than this note originally gave them credit for), but it is partial - the abort
-flag and the persistent-buffer management stay regardless, and the win is "replace ~15 lines of
-already-correct, already-tested code with a new external dependency" rather than "remove a
-whole category of custom logic". Combined with the actual constraint (no new dependencies),
-the hand-rolled `sync_with_abort` in `task_synchronization.jl` is the better choice for this
-package today. Worth revisiting if that constraint changes and `GreedyScheduler`'s behavior is
-still as described above (it is not the default scheduler, so it may see less maintenance
-attention than `Dynamic`/`StaticScheduler`).
+Even setting the `Project.toml` rule aside: this is a real but narrower simplification than it
+first looked. `GreedyScheduler` genuinely removes the "wait for everyone before an *ordinary*
+failure propagates" part by itself (Finding 2), and `WithTaskIndex` genuinely removes the need
+for the `@tasks` macro for persistent-buffer indexing (Finding 3) - those two corrections to
+this note's own earlier drafts are real. But the interrupt-safety and true-first-failure
+guarantees `sync_with_abort` provides (both added in direct response to review findings on this
+same PR) are not things `GreedyScheduler` provides, so adopting OhMyThreads would not let this
+package delete the part of `sync_with_abort` that those guarantees live in - only the "ordinary
+wait" part, with the chunking/queue machinery as the main additional win. Combined with the
+actual constraint (no new dependencies) and that `GreedyScheduler` is not OhMyThreads' default
+scheduler (so may see less maintenance attention than `Dynamic`/`StaticScheduler`, which do
+have Finding 1's bug), the hand-rolled `sync_with_abort` in `task_synchronization.jl` remains
+the better choice for this package today.
 
 ### Other packages briefly considered, not investigated to this depth
 
