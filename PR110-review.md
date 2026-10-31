@@ -190,6 +190,51 @@ distinguish them - this is what actually catches the bug above).
 Re-verified again: full `Pkg.test()` suite clean, including both new test cases; full-suite
 runs at `-t 1/2/12` all clean; docs build clean.
 
+### Third follow-up: `drain_tasks` now sets `abort[]` on an asynchronous exception too
+
+Raised directly from asking "what exactly happens on `Ctrl-C`" (see the chat transcript for
+the full mechanism): Julia delivers at most one `InterruptException` per `Ctrl-C`, targeting
+whichever task is occupying thread 1 at that instant. If that happens to be a worker task,
+everything already worked as intended (its own `catch` sets `abort[]`, siblings notice and
+stop promptly). But if it lands on the *caller* instead - common when `work!` is called from
+a script's root task, which is exactly what Base's own idle-thread forwarding logic targets -
+the asynchronous exception was caught by `drain_tasks`, collected, and the wait simply
+retried, without ever touching `abort[]`. The workers, having no idea anything happened, ran
+to their full natural completion before the caller finally got to rethrow the
+`InterruptException` - meaning `Ctrl-C` bought nothing: the same wall-clock time elapsed
+either way, and (since the assembly actually completed successfully in that scenario) a fully
+good `K`/`r` ended up discarded along with the exception.
+
+**Fix:** `drain_tasks` now takes `abort::Threads.Atomic{Bool}` and sets `abort[] = true` in
+its `catch` block, alongside collecting the exception into `async_exceptions` - so any
+asynchronous exception observed while draining (not just a worker's own failure) now tells the
+other tasks to stop early too, the same way a genuine task failure always has.
+
+**One real bug caught in the first version of this proposal, before it landed:** it also
+tried to CAS a sentinel value (`-1`) into `first_failed` to record "the caller was
+interrupted, not a worker." That sentinel would have reached
+`spawn_tasks_safe_wait`'s `if failed_taskid != 0 ... throw(TaskFailedException(tasks[failed_taskid]))`
+unchanged, attempting `tasks[-1]` - a `BoundsError`, not the exception actually caught. Checked
+whether `first_failed` needs to be touched by `drain_tasks` at all, and it doesn't: when no
+worker independently fails, `first_failed[]` simply stays `0`, so the existing
+`elseif !isempty(async_exceptions) → throw(first(async_exceptions))` branch already reports
+the caught exception correctly with no sentinel needed; when a worker *does* independently win
+the real CAS, that's unaffected by whatever `drain_tasks` does to `abort[]`, and correctly
+still takes precedence (per the already-documented "a task's own failure takes precedence"
+rule). The version that landed is the simpler one: `abort[] = true` alone, no `first_failed`
+involvement, no sentinel, no risk of indexing `tasks` out of bounds.
+
+**Regression test added:** `test/task_synchronization.jl`, testset "an asynchronous exception
+delivered to the waiting caller sets abort[] so the other tasks stop early" - two tasks that
+can *only* finish by observing `abort[]` (no separate `release[]` handshake, unlike the
+existing interrupt tests): without the fix, both would simply poll forever once the interrupt
+lands on the caller, since nothing would ever set `abort[]`. The test hanging instead of
+completing is exactly the regression it's meant to catch.
+
+Re-verified: full `Pkg.test()` suite clean including the new test; full-suite runs at
+`-t 1/2/12` clean (plus 3 additional repeats each at `-t 4` and `-t 12`, 10 runs total, given
+this touches real timing-sensitive concurrency); docs build clean.
+
 ### Everything else checked, no further issues found
 
 1. **CAS-before-`abort[]` ordering** (`spawn_tasks_safe_wait`'s catch block): the CAS on
