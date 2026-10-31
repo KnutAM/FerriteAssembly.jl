@@ -75,12 +75,10 @@ function drain_tasks(tasks::AbstractVector{<:Task})
     for t in tasks
         while true
             try
-                wait(t)
+                wait(t; throw=false)
             catch e
-                if !(isa(e, TaskFailedException) && e.task === t)
-                    push!(async_exceptions, e)
-                    continue
-                end
+                push!(async_exceptions, e)
+                continue
             end
             break
         end
