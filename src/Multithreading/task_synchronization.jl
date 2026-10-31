@@ -24,11 +24,8 @@ But there are a few key differences
   `Base.Experimental.@sync` will never wait.
 * The returned error if a task throws is `TaskFailedException`, as opposed to the `CompositeException`
   thrown with `@sync`. (`Base.Experimental.@sync` throws a `TaskFailedException`)
-* `abort[]` becomes `true` when any task fails, allowing the other tasks to end early - and
-  also when an asynchronous exception (e.g. `Ctrl-C`) arrives while waiting for the tasks to
-  finish, so a `Ctrl-C` that happens to land on the *caller* rather than inside one of the
-  spawned tasks still ends them early, instead of waiting for them to run to completion
-  regardless (see [`drain_tasks`](@ref)).
+* `abort[]` becomes `true` when any task fails, allowing the other tasks to end early.
+  This holds even if the caller task throws (e.g. if Ctrl-C arrives while waiting for tasks to finish)
 
 ### Developer notes
 `compare-and-set` of `first_failed` happens *before* `abort[] = true` is set, so a
@@ -81,16 +78,14 @@ end
 
 Wait for every task in `tasks` to actually finish, returning any exceptions that were
 delivered *asynchronously to this calling task* while doing so (e.g. a `Ctrl-C` interrupt),
-in the order they were observed. `current_task() ∈ tasks` is not allowed, and will throw a
-`ConcurrencyViolationError` after draining the other tasks in `tasks`.
+in the order they were observed. If any such exceptions are detected, sets `abort[] = true`,
+allowing tasks that observe this to finish early.
 
-Sets `abort[] = true` as soon as any such asynchronous exception arrives, so that the other
-tasks (which must check `abort[]` themselves) can stop early too - without this, a `Ctrl-C`
-landing on *this* (waiting) task, rather than inside one of the tasks in `tasks`, would not
-speed anything up at all: the other tasks would run to their normal completion exactly as if
-nothing had happened, since nothing would ever have told them to stop.
+`current_task() ∈ tasks` is not allowed, and will throw a `ConcurrencyViolationError`
+after draining the other tasks in `tasks`.
 
-**Developer notes:** `wait(t; throw = false)` blocks until `t` is actually done -
+### Developer notes
+`wait(t; throw = false)` blocks until `t` is actually done -
 succeeded or failed, it doesn't matter which, that isn't this function's concern - and,
 per its own contract, never throws because of `t`'s *own* outcome. So *any* exception
 caught here is necessarily asynchronous (did not come from `t`, which may still be
