@@ -34,9 +34,9 @@ sibling failing after seeing `abort[] == true` cannot set `first_failed`.
 A task's own failure takes precedence over an asynchronous exception observed while waiting
 (see [`drain_tasks`](@ref)), even if the latter happened first.
 
-`disable_sigint` ensures that a Ctrl-C event cannot land *between* spawning a task and recording 
+`disable_sigint` ensures that a Ctrl-C event cannot land *between* spawning a task and recording
 it in `tasks` (losing its reference so `drain_tasks` doesn't see it).
-Exception raised while spawning is treated as asynchronous exception: 
+Exception raised while spawning is treated as asynchronous exception:
 `abort[]=true` and all spawned tasks are drained before it is reported.
 """
 function spawn_tasks_safe_wait(f, num_tasks::Int)
@@ -65,14 +65,13 @@ function spawn_tasks_safe_wait(f, num_tasks::Int)
     append!(async_exceptions, drain_tasks(tasks, abort))
     n_async = length(async_exceptions)
 
-    failed_taskid = first_failed[]
-    if failed_taskid != 0
+    if first_failed[] != 0
         n_async == 0 || @info """
             $n_async asynchronous exception(s) (e.g. a Ctrl-C interrupt) arrived while
             spawning or waiting for tasks to finish; a task also failed, which takes
             precedence
             """
-        throw(TaskFailedException(tasks[failed_taskid]))
+        throw(TaskFailedException(tasks[first_failed[]]))
     elseif !isempty(async_exceptions)
         if n_async > 1
             types = join(string.(unique(typeof.(async_exceptions))), ", ")
