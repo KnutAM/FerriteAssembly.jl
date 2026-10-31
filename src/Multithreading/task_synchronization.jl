@@ -81,13 +81,13 @@ end
     drain_tasks(tasks::AbstractVector{<:Task}) -> Vector{Exception}
 
 Wait for every task in `tasks` to actually finish, returning any exceptions that were
-delivered *asynchronously to this calling task* while doing so (e.g. a `Ctrl-C` interrupt), 
+delivered *asynchronously to this calling task* while doing so (e.g. a `Ctrl-C` interrupt),
 in the order they were observed.
 
-**Developer notes:** `wait(t::Task)` throws `TaskFailedException` if `t` failed. 
-Any other exception caught from `wait(t)` is asynchronous (did not come from `t`), 
-and `t` may still be running. `waitall` will be killed by an asynchronous exception
-and may leave tasks running.
+**Developer notes:** `wait(t::Task)` throws `TaskFailedException` if `t` failed.
+Any other exception caught from `wait(t)` is asynchronous (did not come from `t`),
+and `t` may still be running. `Base.waitall` will be killed by an asynchronous
+exception and may leave tasks running.
 """
 function drain_tasks(tasks::AbstractVector{<:Task})
     async_exceptions = Exception[]
