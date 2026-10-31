@@ -205,6 +205,34 @@
         @test caught.task === other
         @test finished_at_return # the slow task had already finished by the time the call returned
     end
+
+    @testset "an asynchronous exception delivered to the waiting caller sets abort[] so the other tasks stop early" begin
+        # Neither task here can finish except by observing `abort[]` become true - unlike the
+        # tests above, there is no separate `release[]` handshake. Without `drain_tasks`
+        # setting `abort[]` itself upon catching the asynchronous exception, both tasks would
+        # simply keep polling forever: a real `Ctrl-C` landing on the *caller* (rather than
+        # inside one of the spawned tasks) would, without this, let the rest of the
+        # computation run all the way to its normal completion exactly as if nothing had
+        # happened - the slow-Ctrl-C problem this is meant to fix. If this test hangs instead
+        # of completing, that regression is exactly what it is meant to catch.
+        started = Threads.Atomic{Bool}(false)
+        maintask = current_task()
+        interruptor = Threads.@spawn begin
+            wait_for(() -> started[])
+            schedule(maintask, InterruptException(); error = true)
+        end
+        caught = nothing
+        try
+            FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
+                taskid == 1 && (started[] = true)
+                wait_for(() -> abort[]; timeout = 30.0)
+            end
+        catch e
+            caught = e
+        end
+        wait(interruptor)
+        @test caught isa InterruptException
+    end
 end
 
 # `drain_tasks` is the lower-level primitive `spawn_tasks_safe_wait` builds on; it is only ever
@@ -213,7 +241,8 @@ end
 # since there is no way to reach it through the public API.
 @testset "drain_tasks rejects the current task in `tasks`" begin
     @testset "a lone self-reference raises ConcurrencyViolationError" begin
-        @test_throws ConcurrencyViolationError FerriteAssembly.drain_tasks([current_task()])
+        @test_throws ConcurrencyViolationError FerriteAssembly.drain_tasks(
+            [current_task()], Threads.Atomic{Bool}(false))
     end
 
     @testset "a self-reference earlier in the list does not skip draining the rest" begin
@@ -240,7 +269,7 @@ end
         end
         caught = nothing
         try
-            FerriteAssembly.drain_tasks([current_task(), sibling])
+            FerriteAssembly.drain_tasks([current_task(), sibling], Threads.Atomic{Bool}(false))
         catch e
             caught = e
         end
