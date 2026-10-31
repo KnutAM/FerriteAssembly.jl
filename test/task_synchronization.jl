@@ -206,3 +206,16 @@
         @test finished_at_return # the slow task had already finished by the time the call returned
     end
 end
+
+# `drain_tasks` is the lower-level primitive `spawn_tasks_safe_wait` builds on; it is only ever
+# called with freshly `Threads.@spawn`ed tasks in practice, never the calling task itself, so
+# this case cannot arise via `spawn_tasks_safe_wait`'s public behavior. Tested directly here
+# since there is no way to reach it through the public API.
+@testset "drain_tasks rethrows immediately (not an infinite retry) for a self-wait" begin
+    # `wait(t; throw = false)`'s self-wait guard (`t === current_task()`) is stateless and
+    # unconditional - it throws `ConcurrencyViolationError` the same way on every call, so
+    # treating it like a retryable asynchronous exception would spin forever rather than ever
+    # returning. If this test hangs instead of completing, that regression is exactly what it
+    # is meant to catch.
+    @test_throws ConcurrencyViolationError FerriteAssembly.drain_tasks([current_task()])
+end
