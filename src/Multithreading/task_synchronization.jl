@@ -34,19 +34,16 @@ sibling failing after seeing `abort[] == true` cannot set `first_failed`.
 A task's own failure takes precedence over an asynchronous exception observed while waiting
 (see [`drain_tasks`](@ref)), even if the latter happened first.
 
-The spawning loop itself runs inside `disable_sigint`, so a Ctrl-C cannot land *between*
-spawning a task and recording it in `tasks` (which would otherwise lose the reference to an
-already-running task before `drain_tasks` ever sees it - the same orphaned-task hazard this
-function exists to prevent, just one step earlier). Any exception raised by the spawning
-loop itself (including a Ctrl-C deferred by `disable_sigint` and delivered as soon as it
-completes) is treated like any other asynchronous exception: `abort[]` is set and every task
-that was actually spawned is still drained before it is reported.
+`disable_sigint` ensures that a Ctrl-C event cannot land *between* spawning a task and recording 
+it in `tasks` (losing its reference so `drain_tasks` doesn't see it).
+Exception raised while spawning is treated as asynchronous exception: 
+`abort[]=true` and all spawned tasks are drained before it is reported.
 """
 function spawn_tasks_safe_wait(f, num_tasks::Int)
     abort = Threads.Atomic{Bool}(false)
     first_failed = Threads.Atomic{Int}(0)
     tasks = Task[]
-    spawn_exception = nothing
+    async_exceptions = Exception[]
     try
         disable_sigint() do
             for taskid in 1:num_tasks
@@ -63,10 +60,9 @@ function spawn_tasks_safe_wait(f, num_tasks::Int)
         end
     catch e
         abort[] = true
-        spawn_exception = e
+        push!(async_exceptions, e)
     end
-    async_exceptions = drain_tasks(tasks, abort)
-    spawn_exception === nothing || pushfirst!(async_exceptions, spawn_exception)
+    append!(async_exceptions, drain_tasks(tasks, abort))
     n_async = length(async_exceptions)
 
     failed_taskid = first_failed[]
