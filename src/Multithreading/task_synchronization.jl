@@ -60,7 +60,8 @@ end
 
 Wait for every task in `tasks` to actually finish, returning any exceptions that were
 delivered *asynchronously to this calling task* while doing so (e.g. a `Ctrl-C` interrupt),
-in the order they were observed.
+in the order they were observed. `current_task() ∈ tasks` is not allowed, and will throw a
+`ConcurrencyViolationError` after draining the other tasks in `tasks`.
 
 **Developer notes:** `wait(t; throw = false)` blocks until `t` is actually done -
 succeeded or failed, it doesn't matter which, that isn't this function's concern - and,
@@ -73,6 +74,7 @@ running.
 function drain_tasks(tasks::AbstractVector{<:Task})
     async_exceptions = Exception[]
     for t in tasks
+        t === current_task() && break # Just skip it, cannot wait for itself
         while true
             try
                 wait(t; throw=false)
@@ -82,6 +84,11 @@ function drain_tasks(tasks::AbstractVector{<:Task})
             end
             break
         end
+    end
+    if any(t === current_task() for t in tasks)
+        throw(ConcurrencyViolationError(
+            """`drain_tasks` cannot be called with the current task in `tasks`:
+            The calling task cannot be drained. All other tasks have been drained"""))
     end
     return async_exceptions
 end
