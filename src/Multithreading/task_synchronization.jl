@@ -27,14 +27,16 @@ precedence over a remembered caller interrupt (see below), even if the interrupt
 "first": the semantics are "this call failed", with the interrupt as a secondary detail about
 how the wait went.
 
-An `InterruptException` delivered asynchronously to the *calling* task (e.g. Ctrl-C) while it
-is waiting on one of the spawned tasks is distinguished from that task failing on its own:
-`wait` can throw for either reason, and only an `InterruptException` thrown directly into the
-waiting call (as opposed to a `TaskFailedException` wrapping some other error from the task
-itself) is retried, on the same task, until it actually finishes. The interrupt is remembered
-and only re-thrown (to the caller of `sync_with_abort`) once every task has been drained this
-way - so it still reaches the caller instead of being silently swallowed, but never at the
-cost of returning while a task is still running.
+Any exception delivered *asynchronously to the calling task* (e.g. an `InterruptException`
+from Ctrl-C, or some other exception thrown in by a third party) while it is waiting on one
+of the spawned tasks is distinguished from that task failing on its own: `wait(t::Task)`
+throws `TaskFailedException` for exactly one reason - `t` itself failed - so any other
+exception caught from it cannot say anything about `t` (which may still be running,
+completely unaffected) and is retried, on the same task, until it actually finishes (see
+[`drain_tasks`](@ref)). Such exceptions are remembered and only re-thrown (to the caller of
+`sync_with_abort`) once every task has been drained this way - so they still reach the caller
+instead of being silently swallowed, but never at the cost of returning while a task is still
+running.
 """
 function sync_with_abort(f, num_tasks::Int)
     abort = Threads.Atomic{Bool}(false)
@@ -45,38 +47,62 @@ function sync_with_abort(f, num_tasks::Int)
             try
                 f(taskid, abort)
             catch
-                # Order matters: the CAS must happen *before* `abort[] = true`, not after.
-                # Any task observing `abort[]` can then be certain that whichever task set it
-                # had already completed its own CAS attempt first (that's a same-task program-
-                # order guarantee, unlike the relative timing of two different tasks) - so a
-                # sibling that waits on `abort[]` before failing itself can never win the CAS
-                # against a failure that was already underway when it started waiting.
-                Threads.atomic_cas!(first_failed, 0, taskid)
+                Threads.atomic_cas!(first_failed, 0, taskid) # compare-and-set (if not set)
                 abort[] = true
                 rethrow()
             end
         end
     end
-    interrupted = false
-    foreach(tasks) do t
+    async_exceptions = drain_tasks(tasks)
+    n_async = length(async_exceptions)
+
+    failed_taskid = first_failed[]
+    if failed_taskid != 0
+        n_async == 0 || @info """
+            $n_async asynchronous exception(s) (e.g. a Ctrl-C interrupt) arrived while
+            waiting for tasks to finish; a task also failed, which takes precedence
+            """
+        throw(TaskFailedException(tasks[failed_taskid]))
+    elseif !isempty(async_exceptions)
+        if n_async > 1
+            types = join(string.(unique(typeof.(async_exceptions))), ", ")
+            @info """
+                $n_async asynchronous exceptions arrived while waiting for tasks to finish.
+                The different types of exceptions where {$types},
+                and first exception is propagated (thrown).
+                """
+        end
+        throw(first(async_exceptions))
+    end
+    return nothing
+end
+
+"""
+    drain_tasks(tasks::AbstractVector{<:Task}) -> Vector{Exception}
+
+Wait for every task in `tasks` to actually finish, returning any exceptions that were
+delivered *asynchronously to this calling task* while doing so (e.g. a `Ctrl-C` interrupt), 
+in the order they were observed.
+
+**Developer notes:** `wait(t::Task)` throws `TaskFailedException` if `t` failed. 
+Any other exception caught from `wait(t)` is asynchronous (did not come from `t`), 
+and `t` may still be running. `waitall` will be killed by an asynchronous exception
+and may leave tasks running.
+"""
+function drain_tasks(tasks::AbstractVector{<:Task})
+    async_exceptions = Exception[]
+    for t in tasks
         while true
             try
                 wait(t)
-                break
             catch e
-                if e isa InterruptException
-                    interrupted = true
+                if !isa(e, TaskFailedException)
+                    push!(async_exceptions, e)
                     continue
                 end
-                break
             end
+            break
         end
     end
-    failed_taskid = first_failed[]
-    if failed_taskid != 0
-        throw(TaskFailedException(tasks[failed_taskid]))
-    elseif interrupted
-        throw(InterruptException())
-    end
-    return nothing
+    return async_exceptions
 end
