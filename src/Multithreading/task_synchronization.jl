@@ -33,38 +33,56 @@ sibling failing after seeing `abort[] == true` cannot set `first_failed`.
 
 A task's own failure takes precedence over an asynchronous exception observed while waiting
 (see [`drain_tasks`](@ref)), even if the latter happened first.
+
+The spawning loop itself runs inside `disable_sigint`, so a Ctrl-C cannot land *between*
+spawning a task and recording it in `tasks` (which would otherwise lose the reference to an
+already-running task before `drain_tasks` ever sees it - the same orphaned-task hazard this
+function exists to prevent, just one step earlier). Any exception raised by the spawning
+loop itself (including a Ctrl-C deferred by `disable_sigint` and delivered as soon as it
+completes) is treated like any other asynchronous exception: `abort[]` is set and every task
+that was actually spawned is still drained before it is reported.
 """
 function spawn_tasks_safe_wait(f, num_tasks::Int)
     abort = Threads.Atomic{Bool}(false)
     first_failed = Threads.Atomic{Int}(0)
-    tasks = Vector{Task}(undef, num_tasks)
-    for taskid in 1:num_tasks
-        tasks[taskid] = Threads.@spawn begin
-            try
-                f(taskid, abort)
-            catch
-                Threads.atomic_cas!(first_failed, 0, taskid) # compare-and-set (if not set)
-                abort[] = true
-                rethrow()
+    tasks = Task[]
+    spawn_exception = nothing
+    try
+        disable_sigint() do
+            for taskid in 1:num_tasks
+                push!(tasks, Threads.@spawn begin
+                    try
+                        f(taskid, abort)
+                    catch
+                        Threads.atomic_cas!(first_failed, 0, taskid) # compare-and-set (if not set)
+                        abort[] = true
+                        rethrow()
+                    end
+                end)
             end
         end
+    catch e
+        abort[] = true
+        spawn_exception = e
     end
     async_exceptions = drain_tasks(tasks, abort)
+    spawn_exception === nothing || pushfirst!(async_exceptions, spawn_exception)
     n_async = length(async_exceptions)
 
     failed_taskid = first_failed[]
     if failed_taskid != 0
         n_async == 0 || @info """
             $n_async asynchronous exception(s) (e.g. a Ctrl-C interrupt) arrived while
-            waiting for tasks to finish; a task also failed, which takes precedence
+            spawning or waiting for tasks to finish; a task also failed, which takes
+            precedence
             """
         throw(TaskFailedException(tasks[failed_taskid]))
     elseif !isempty(async_exceptions)
         if n_async > 1
             types = join(string.(unique(typeof.(async_exceptions))), ", ")
             @info """
-                $n_async asynchronous exceptions arrived while waiting for tasks to finish.
-                The different types of exceptions where {$types},
+                $n_async asynchronous exceptions arrived while spawning or waiting for tasks
+                to finish. The different types of exceptions where {$types},
                 and first exception is propagated (thrown).
                 """
         end
