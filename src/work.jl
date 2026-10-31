@@ -20,6 +20,10 @@ available. If not passed, the local values are `NaN`s.
 
 For a `FerriteAssembly.DomainBuffers`, all domains must be either all sequential
 or all threaded; mixing the two in the same dictionary is not supported.
+
+**Threaded error behavior:** if an element routine throws during threaded work, the other
+spawned tasks are not cancelled, but all of them are finished (not left running in the
+background) before the exception propagates out of `work!`.
 """
 function work!(worker, multisim::AbstractMultiDomainSim)
     for (name, sim) in multisim
@@ -69,22 +73,19 @@ function work_domain_threaded!(workers, sim::AbstractSingleDomainThreadedSim)
     num_tasks = get_num_tasks(sim) # Default to Threads.nthreads()
     for chunk_vector in get_chunks(sim)
         taskchunks = TaskChunks(chunk_vector)
-        Base.Experimental.@sync begin
-            for taskid in 1:num_tasks
-                itembuffer = get_local(itembuffers, taskid)
-                worker = get_local(workers, taskid)
-                Threads.@spawn begin
-                    while true
-                        taskchunk = get_chunk(taskchunks) # Union{Vector{Int}, Nothing}
-                        taskchunk === nothing && break
-                        for itemnr in taskchunk
-                            reinit_buffer!(itembuffer, sim, itemnr)
-                            work_single!(worker, itembuffer)
-                        end # itemnr
-                    end #chunk
-                end #spawn
-            end #taskid
-        end #sync
+        spawn_tasks_safe_wait(num_tasks) do taskid, abort
+            itembuffer = get_local(itembuffers, taskid)
+            worker = get_local(workers, taskid)
+            while !abort[]
+                taskchunk = get_chunk(taskchunks) # Union{Vector{Int}, Nothing}
+                taskchunk === nothing && break
+                for itemnr in taskchunk
+                    abort[] && break
+                    reinit_buffer!(itembuffer, sim, itemnr)
+                    work_single!(worker, itembuffer)
+                end # itemnr
+            end #chunk
+        end
     end #chunk_vectors
     gather!(itembuffers)
     gather!(workers)

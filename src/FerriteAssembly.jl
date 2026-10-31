@@ -2,8 +2,9 @@ module FerriteAssembly
 using Ferrite, ForwardDiff
 using ConstructionBase: setproperties
 
-include("Multithreading/TaskLocals.jl") # Task-local storage model 
+include("Multithreading/TaskLocals.jl") # Task-local storage model
 include("Multithreading/TaskChunks.jl") # Thread-safe iteration over chunks of cells
+include("Multithreading/task_synchronization.jl") # Spawn+wait+abort-on-failure helper
 
 include("Utils/FerriteAddons.jl")       # Temporary solutions until Ferrite is updated
 include("Utils/utils.jl")
