@@ -152,6 +152,44 @@ Re-verified after this follow-up: full `Pkg.test()` suite clean, including the r
 above (it exercises `spawn_tasks_safe_wait`'s public behavior and passes unchanged); full-suite
 runs at `-t 1/2/4/12` all clean; docs build clean.
 
+### Second follow-up: `drain_tasks` rejects `current_task() ∈ tasks` explicitly
+
+A remaining theoretical gap in `drain_tasks`: `Base._wait(t::Task)` itself throws
+`ConcurrencyViolationError("deadlock detected: cannot wait on current task")` if `t` is the
+task currently executing the call - and, since that check (`t === current_task()`) is
+stateless and rechecked fresh on every call, a naive "catch it, it's asynchronous, retry"
+treatment (as `drain_tasks` gave every other caught exception after the `wait(t; throw =
+false)` follow-up above) would spin forever rather than ever finishing: the condition never
+clears on retry, unlike a genuine asynchronous exception. Not reachable via
+`spawn_tasks_safe_wait`'s own call site - `tasks` there is always freshly `Threads.@spawn`ed,
+never the calling task - but worth closing in `drain_tasks` itself as a generic primitive.
+
+The fix that landed explicitly checks `t === current_task()` per task, skips (does not wait
+on) any match, and raises `ConcurrencyViolationError` itself once every *other* task in
+`tasks` has been drained - rather than relying on the type of whatever exception happens to
+come back from `wait`, which (per the earlier finding in this review) can be an unreliable
+signal, since exceptions of the "same" type can arrive for unrelated reasons. This is more
+precise than matching on exception type and avoids reintroducing that class of ambiguity.
+
+**One bug surfaced and fixed during this iteration:** an intermediate version used `t ===
+current_task() && break` instead of `continue` to skip the match. `break` exits the *entire*
+outer `for t in tasks` loop at that point, not just that one iteration - so any task listed
+*after* the self-reference in `tasks` would never be waited on at all, silently reintroducing
+the exact "task left unawaited" failure mode this whole module exists to prevent, just via a
+different code path (and contradicting the docstring's/error message's own claim that "all
+other tasks have been drained"). Caught and fixed before landing; confirmed directly (a real
+sibling task placed *after* `current_task()` in `tasks`, still blocked on a flag, was fully
+drained - the flag's effect was observed - before `drain_tasks` threw).
+
+**Regression test added:** `test/task_synchronization.jl`, testset "drain_tasks rejects the
+current task in `tasks`", with two cases: a lone self-reference (doesn't distinguish `break`
+from `continue` - both behave identically when the match is the only/last element) and a
+self-reference placed *before* a real, still-running sibling task in the vector (does
+distinguish them - this is what actually catches the bug above).
+
+Re-verified again: full `Pkg.test()` suite clean, including both new test cases; full-suite
+runs at `-t 1/2/12` all clean; docs build clean.
+
 ### Everything else checked, no further issues found
 
 1. **CAS-before-`abort[]` ordering** (`spawn_tasks_safe_wait`'s catch block): the CAS on

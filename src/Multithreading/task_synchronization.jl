@@ -74,7 +74,7 @@ running.
 function drain_tasks(tasks::AbstractVector{<:Task})
     async_exceptions = Exception[]
     for t in tasks
-        t === current_task() && break # Just skip it, cannot wait for itself
+        t === current_task() && continue # Just skip it, cannot wait for itself
         while true
             try
                 wait(t; throw=false)

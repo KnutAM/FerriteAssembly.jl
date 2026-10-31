@@ -211,11 +211,47 @@ end
 # called with freshly `Threads.@spawn`ed tasks in practice, never the calling task itself, so
 # this case cannot arise via `spawn_tasks_safe_wait`'s public behavior. Tested directly here
 # since there is no way to reach it through the public API.
-@testset "drain_tasks rethrows immediately (not an infinite retry) for a self-wait" begin
-    # `wait(t; throw = false)`'s self-wait guard (`t === current_task()`) is stateless and
-    # unconditional - it throws `ConcurrencyViolationError` the same way on every call, so
-    # treating it like a retryable asynchronous exception would spin forever rather than ever
-    # returning. If this test hangs instead of completing, that regression is exactly what it
-    # is meant to catch.
-    @test_throws ConcurrencyViolationError FerriteAssembly.drain_tasks([current_task()])
+@testset "drain_tasks rejects the current task in `tasks`" begin
+    @testset "a lone self-reference raises ConcurrencyViolationError" begin
+        @test_throws ConcurrencyViolationError FerriteAssembly.drain_tasks([current_task()])
+    end
+
+    @testset "a self-reference earlier in the list does not skip draining the rest" begin
+        # `current_task()` is skipped (not waited on) rather than passed to `wait`, so this
+        # does not exercise Base's own self-wait guard directly - it instead guards against a
+        # different, easy mistake in that skip: using `break` instead of `continue` on the
+        # match. `break` would exit the whole `for t in tasks` loop right there, silently
+        # abandoning every task listed *after* the self-reference - exactly the kind of
+        # unawaited-task bug this module exists to prevent, just reintroduced via this guard
+        # instead of the original race. Placing a real, still-running sibling task *after*
+        # `current_task()` in the vector is what actually distinguishes the two: both behave
+        # identically if the self-reference is the last (or only) element.
+        release = Threads.Atomic{Bool}(false)
+        finished = Threads.Atomic{Bool}(false)
+        sibling = Threads.@spawn begin
+            while !release[]
+                sleep(0.001)
+            end
+            finished[] = true
+        end
+        releaser = Threads.@spawn begin
+            sleep(0.05)
+            release[] = true
+        end
+        caught = nothing
+        try
+            FerriteAssembly.drain_tasks([current_task(), sibling])
+        catch e
+            caught = e
+        end
+        # Snapshot immediately, before waiting on `releaser`/`sibling` below, for the same
+        # reason as the InterruptException test above: `sibling` must already be done *at the
+        # point `drain_tasks` returns*, not merely by the time this test gets around to
+        # checking it.
+        finished_at_return = finished[]
+        wait(releaser)
+        wait(sibling)
+        @test caught isa ConcurrencyViolationError
+        @test finished_at_return # sibling was actually drained despite coming after the self-reference
+    end
 end
