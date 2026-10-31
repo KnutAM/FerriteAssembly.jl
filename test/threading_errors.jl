@@ -6,7 +6,7 @@
 #
 # The hard concurrency guarantees themselves (no orphaned tasks, true first-failure order,
 # interrupt-safety) are tested directly and fast against the extracted primitive,
-# `FerriteAssembly.sync_with_abort`, in test/task_synchronization.jl - that needs no grid or
+# `FerriteAssembly.spawn_tasks_safe_wait`, in test/task_synchronization.jl - that needs no grid or
 # CellValues, only trivial closures, so it isn't sensitive to scheduling noise under load.
 # This file only checks that `work_domain_threaded!` actually *uses* that primitive correctly:
 # a failing element routine surfaces as `TaskFailedException`, assembly stops early rather than
@@ -19,7 +19,7 @@
     ip = Lagrange{RefQuadrilateral, 1}()
     dh = close!(add!(DofHandler(grid), :u, ip))
     cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
-    # `work_domain_threaded!` processes one color (one `sync_with_abort` call) at a time, and
+    # `work_domain_threaded!` processes one color (one `spawn_tasks_safe_wait` call) at a time, and
     # a color earlier than the throwing one is *always* fully processed regardless of whether
     # abort checks work (the outer loop over colors simply never reaches later colors once one
     # call throws) - so bounding "cells processed after the failing call" against the *whole*
@@ -92,7 +92,7 @@
         K = allocate_matrix(dh)
         r = zeros(ndofs(dh))
         @test_throws TaskFailedException work!(KeReAssembler(K, r), db; a)
-        # `sync_with_abort` has already fully drained every task by the time `work!` returns
+        # `spawn_tasks_safe_wait` has already fully drained every task by the time `work!` returns
         # (or throws), so this is stable right away - no sleeping/polling needed.
         @test CALLS[] - calls_before < length(colors[1]) ÷ 2
 

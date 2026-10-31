@@ -73,7 +73,7 @@ function work_domain_threaded!(workers, sim::AbstractSingleDomainThreadedSim)
     num_tasks = get_num_tasks(sim) # Default to Threads.nthreads()
     for chunk_vector in get_chunks(sim)
         taskchunks = TaskChunks(chunk_vector)
-        sync_with_abort(num_tasks) do taskid, abort
+        spawn_tasks_safe_wait(num_tasks) do taskid, abort
             itembuffer = get_local(itembuffers, taskid)
             worker = get_local(workers, taskid)
             while !abort[]

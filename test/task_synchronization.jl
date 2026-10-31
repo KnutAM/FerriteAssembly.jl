@@ -1,4 +1,4 @@
-# Fast, isolated tests for `FerriteAssembly.sync_with_abort` (src/Multithreading/
+# Fast, isolated tests for `FerriteAssembly.spawn_tasks_safe_wait` (src/Multithreading/
 # task_synchronization.jl), the primitive extracted from `work_domain_threaded!` that
 # replaces `Base.Experimental.@sync` for this use case. No grid/CellValues/DomainBuffer
 # machinery is needed here: these tests exercise the primitive directly with trivial
@@ -9,7 +9,7 @@
 # another task sets), never by guessing relative `sleep` durations: a wrong guess could make
 # a test pass vacuously (e.g. a "slow" sibling that happens to finish before the "fast"
 # failure) instead of actually exercising the intended race.
-@testset "sync_with_abort" begin
+@testset "spawn_tasks_safe_wait" begin
     function wait_for(cond; timeout = 10.0)
         t0 = time()
         while !cond()
@@ -23,7 +23,7 @@
         calls = Threads.Atomic{Int}(0)
         seen = fill(false, 4)
         lk = ReentrantLock()
-        FerriteAssembly.sync_with_abort(4) do taskid, abort
+        FerriteAssembly.spawn_tasks_safe_wait(4) do taskid, abort
             Threads.atomic_add!(calls, 1)
             lock(lk) do
                 seen[taskid] = true
@@ -38,7 +38,7 @@
         abort_observed = fill(false, 3)
         e = nothing
         try
-            FerriteAssembly.sync_with_abort(4) do taskid, abort
+            FerriteAssembly.spawn_tasks_safe_wait(4) do taskid, abort
                 if taskid == 1
                     error("boom from 1")
                 else
@@ -64,11 +64,11 @@
         # catch block, right next to the CAS that records the failure, so by the time task 1
         # observes it, task 3's own catch block (including its CAS) has already run - no
         # sleep-based margin needed, this is the actual guarantee being tested, used as its own
-        # synchronization. This directly tests that `sync_with_abort` records failures by
+        # synchronization. This directly tests that `spawn_tasks_safe_wait` records failures by
         # actual order, not by iterating `1:num_tasks`.
         e = nothing
         try
-            FerriteAssembly.sync_with_abort(4) do taskid, abort
+            FerriteAssembly.spawn_tasks_safe_wait(4) do taskid, abort
                 if taskid == 3
                     error("boom from 3")
                 elseif taskid == 1
@@ -88,13 +88,13 @@
 
     @testset "a child's own InterruptException is reported like any other failure" begin
         # Distinguishes a task failing *with* an InterruptException (just another error, as
-        # far as sync_with_abort is concerned) from an InterruptException delivered to the
+        # far as spawn_tasks_safe_wait is concerned) from an InterruptException delivered to the
         # *caller* while it waits (tested below) - the latter must not be confused with the
         # former by the drain loop's `catch e; e isa InterruptException` check, since `wait`
         # on a task that failed throws `TaskFailedException`, not the bare `InterruptException`.
         e = nothing
         try
-            FerriteAssembly.sync_with_abort(2) do taskid, abort
+            FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
                 if taskid == 1
                     throw(InterruptException())
                 else
@@ -129,7 +129,7 @@
         end
         caught = nothing
         try
-            FerriteAssembly.sync_with_abort(2) do taskid, abort
+            FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
                 if taskid == 1
                     started[] = true
                     wait_for(() -> release[]; timeout = 30.0)
@@ -139,9 +139,9 @@
         catch e
             caught = e
         end
-        # Snapshot `finished[]` the instant `sync_with_abort` returns/throws, *before* waiting
+        # Snapshot `finished[]` the instant `spawn_tasks_safe_wait` returns/throws, *before* waiting
         # for the interruptor below: that wait only returns once `release[]` is set, which lets
-        # task 1 finish independently of whether `sync_with_abort` itself waited correctly - so
+        # task 1 finish independently of whether `spawn_tasks_safe_wait` itself waited correctly - so
         # reading `finished[]` afterwards would pass even for a broken helper that returns as
         # soon as the interrupt arrives (confirmed: a deliberately-broken in-memory variant,
         # with the interrupt retry's `continue` replaced by `break`, passed this assertion in

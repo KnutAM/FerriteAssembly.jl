@@ -1,44 +1,22 @@
 """
-    sync_with_abort(f, num_tasks::Int)
+    spawn_tasks_safe_wait(f, num_tasks::Int)
 
-Run `f(taskid::Int, abort::Threads.Atomic{Bool})` concurrently as `num_tasks` spawned tasks
-(`taskid in 1:num_tasks`), sharing the single `abort` flag between them.
+Run `f(taskid::Int, abort::Threads.Atomic{Bool})` as `num_tasks` spawned tasks, and wait for
+all of them to actually finish before returning or throwing - whether that is because they
+succeeded, failed, or observed `abort[]` and stopped early. `f` must check `abort[]` itself;
+this function does not interrupt it.
 
-This exists as a restricted, purpose-built replacement for `Base.Experimental.@sync`
-(fixing the specific defect that makes it unsafe for a use case like this one, where the
-tasks share long-lived, task-local state across repeated calls - see
-[`TaskLocals`](@ref)/`ThreadedDomainBuffer`): `sync_with_abort` always waits for *every* task
-to finish - successfully, having stopped early because `abort[]` became `true`, or having
-itself thrown - before this function returns or propagates an exception. `f` is responsible
-for checking `abort[]` itself and returning early when it is set; `sync_with_abort` does not
-interrupt `f`.
+On failure, rethrows the first task's exception (by actual failure order, see below) as a
+plain `TaskFailedException`, never a `CompositeException` (unlike `@sync`).
 
-If one or more invocations of `f` throw, every task is still waited for (`abort[]` is set so
-well-behaved siblings stop early instead of continuing wasted work), and then one exception is
-rethrown, wrapped in a plain `TaskFailedException` (never a `CompositeException`, unlike plain
-`@sync`): the first one *recorded* by a `compare_and_set!` race between the tasks' own `catch`
-blocks (each does the CAS *before* setting `abort[]`, so a sibling that observes `abort[]` and
-only then fails itself can never win this race against the failure it just observed - it is
-only a race between failures with no such causal relationship between them). In practice this
-is the first task to actually fail, but note that if two tasks fail near-simultaneously with
-neither having observed the other's `abort[]` write yet, this is decided by which `catch`
-block's CAS runs first, not a hardware-level global clock ordering. A task's own failure always takes
-precedence over a remembered caller interrupt (see below), even if the interrupt happened
-"first": the semantics are "this call failed", with the interrupt as a secondary detail about
-how the wait went.
-
-Any exception delivered *asynchronously to the calling task* (e.g. an `InterruptException`
-from Ctrl-C, or some other exception thrown in by a third party) while it is waiting on one
-of the spawned tasks is distinguished from that task failing on its own: `wait(t::Task)`
-throws `TaskFailedException` for exactly one reason - `t` itself failed - so any other
-exception caught from it cannot say anything about `t` (which may still be running,
-completely unaffected) and is retried, on the same task, until it actually finishes (see
-[`drain_tasks`](@ref)). Such exceptions are remembered and only re-thrown (to the caller of
-`sync_with_abort`) once every task has been drained this way - so they still reach the caller
-instead of being silently swallowed, but never at the cost of returning while a task is still
-running.
+**Developer notes:** the CAS recording a failure happens *before* `abort[]` is set, so a
+sibling that observes `abort[]` and only then fails itself can never win that CAS against the
+failure it just observed. A task's own failure takes precedence over an asynchronous
+exception observed while waiting (see [`drain_tasks`](@ref)), even if the latter happened
+first - the semantics are "this call failed", with asynchronous exceptions only reported when
+nothing failed on its own.
 """
-function sync_with_abort(f, num_tasks::Int)
+function spawn_tasks_safe_wait(f, num_tasks::Int)
     abort = Threads.Atomic{Bool}(false)
     first_failed = Threads.Atomic{Int}(0)
     tasks = Vector{Task}(undef, num_tasks)
