@@ -1,5 +1,3 @@
-using Ferrite.CollectionsOfViews: ArrayOfVectorViews
-
 """
     QuadPointEvaluator{VT}(db::Union{DomainBuffer, DomainBuffers}, f::Function)
 

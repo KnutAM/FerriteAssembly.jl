@@ -6,7 +6,7 @@ module TestStateModule
         quadnr::Int
     end
     FerriteAssembly.create_cell_state(::MatA, cv, args...) = [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
-    function FerriteAssembly.element_residual!(re, states::Vector{StateA}, ae, ::MatA, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateA}, ae, ::MatA, cv, buffer)
         cellnr = cellid(buffer)
         for i in 1:getnquadpoints(cv)
             states[i] = StateA(cellnr, i)
@@ -33,7 +33,7 @@ module TestStateModule
         counter::Int
     end
     FerriteAssembly.create_cell_state(::MatC, cv, args...) = [StateC(0) for _ in 1:getnquadpoints(cv)]
-    function FerriteAssembly.element_residual!(re, states::Vector{StateC}, ae, ::MatC, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateC}, ae, ::MatC, cv, buffer)
         old_states = FerriteAssembly.get_old_state(buffer)
         for i in 1:getnquadpoints(cv)
             states[i] = StateC(old_states[i].counter + 1)
@@ -77,7 +77,7 @@ module TestStateModule
         const marker::Vector{Int}
     end
     FerriteAssembly.create_cell_state(::MatE, cv, args...) = [StateE(-1, i, [0]) for i in 1:getnquadpoints(cv)]
-    function FerriteAssembly.element_residual!(re, states::Vector{StateE}, ae, ::MatE, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateE}, ae, ::MatE, cv, buffer)
         cellnr = cellid(buffer)
         for i in 1:getnquadpoints(cv)
             states[i] = StateE(cellnr, i, [cellnr])
@@ -191,7 +191,7 @@ module TestStateModule
         vals::Vector{Float64}
     end
     FerriteAssembly.create_cell_state(::MatJ, cv, args...) = [StateJ([-1.0]) for _ in 1:getnquadpoints(cv)]
-    function FerriteAssembly.element_residual!(re, states::Vector{StateJ}, ae, ::MatJ, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateJ}, ae, ::MatJ, cv, buffer)
         cellnr = cellid(buffer)
         for s in states
             fill!(s.vals, Float64(cellnr))
@@ -217,7 +217,7 @@ module TestStateModule
         quadnr::Int
     end
     FerriteAssembly.create_cell_state(::MatK, cv, args...) = Vector{StateK}(undef, getnquadpoints(cv))
-    function FerriteAssembly.element_residual!(re, states::Vector{StateK}, ae, ::MatK, cv, buffer)
+    function FerriteAssembly.element_residual!(re, states::AbstractVector{StateK}, ae, ::MatK, cv, buffer)
         cellnr = cellid(buffer)
         for i in 1:getnquadpoints(cv)
             states[i] = StateK(cellnr, i)
@@ -267,7 +267,7 @@ end
             buffer = setup_domainbuffer(DomainSpec(dh, MatA(), cv))
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
-            @test isa(old_states, FerriteAssembly.StateVector{Vector{StateA}})
+            @test isa(old_states, FerriteAssembly.StateVector{<:AbstractVector{StateA}})
             @test old_states == states
             @test old_states[1] == [StateA(-1, 0) for _ in 1:getnquadpoints(cv)]
             work!(r_assembler, buffer)
@@ -317,7 +317,7 @@ end
             # `mode = :flip` and `revert_states!`.
             @testset "StateVector dict interface" begin
                 ncells = getncells(grid)
-                @test isa(states, AbstractDict{Int, Vector{StateA}})
+                @test isa(states, AbstractDict{Int, <:AbstractVector{StateA}})
                 @test Set(keys(states)) == Set(1:ncells)
                 @test length(states) == ncells
                 @test length(collect(values(states))) == ncells
@@ -403,7 +403,7 @@ end
             @assert isa(buffer, FerriteAssembly.ThreadedDomainBuffer)
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
-            @test isa(old_states, FerriteAssembly.StateVector{Vector{StateC}})
+            @test isa(old_states, FerriteAssembly.StateVector{<:AbstractVector{StateC}})
             @test old_states == states
             @test old_states[1][1] == StateC(0)
             work!(kr_assembler, buffer)
@@ -437,7 +437,7 @@ end
             buffer = setup_domainbuffer(DomainSpec(dh, MatE(), cv))
             states = FerriteAssembly.get_state(buffer)
             old_states = FerriteAssembly.get_old_state(buffer)
-            @test isa(old_states, FerriteAssembly.StateVector{Vector{StateE}})
+            @test isa(old_states, FerriteAssembly.StateVector{<:AbstractVector{StateE}})
             old_dc = deepcopy(old_states)
             work!(r_assembler, buffer)
             @test states != old_dc # Sanity check that states were actually changed by work!
@@ -459,7 +459,7 @@ end
     # Smoke-test of update_states! for nothing states (and check no allocations)
     cv = CellValues(QuadratureRule{RefTriangle}(2), ip)
     buffer = setup_domainbuffer(DomainSpec(dh, nothing, cv))
-    @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{Vector{Nothing}})
+    @test isa(FerriteAssembly.get_state(buffer), FerriteAssembly.StateVector{<:AbstractVector{Nothing}})
     update_states!(buffer) # Compile
     @test _alloc_update!(buffer) == 0
     _flip!(buffer) # Compile
@@ -632,13 +632,17 @@ end
     @test old_states_k == FerriteAssembly.get_state(buffer_k)
 
     # Regression test: a mutable AbstractArray cell state (MatA's Vector{StateA}) whose
-    # "new" array has drifted to a different size than the corresponding "old" array must
-    # raise a clear `ArgumentError` instead of `map!` silently copying only the common
-    # prefix (or erroring obscurely).
+    # "new" array had drifted to a different size than the corresponding "old" array used
+    # to require a clear `ArgumentError` instead of `map!` silently copying only the common
+    # prefix (or erroring obscurely). With the `ArrayOfVectorViews`-backed per-quadpoint
+    # storage, each cell's state is now a fixed-size `SubArray` view into shared flat
+    # storage, so independently resizing it is no longer possible at all - `push!` itself
+    # throws `MethodError` (views don't support `push!`), making this class of mismatch
+    # structurally unreachable rather than something caught at `revert_states!`/
+    # `update_states!` time.
     buffer_mismatch = setup_domainbuffer(DomainSpec(dh_d, MatA(), cv))
     states_mismatch = FerriteAssembly.get_state(buffer_mismatch)
-    push!(states_mismatch[1], StateA(-1, 0)) # "new" for cell 1 is now longer than "old"
-    @test_throws ArgumentError revert_states!(buffer_mismatch)
-    @test_throws ArgumentError update_states!(buffer_mismatch) # default mode = :copy
-    update_states!(buffer_mismatch; mode=:flip) # mode = :flip never touches individual elements
+    @test_throws MethodError push!(states_mismatch[1], StateA(-1, 0))
+    # The `axes(dst) == axes(src)` check in `_copy_states!` remains as defensive code for
+    # any cell state type that isn't packed this way (e.g. a custom resizable AbstractArray).
 end
