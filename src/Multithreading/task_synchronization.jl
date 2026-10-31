@@ -9,6 +9,7 @@ this function does not interrupt it.
 ### Difference to `@sync` + `@spawn`
 `spawn_tasks_safe_wait(f, num_tasks)` is very similar to the following code,
 ```julia
+abort = Threads.Atomic{Bool}(false)
 @sync begin
     for taskid in 1:num_tasks
         Threads.@spawn begin
@@ -23,12 +24,11 @@ But there are a few key differences
   `Base.Experimental.@sync` will never wait.
 * The returned error if a task throws is `TaskFailedException`, as opposed to the `CompositeException`
   thrown with `@sync`. (`Base.Experimental.@sync` throws a `TaskFailedException`)
-* `abort::Atomic{Bool}` is available to end task early if another task throws (or e.g.
-   an `InterruptException` (`Ctrl+c`) is thrown).
+* `abort[]` becomes `true` when any task fails, allowing the other tasks to end early.
 
 ### Developer notes
-`compare-and-set of `first_failed` happens *before* `abort[] = true` is set, so a
-sibling failing after seeing `abort[] == false` cannot set `first_failed`.
+`compare-and-set` of `first_failed` happens *before* `abort[] = true` is set, so a
+sibling failing after seeing `abort[] == true` cannot set `first_failed`.
 
 A task's own failure takes precedence over an asynchronous exception observed while waiting
 (see [`drain_tasks`](@ref)), even if the latter happened first.
