@@ -14,9 +14,11 @@ primitive, `spawn_tasks_safe_wait`/`drain_tasks`
 (`src/Multithreading/task_synchronization.jl`), which always drains every spawned task before
 returning or rethrowing.
 
-This review found and fixed **one more real, confirmed bug** in `drain_tasks` (below). With
-that fix in place, the branch is correct as far as this review could establish, and the
-fix adds no measurable steady-state overhead relative to `main`.
+This review found and fixed **one more real, confirmed bug** in `drain_tasks` (below), which
+was then superseded by a simpler and strictly more robust fix: `wait(t; throw = false)`
+instead of inspecting the caught exception's type/identity at all (see "Follow-up
+simplification" below). With that in place, the branch is correct as far as this review could
+establish, and the fix adds no measurable steady-state overhead relative to `main`.
 
 ## Correctness review
 
@@ -85,7 +87,70 @@ TaskFailedException delivered asynchronously does not skip draining" - mirrors t
 `InterruptException`-to-the-caller test exactly, but delivers a `TaskFailedException` wrapping
 an unrelated, already-failed task instead, and asserts both that the slow sibling had actually
 finished by the time `spawn_tasks_safe_wait` returned, and that the exception's `.task` is
-correctly preserved as the unrelated task (not confused with the real failure).
+correctly preserved as the unrelated task (not confused with the real failure). This test
+still passes unchanged under the follow-up simplification below, since it exercises
+`spawn_tasks_safe_wait`'s externally-observable behavior, not `drain_tasks`'s internals.
+
+### Follow-up simplification: `wait(t; throw = false)` instead of inspecting the exception
+
+After the fix above, a simpler alternative was proposed: have `drain_tasks` call
+`wait(t; throw = false)` instead of plain `wait(t)`, and treat *any* exception the `try` block
+catches as asynchronous, with no `isa`/`.task` check at all:
+
+```julia
+function drain_tasks(tasks::AbstractVector{<:Task})
+    async_exceptions = Exception[]
+    for t in tasks
+        while true
+            try
+                wait(t; throw = false)
+            catch e
+                push!(async_exceptions, e)
+                continue
+            end
+            break
+        end
+    end
+    return async_exceptions
+end
+```
+
+This is better than the `e.task === t` fix, not just shorter. Confirmed from Base's own
+implementation (`Base/task.jl`):
+
+```julia
+function wait(t::Task; throw=true)
+    _wait(t)
+    if throw && istaskfailed(t)
+        Core.throw(TaskFailedException(t))
+    end
+    nothing
+end
+```
+
+`_wait(t)` is the part that blocks until `t` is actually done; it is also the only part that
+can be interrupted by an asynchronous exception delivered to the calling task. With
+`throw = false`, the `if` branch is skipped unconditionally, so `wait(t; throw = false)` *never
+throws because of `t`'s own outcome* - a failed `t` just makes it return normally, same as a
+successful one. That means the `try` block here can only ever catch something if `_wait(t)`
+itself was interrupted, i.e. a genuinely asynchronous exception. There is no longer any case to
+distinguish by inspecting the exception - the structure of the call makes the ambiguity
+impossible, rather than resolving it after the fact. This also closes a residual gap the
+`e.task === t` fix did not: an asynchronously-delivered `TaskFailedException(t)` referencing
+the *exact* task being waited on (as opposed to an unrelated one) would have satisfied
+`e.task === t` and been accepted as genuine - vanishingly unlikely to occur by accident, but
+now impossible by construction rather than merely improbable.
+
+This does not change `spawn_tasks_safe_wait`'s own failure detection at all: that already comes
+entirely from `first_failed[]`, set via CAS inside each spawned task's own `catch` block,
+independent of `drain_tasks`. `drain_tasks` was never responsible for discovering *which* task
+failed - only for making sure every task is actually finished and for surfacing genuinely
+asynchronous exceptions - so handing it a tool that can't help but agree with that division of
+responsibility is a real improvement, not just fewer characters.
+
+Re-verified after this follow-up: full `Pkg.test()` suite clean, including the regression test
+above (it exercises `spawn_tasks_safe_wait`'s public behavior and passes unchanged); full-suite
+runs at `-t 1/2/4/12` all clean; docs build clean.
 
 ### Everything else checked, no further issues found
 
