@@ -62,10 +62,13 @@ Wait for every task in `tasks` to actually finish, returning any exceptions that
 delivered *asynchronously to this calling task* while doing so (e.g. a `Ctrl-C` interrupt),
 in the order they were observed.
 
-**Developer notes:** `wait(t::Task)` throws `TaskFailedException` if `t` failed.
+**Developer notes:** `wait(t::Task)` throws `TaskFailedException(t)` if `t` failed.
 Any other exception caught from `wait(t)` is asynchronous (did not come from `t`),
-and `t` may still be running. `Base.waitall` will be killed by an asynchronous
-exception and may leave tasks running.
+and `t` may still be running - this includes a `TaskFailedException` wrapping some
+*other* task: that can be delivered asynchronously too (e.g. forwarded by external
+supervising code), so checking the exception's own `.task` field, not just its type,
+is what actually proves `t` has failed. `Base.waitall` will be killed by an
+asynchronous exception and may leave tasks running.
 """
 function drain_tasks(tasks::AbstractVector{<:Task})
     async_exceptions = Exception[]
@@ -74,7 +77,7 @@ function drain_tasks(tasks::AbstractVector{<:Task})
             try
                 wait(t)
             catch e
-                if !isa(e, TaskFailedException)
+                if !(isa(e, TaskFailedException) && e.task === t)
                     push!(async_exceptions, e)
                     continue
                 end

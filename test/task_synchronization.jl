@@ -156,4 +156,53 @@
         @test caught isa InterruptException
         @test finished_at_return # the slow task had already finished by the time the call returned
     end
+
+    @testset "an unrelated TaskFailedException delivered asynchronously does not skip draining" begin
+        # A `TaskFailedException` isn't only produced by `wait(t)` discovering that `t` itself
+        # failed - it can also arrive *asynchronously* (e.g. forwarded by external supervising
+        # code watching some other task), exactly like the `InterruptException` case above. The
+        # drain loop must not mistake "I caught a TaskFailedException" for "the task I'm
+        # currently waiting on has failed": it must check which task the exception actually
+        # refers to, or it stops waiting on a sibling that is still running.
+        other = Threads.@spawn error("unrelated failure, not one of spawn_tasks_safe_wait's own tasks")
+        try
+            wait(other)
+        catch
+        end # let `other` actually fail before using it below
+
+        started = Threads.Atomic{Bool}(false)
+        release = Threads.Atomic{Bool}(false)
+        finished = Threads.Atomic{Bool}(false)
+        maintask = current_task()
+        interruptor = Threads.@spawn begin
+            if wait_for(() -> started[])
+                schedule(maintask, TaskFailedException(other); error = true)
+                sleep(0.05) # let the already-sent exception actually land in `maintask`
+            end
+            release[] = true
+        end
+        caught = nothing
+        try
+            FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
+                if taskid == 1
+                    started[] = true
+                    wait_for(() -> release[]; timeout = 30.0)
+                    finished[] = true
+                end
+            end
+        catch e
+            caught = e
+        end
+        # Snapshot immediately, before waiting on `interruptor` below, for the same reason as
+        # the `InterruptException` test above: that wait only returns once `release[]` is set,
+        # which would let task 1 finish independently of whether draining was done correctly.
+        finished_at_return = finished[]
+        try
+            wait(interruptor)
+        catch
+        end
+        @test caught isa TaskFailedException
+        @test caught.task === other
+        @test finished_at_return # the slow task had already finished by the time the call returned
+    end
 end
