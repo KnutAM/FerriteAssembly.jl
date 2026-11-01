@@ -33,8 +33,10 @@ end
 function test_equality(m1, m2, is_vector::Val)
     grid = generate_grid(Quadrilateral, (2,3))
     dh, cv = get_dh_cv(grid, is_vector)
-    # Keep displacement gradients small on this mesh: otherwise elements can invert,
-    # making the Hyperelasticity comparisons below spuriously fail.
+    # Keep displacement gradients small enough that elements can't invert (which would
+    # make the Hyperelasticity comparisons below spuriously fail): for this mesh's
+    # L1 x L2 rectangular Q1 elements and scale s, min det(I+∇u) =
+    # (1 - s/L1)*(1 - s/L2) - s^2/(L1*L2). With s=0.2, L1=1, L2=2/3, this gives 0.5.
     a = 0.2 * rand(ndofs(dh))
     aold = 0.2 * rand(ndofs(dh))
     Δt = rand()
