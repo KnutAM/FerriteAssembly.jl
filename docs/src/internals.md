@@ -48,3 +48,8 @@ FerriteAssembly.TaskChunks
 FerriteAssembly.drain_tasks
 FerriteAssembly.spawn_tasks_safe_wait
 ```
+
+## Utilities
+```@docs
+FerriteAssembly.asset_url
+```

@@ -53,8 +53,3 @@ support the following functions
 FerriteAssembly.update_scaling!
 FerriteAssembly.reset_scaling!
 ```
-
-## Downloading example assets
-```@docs
-FerriteAssembly.asset_url
-```
