@@ -150,7 +150,7 @@ function validate_domain_pair(reader_db::AbstractDomainBuffer, partner_db::Abstr
         (ib isa CellBuffer || ib isa AutoDiffCellBuffer) || throw(ArgumentError(
             "coupling only supports `CellBuffer`/autodiff cell buffers, got $(typeof(ib)) for `$role`"))
     end
-    issubset(getset(reader_db), getset(partner_db)) || throw(ArgumentError(
+    issubset(get_set(reader_db), get_set(partner_db)) || throw(ArgumentError(
         "coupling partner `$partner_name` does not cover all cells read by the reader"))
     reader_threaded = reader_db isa ThreadedDomainBuffer
     if reader_threaded

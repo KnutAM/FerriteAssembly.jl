@@ -72,5 +72,8 @@ overlaps_with_cellset(::Nothing, cellset) = !isempty(cellset)
     asset_url(name::AbstractString)
 
 Get the location of the asset `name` for download when building the documentation.
+
+!!! note
+    Internal docs-build helper; no stability guarantee.
 """
 asset_url(name::AbstractString) = string("https://raw.githubusercontent.com/KnutAM/FerriteAssembly.jl/gh-pages/assets/", name)

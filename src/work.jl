@@ -60,7 +60,7 @@ end
 
 function work_domain_sequential!(worker, sim::AbstractSimulation{<:AbstractDomainBuffer})
     itembuffer = get_base(get_itembuffer(sim)) # get_base if threaded buffer
-    for itemnr in getset(sim)
+    for itemnr in get_set(sim)
         reinit_buffer!(itembuffer, sim, itemnr)
         work_single!(worker, itembuffer)
     end

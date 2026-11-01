@@ -36,6 +36,7 @@ generated_howto = build_examples(howto; type="howto")
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
 
 makedocs(;
+    modules=[FerriteAssembly],
     authors="Knut Andreas Meyer and contributors",
     sitename="FerriteAssembly.jl",
     format=Documenter.HTML(;

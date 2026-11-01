@@ -46,7 +46,7 @@ function QuadPointEvaluator{VT}(domainbuffers::DomainBuffers, qe_type::Union{Sym
         else
             error("Only CellValues are supported")
         end
-        set = getset(db)
+        set = get_set(db)
         map(i -> (nqps[i] = nqp), set)
     end
     nqp_total = sum(nqps)

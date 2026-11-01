@@ -89,7 +89,7 @@ end
 function check_cell_domains(cell_dbs::DomainBuffers)
     grid = get_grid(cell_dbs)
 
-    num_cells_in_sets = sum(length ∘ getset, values(cell_dbs); init = 0)
+    num_cells_in_sets = sum(length ∘ get_set, values(cell_dbs); init = 0)
     num_cells_in_grid = getncells(grid)
     more_fewer = num_cells_in_sets > num_cells_in_grid ? "more" : "fewer"
     if num_cells_in_grid != num_cells_in_sets
@@ -97,7 +97,7 @@ function check_cell_domains(cell_dbs::DomainBuffers)
     end
     included = zeros(Bool, getncells(grid))
     for db in values(cell_dbs)
-        for i in getset(db)
+        for i in get_set(db)
             included[i] = true
         end
     end

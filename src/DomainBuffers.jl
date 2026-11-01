@@ -1,3 +1,23 @@
+
+"""
+    AbstractDomainBuffer
+
+A `db::AbstractDomainBuffer` holds the data needed to work on one domain's
+`set` (`eltype(set)` is `Int` for cells, `FacetIndex` for facets). `FerriteAssembly`
+implements the sequential [`DomainBuffer`](@ref) and the threaded
+[`ThreadedDomainBuffer`](@ref), both supporting:
+
+* [`get_set`](@ref)
+* [`get_dofhandler`](@ref)
+* [`get_grid`](@ref)
+* [`get_state`](@ref)
+* [`get_old_state`](@ref)
+* [`get_material`](@ref)
+* [`update_states!`](@ref)
+* [`revert_states!`](@ref)
+* [`set_time_increment!`](@ref)
+* [`replace_material`](@ref)
+"""
 abstract type AbstractDomainBuffer end
 
 """
@@ -230,13 +250,13 @@ function replace_material(dbs::DomainBuffers, domain::String, replacement_functi
 end
 
 """
-    getset(dbs::FerriteAssembly.DomainBuffers, domain::String)
-    getset(db::AbstractDomainBuffer)
-    getset(sim::Simulation[, domain::String])
+    get_set(dbs::FerriteAssembly.DomainBuffers, domain::String)
+    get_set(db::AbstractDomainBuffer)
+    get_set(sim::Simulation[, domain::String])
 
 Get the set of items stored in `db` or `dbs[domain]`
 """
-getset(b::DomainBuffers, domain) = getset(b[domain])
+get_set(b::DomainBuffers, domain) = get_set(b[domain])
 
 struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     set::Vector{I}
@@ -244,6 +264,14 @@ struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     states::StateVariables{S}
     sdh::SDH
 end
+
+"""
+    DomainBuffer
+
+The standard sequential `AbstractDomainBuffer`. Returned by
+[`setup_domainbuffer`](@ref); its constructor is not public API.
+"""
+DomainBuffer
 
 struct ThreadedDomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     chunks::Vector{Vector{Vector{I}}}   # I=Int (cell), I=FacetIndex (facet), or
@@ -262,6 +290,14 @@ function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states::State
     return ThreadedDomainBuffer(chunks, set_vector, num_tasks, itembuffers, states, sdh)
 end
 
+"""
+    ThreadedDomainBuffer
+
+The threaded `AbstractDomainBuffer`, holding per-task work buffers. Returned by
+[`setup_domainbuffer`](@ref) with `threading=true`; its constructor is not public API.
+"""
+ThreadedDomainBuffer
+
 get_num_tasks(db::ThreadedDomainBuffer) = db.num_tasks
 get_num_tasks(dbs::DomainBuffers) = maximum(get_num_tasks, values(dbs))
 
@@ -271,7 +307,7 @@ const StdDomainBuffer = Union{DomainBuffer, ThreadedDomainBuffer}
 
 #Ferrite.getcellset(b::StdDomainBuffer{Int}) = b.set
 #Ferrite.getfacetset(b::StdDomainBuffer{FacetIndex}) = b.set
-getset(b::StdDomainBuffer) = b.set
+get_set(b::StdDomainBuffer) = b.set
 
 get_dofhandler(b::StdDomainBuffer) = b.sdh.dh
 get_itembuffer(b::StdDomainBuffer) = b.itembuffer

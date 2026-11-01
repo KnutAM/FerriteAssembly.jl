@@ -10,16 +10,21 @@ setup_domainbuffers
 ```
 
 ## AbstractDomainBuffer
-The domain buffer be a `DomainBuffer`, `ThreadedDomainBuffer`, or a [`FerriteAssembly.DomainBuffers`](@ref)
+The domain buffer is a [`FerriteAssembly.DomainBuffer`](@ref),
+[`FerriteAssembly.ThreadedDomainBuffer`](@ref), or a [`FerriteAssembly.DomainBuffers`](@ref)
 (an immutable `AbstractDict{String}`) with eltype of one of the former. The
 following functions are defined for these buffers:
 ```@docs
+FerriteAssembly.AbstractDomainBuffer
+FerriteAssembly.DomainBuffer
+FerriteAssembly.ThreadedDomainBuffer
 FerriteAssembly.DomainBuffers
 FerriteAssembly.get_material(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.get_dofhandler(::FerriteAssembly.DomainBuffers)
+FerriteAssembly.get_grid
 FerriteAssembly.get_state(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.get_old_state(::FerriteAssembly.DomainBuffers, ::String)
-FerriteAssembly.getset
+FerriteAssembly.get_set
 update_states!(::FerriteAssembly.DomainBuffers)
 revert_states!(::FerriteAssembly.DomainBuffers)
 set_time_increment!(::FerriteAssembly.DomainBuffers, ::Any)
@@ -86,4 +91,5 @@ group.member_name)`) never re-discovers or rebuilds the coupling.
 ```@docs
 Simulation
 CoupledSimulations
+FerriteAssembly.replace_material(::CoupledSimulations, ::Symbol, ::Any)
 ```
