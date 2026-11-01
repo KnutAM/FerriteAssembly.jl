@@ -7,10 +7,9 @@ A `db::AbstractDomainBuffer` holds the data needed to work on one domain's
 implements the sequential [`DomainBuffer`](@ref) and the threaded
 [`ThreadedDomainBuffer`](@ref), both supporting:
 
-* [`getset`](@ref)
+* [`get_set`](@ref)
 * [`get_dofhandler`](@ref)
 * [`get_grid`](@ref)
-* [`get_itembuffer`](@ref)
 * [`get_state`](@ref)
 * [`get_old_state`](@ref)
 * [`get_material`](@ref)
@@ -251,13 +250,13 @@ function replace_material(dbs::DomainBuffers, domain::String, replacement_functi
 end
 
 """
-    getset(dbs::FerriteAssembly.DomainBuffers, domain::String)
-    getset(db::AbstractDomainBuffer)
-    getset(sim::Simulation[, domain::String])
+    get_set(dbs::FerriteAssembly.DomainBuffers, domain::String)
+    get_set(db::AbstractDomainBuffer)
+    get_set(sim::Simulation[, domain::String])
 
 Get the set of items stored in `db` or `dbs[domain]`
 """
-getset(b::DomainBuffers, domain) = getset(b[domain])
+get_set(b::DomainBuffers, domain) = get_set(b[domain])
 
 struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     set::Vector{I}
@@ -308,7 +307,7 @@ const StdDomainBuffer = Union{DomainBuffer, ThreadedDomainBuffer}
 
 #Ferrite.getcellset(b::StdDomainBuffer{Int}) = b.set
 #Ferrite.getfacetset(b::StdDomainBuffer{FacetIndex}) = b.set
-getset(b::StdDomainBuffer) = b.set
+get_set(b::StdDomainBuffer) = b.set
 
 get_dofhandler(b::StdDomainBuffer) = b.sdh.dh
 get_itembuffer(b::StdDomainBuffer) = b.itembuffer

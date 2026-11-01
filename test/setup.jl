@@ -31,8 +31,8 @@
             FerriteAssembly.set_time_increment!(container, Δt)
             # Check properties of stored values
             cont1 = _getdomain(container, "left")
-            cellset = FerriteAssembly.getset(cont1)
-            @test FerriteAssembly.getset(container, "left") === cellset
+            cellset = FerriteAssembly.get_set(cont1)
+            @test FerriteAssembly.get_set(container, "left") === cellset
             cell_id = first(cellset)
             cb1 = FerriteAssembly.get_itembuffer(cont1)
             sim = isa(container, Simulation) ? cont1 : Simulation(cont1, nothing, aold)
@@ -81,7 +81,7 @@
         aold_value = rand()
         aold = ones(ndofs(dh))*aold_value
         facetbuffer = FerriteAssembly.get_itembuffer(buffer)
-        facet_id = first(FerriteAssembly.getset(buffer))
+        facet_id = first(FerriteAssembly.get_set(buffer))
         FerriteAssembly.reinit_buffer!(facetbuffer, Simulation(buffer, zeros(ndofs(dh)), aold), facet_id)
         @test FerriteAssembly.get_user_data(facetbuffer) === userdata 
         @test FerriteAssembly.get_user_cache(facetbuffer) == [1.0]
@@ -140,14 +140,14 @@
         empty_cellsets = (Int[], [getncells(grid)+1, getncells(grid)+2])
         for empty_cellset in empty_cellsets, threading in (false, true)
             cell_db = setup_domainbuffer(DomainSpec(dh, nothing, cv; set=empty_cellset); threading)
-            @test isempty(FerriteAssembly.getset(cell_db))
+            @test isempty(FerriteAssembly.get_set(cell_db))
             v = SimpleIntegrator(Returns(1.0), 0.0)
             work!(v, FerriteAssembly.DomainBuffers("cells" => cell_db))
             @test v.val == 0.0
         end
         for threading in (false, true)
             facet_db = setup_domainbuffer(DomainSpec(dh, nothing, fv; set=FacetIndex[]); threading)
-            @test isempty(FerriteAssembly.getset(facet_db))
+            @test isempty(FerriteAssembly.get_set(facet_db))
             v = SimpleIntegrator(Returns(1.0), 0.0)
             work!(v, FerriteAssembly.DomainBuffers("facets" => facet_db))
             @test v.val == 0.0

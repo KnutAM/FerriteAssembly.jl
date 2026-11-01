@@ -51,7 +51,7 @@ public get_state, get_old_state, get_material
 public get_ae, get_aeold, get_time_increment
 public get_user_data, get_user_cache, get_coupled_buffer
 # Domain buffers / Simulation
-public getset, get_dofhandler, get_grid, get_itembuffer
+public get_set, get_dofhandler, get_grid, get_itembuffer
 public replace_material
 
 """
