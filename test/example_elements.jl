@@ -33,11 +33,10 @@ end
 function test_equality(m1, m2, is_vector::Val)
     grid = generate_grid(Quadrilateral, (2,3))
     dh, cv = get_dh_cv(grid, is_vector)
-    # Scale down to avoid inverting elements for the finite-strain (Hyperelasticity)
-    # case, which would make the material response ill-conditioned and the comparisons
-    # below spuriously fail.
-    a = 0.1 * rand(ndofs(dh))
-    aold = 0.1 * rand(ndofs(dh))
+    # Keep displacement gradients small on this mesh: otherwise elements can invert,
+    # making the Hyperelasticity comparisons below spuriously fail.
+    a = 0.2 * rand(ndofs(dh))
+    aold = 0.2 * rand(ndofs(dh))
     Δt = rand()
     K1, r1, r1_direct = assemble_test(dh, cv, m1, a, aold, Δt)
     K2, r2, r2_direct = assemble_test(dh, cv, m2, a, aold, Δt)
