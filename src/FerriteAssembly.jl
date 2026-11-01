@@ -53,6 +53,8 @@ public get_user_data, get_user_cache, get_coupled_buffer
 # Domain buffers / Simulation
 public getset, get_dofhandler, get_grid, get_itembuffer
 public replace_material
+# Utilities
+public asset_url
 
 """
     element_routine!(

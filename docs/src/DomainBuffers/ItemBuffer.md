@@ -12,6 +12,7 @@ and can be accessed with the following functions:
 ```@docs
 get_aeold
 get_old_state
+get_state
 get_time_increment
 Ferrite.dof_range(::AbstractItemBuffer, ::Symbol)
 Ferrite.getcoordinates(::AbstractItemBuffer)

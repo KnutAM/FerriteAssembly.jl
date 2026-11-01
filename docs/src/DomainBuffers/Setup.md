@@ -17,6 +17,7 @@ following functions are defined for these buffers:
 FerriteAssembly.DomainBuffers
 FerriteAssembly.get_material(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.get_dofhandler(::FerriteAssembly.DomainBuffers)
+FerriteAssembly.get_grid
 FerriteAssembly.get_state(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.get_old_state(::FerriteAssembly.DomainBuffers, ::String)
 FerriteAssembly.getset
@@ -86,4 +87,5 @@ group.member_name)`) never re-discovers or rebuilds the coupling.
 ```@docs
 Simulation
 CoupledSimulations
+FerriteAssembly.replace_material(::CoupledSimulations, ::Symbol, ::Any)
 ```
