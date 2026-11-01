@@ -2,14 +2,9 @@
 """
     AbstractDomainBuffer
 
-A `db::AbstractDomainBuffer` contains data for performing work on the entities in `set = FerriteAssembly.getset(db)`.
-`eltype(set)` determines the type of domain, e.g. `Int` for cells, `FacetIndex` for facets. `FerriteAssembly` 
-implements the sequential [`DomainBuffer`](@ref) and the threaded [`ThreadedDomainBuffer`](@ref) concrete subtypes. 
-An `AbstractDomainBuffer` should implement the following accessor functions,
-
-* [`get_set`](@ref)
-* ...
-
+A `db::AbstractDomainBuffer` holds the data needed to work on one domain's
+`set = FerriteAssembly.getset(db)`. `FerriteAssembly` implements the sequential
+[`DomainBuffer`](@ref) and the threaded [`ThreadedDomainBuffer`](@ref).
 """
 abstract type AbstractDomainBuffer end
 
@@ -261,7 +256,8 @@ end
 """
     DomainBuffer
 
-The standard sequential `AbstractDomainBuffer`
+The standard sequential `AbstractDomainBuffer`. Returned by
+[`setup_domainbuffer`](@ref); its constructor is not public API.
 """
 DomainBuffer
 
@@ -285,9 +281,8 @@ end
 """
     ThreadedDomainBuffer
 
-The standard threaded `AbstractDomainBuffer`, containing work buffers for multiple tasks.
-
-The number of work buffers is obtained with the *internal* function `FerriteAssembly.get_num_tasks`.
+The threaded `AbstractDomainBuffer`, holding per-task work buffers. Returned by
+[`setup_domainbuffer`](@ref) with `threading=true`; its constructor is not public API.
 """
 ThreadedDomainBuffer
 
