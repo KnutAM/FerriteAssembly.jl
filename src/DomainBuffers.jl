@@ -3,8 +3,21 @@
     AbstractDomainBuffer
 
 A `db::AbstractDomainBuffer` holds the data needed to work on one domain's
-`set = FerriteAssembly.getset(db)`. `FerriteAssembly` implements the sequential
-[`DomainBuffer`](@ref) and the threaded [`ThreadedDomainBuffer`](@ref).
+`set` (`eltype(set)` is `Int` for cells, `FacetIndex` for facets). `FerriteAssembly`
+implements the sequential [`DomainBuffer`](@ref) and the threaded
+[`ThreadedDomainBuffer`](@ref), both supporting:
+
+* [`getset`](@ref)
+* [`get_dofhandler`](@ref)
+* [`get_grid`](@ref)
+* [`get_itembuffer`](@ref)
+* [`get_state`](@ref)
+* [`get_old_state`](@ref)
+* [`get_material`](@ref)
+* [`update_states!`](@ref)
+* [`revert_states!`](@ref)
+* [`set_time_increment!`](@ref)
+* [`replace_material`](@ref)
 """
 abstract type AbstractDomainBuffer end
 
