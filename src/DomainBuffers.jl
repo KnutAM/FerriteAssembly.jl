@@ -1,3 +1,16 @@
+
+"""
+    AbstractDomainBuffer
+
+A `db::AbstractDomainBuffer` contains data for performing work on the entities in `set = FerriteAssembly.getset(db)`.
+`eltype(set)` determines the type of domain, e.g. `Int` for cells, `FacetIndex` for facets. `FerriteAssembly` 
+implements the sequential [`DomainBuffer`](@ref) and the threaded [`ThreadedDomainBuffer`](@ref) concrete subtypes. 
+An `AbstractDomainBuffer` should implement the following accessor functions,
+
+* [`get_set`](@ref)
+* ...
+
+"""
 abstract type AbstractDomainBuffer end
 
 """
@@ -245,6 +258,13 @@ struct DomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     sdh::SDH
 end
 
+"""
+    DomainBuffer
+
+The standard sequential `AbstractDomainBuffer`
+"""
+DomainBuffer
+
 struct ThreadedDomainBuffer{I,B,S,SDH<:SubDofHandler} <: AbstractDomainBuffer
     chunks::Vector{Vector{Vector{I}}}   # I=Int (cell), I=FacetIndex (facet), or
     set::Vector{I}                      # I=NTuple{2,FacetIndex} (interface)
@@ -261,6 +281,15 @@ function ThreadedDomainBuffer(set, itembuffer::AbstractItemBuffer, states::State
     itembuffers = TaskLocals(itembuffer; num_tasks)
     return ThreadedDomainBuffer(chunks, set_vector, num_tasks, itembuffers, states, sdh)
 end
+
+"""
+    ThreadedDomainBuffer
+
+The standard threaded `AbstractDomainBuffer`, containing work buffers for multiple tasks.
+
+The number of work buffers is obtained with the *internal* function `FerriteAssembly.get_num_tasks`.
+"""
+ThreadedDomainBuffer
 
 get_num_tasks(db::ThreadedDomainBuffer) = db.num_tasks
 get_num_tasks(dbs::DomainBuffers) = maximum(get_num_tasks, values(dbs))
