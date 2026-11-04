@@ -12,7 +12,7 @@ A domain buffer contains the data to perform work on a given domain.
 Multiple domain buffers are collected in the immutable `Dict`-like container, [`FerriteAssembly.DomainBuffers`](@ref), for each domain.
 
 Two domain buffer types are implemented, a regular `DomainBuffer` and a threaded `ThreadedDomainBuffer` version. 
-To understand the structure, it sufficies to to understand the regular `DomainBuffer`, as the version just contains additional values, e.g. per-task buffers.
+To understand the structure, it suffices to to understand the regular `DomainBuffer`, as the version just contains additional values, e.g. per-task buffers.
 
 The key fields of the `DomainBuffer` type are 
 * A `set` of entities to iterate over (for example a vector of `Int` for a list of cells or a vector of `FacetIndex` for a list of facets)
