@@ -13,28 +13,14 @@ or per `work!` call. Does *not* hold the partner `Simulation`s needed to reiniti
 [`reinit_buffer!`](@ref) (defined in `Coupling.jl`, once that type exists), rather than being
 duplicated into every task-local copy of this buffer.
 """
-struct CoupledCellBuffer{CB<:CellBuffer, PB<:NamedTuple} <: AbstractCellBuffer
+struct CoupledCellBuffer{CB<:CellBuffer, PB<:NamedTuple} <: AbstractCellBufferWrapper
     primary::CB
     partner_buffers::PB
 end
 
-for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_values, :get_time_increment,
-        :get_aeold, :get_state, :get_old_state, :get_user_data, :get_user_cache)
-    eval(quote
-        @inline $op(cb::CoupledCellBuffer) = $op(cb.primary)
-    end)
-end
+@inline get_wrapped(cb::CoupledCellBuffer) = cb.primary
 
 get_coupled_buffers(cb::CoupledCellBuffer) = cb.partner_buffers
-
-set_time_increment!(cb::CoupledCellBuffer, Δt) = set_time_increment!(cb.primary, Δt)
-
-for op = (:celldofs, :getcoordinates, :getfieldnames, :cellid)
-    eval(quote
-        Ferrite.$op(cb::CoupledCellBuffer, args...) = Ferrite.$op(cb.primary, args...)
-    end)
-end
-Ferrite.dof_range(cb::CoupledCellBuffer, name::Symbol) = Ferrite.dof_range(cb.primary, name)
 
 function _replace_material_with(cb::CoupledCellBuffer, new_material)
     new_primary = _replace_material_with(cb.primary, new_material)

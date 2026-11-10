@@ -25,7 +25,7 @@ function create_jacobian_config(er::ElementResidual)
     return ForwardDiff.JacobianConfig(er, re, ae, ForwardDiff.Chunk{length(ae)}())
 end
 
-struct AutoDiffCellBuffer{CB<:AnyCellBuffer,ER<:ElementResidual,JC} <: AbstractCellBuffer
+struct AutoDiffCellBuffer{CB<:AnyCellBuffer,ER<:ElementResidual,JC} <: AbstractCellBufferWrapper
     cb::CB
     er::ER
     cfg::JC # JacobianConfig
@@ -46,15 +46,9 @@ function AutoDiffCellBuffer(cb::AnyCellBuffer)
     return AutoDiffCellBuffer(cb, er, cfg)
 end
 
-for op = (:get_Ke, :get_re, :get_ae, :get_material, :get_values, :get_time_increment, 
-        :get_aeold, :get_state, :get_old_state, :get_user_data, :get_user_cache, :get_coupled_buffers)
-    eval(quote
-        @inline $op(cb::AutoDiffCellBuffer) = $op(cb.cb)
-    end)
-end
-reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.cb, args...; kwargs...)
+@inline get_wrapped(cb::AutoDiffCellBuffer) = cb.cb
 
-set_time_increment!(c::AutoDiffCellBuffer, Δt) = set_time_increment!(c.cb, Δt)
+reinit_buffer!(cb::AutoDiffCellBuffer, args...; kwargs...) = reinit_buffer!(cb.cb, args...; kwargs...)
 
 function _replace_material_with(ad_cb::AutoDiffCellBuffer{CB}, new_material) where CB
     cb = _replace_material_with(ad_cb.cb, new_material)
@@ -69,13 +63,6 @@ function create_local(c::AutoDiffCellBuffer)
     cb = create_local(c.cb)
     AutoDiffCellBuffer(cb, deepcopy(c.er), deepcopy(c.cfg))
 end
-
-for op = (:celldofs, :getcoordinates, :getfieldnames, :cellid)
-    eval(quote
-        Ferrite.$op(cb::AutoDiffCellBuffer, args...) = Ferrite.$op(cb.cb, args...)
-    end)
-end
-Ferrite.dof_range(cb::AutoDiffCellBuffer, name::Symbol) = Ferrite.dof_range(cb.cb, name)
 
 function element_routine_ad!(Ke, re, state, ae, material, cellvalues, ad_buffer::AutoDiffCellBuffer)
     buffer = ad_buffer.cb

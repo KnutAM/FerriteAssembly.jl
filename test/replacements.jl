@@ -60,13 +60,14 @@
 
         ib0, ib1 = FerriteAssembly.get_itembuffer(b0), FerriteAssembly.get_itembuffer(b1)
         @test FerriteAssembly.get_base(ib0) !== FerriteAssembly.get_base(ib1) # new wrapper object...
-        @test FerriteAssembly.get_base(ib0).ae === FerriteAssembly.get_base(ib1).ae # ...around the same scratch
+        @test FerriteAssembly.get_ae(FerriteAssembly.get_base(ib0)) === FerriteAssembly.get_ae(FerriteAssembly.get_base(ib1)) # ...around the same scratch
         for i in 1:2
             cb0, cb1 = FerriteAssembly.get_local(ib0, i), FerriteAssembly.get_local(ib1, i)
             @test cb0 !== cb1
             @test cb0.material !== cb1.material
-            for fname in (:ae_old, :ae, :re, :Ke, :dofs, :coords, :cellvalues, :user_data, :user_cache)
-                @test getfield(cb0, fname) === getfield(cb1, fname)
+            for accessor in (FerriteAssembly.get_aeold, FerriteAssembly.get_ae, FerriteAssembly.get_re, FerriteAssembly.get_Ke,
+                    celldofs, getcoordinates, FerriteAssembly.get_values, FerriteAssembly.get_user_data, FerriteAssembly.get_user_cache)
+                @test accessor(cb0) === accessor(cb1)
             end
         end
     end

@@ -63,7 +63,7 @@
     # The two sweep buffers are genuinely independent: no shared item-buffer scratch or
     # state, unlike the `replace_material` case covered in test/replacements.jl.
     ib1, ib2 = FerriteAssembly.get_itembuffer(dbs[1]), FerriteAssembly.get_itembuffer(dbs[2])
-    @test FerriteAssembly.get_local(ib1, 1).Ke !== FerriteAssembly.get_local(ib2, 1).Ke
+    @test FerriteAssembly.get_Ke(FerriteAssembly.get_local(ib1, 1)) !== FerriteAssembly.get_Ke(FerriteAssembly.get_local(ib2, 1))
     @test FerriteAssembly.get_state(dbs[1]) !== FerriteAssembly.get_state(dbs[2])
 
     a = zeros(ndofs(dh))

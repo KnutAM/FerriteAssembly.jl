@@ -92,6 +92,12 @@
         
         # Not implemented
         @test_throws "AutoDiffBuffer not implemented for FacetBuffer" setup_domainbuffer(domains["left"]; autodiffbuffer=true)
+        # The error is thrown before any buffer, and thereby the user cache, is created
+        struct FacetMatThrowingCache end
+        FerriteAssembly.allocate_facet_cache(::FacetMatThrowingCache, ::Any) = error("The facet cache should not be allocated")
+        throwing_domain = DomainSpec(dh, FacetMatThrowingCache(), fv; set=getfacetset(grid, "left"))
+        @test_throws "The facet cache should not be allocated" setup_domainbuffer(throwing_domain)
+        @test_throws "AutoDiffBuffer not implemented for FacetBuffer" setup_domainbuffer(throwing_domain; autodiffbuffer=true)
 
     end
 

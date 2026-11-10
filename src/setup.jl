@@ -133,19 +133,31 @@ function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
     return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
-create_states(domain::DomainSpec{Int}, a) = create_states(domain.sdh, domain.material, domain.fe_values, a, domain.set, create_dofrange(domain.sdh))
+DofBuffer(domain::DomainSpec) = DofBuffer(domain.sdh)
+
+function create_states(domain::DomainSpec{Int}, a)
+    return create_states(DofBuffer(domain), domain.sdh, domain.material, domain.fe_values, a, domain.set)
+end
 create_states(::DomainSpec{FacetIndex}, ::Any) = Dict{Int,Nothing}()
 
-function setup_itembuffer(adb, domain::DomainSpec{FacetIndex}, args...)
-    dofrange = create_dofrange(domain.sdh)
-    return setup_facetbuffer(adb, domain.sdh, domain.fe_values, domain.material, dofrange, domain.user_data)
-end
-function setup_itembuffer(adb, domain::DomainSpec{Int}, states)
-    dofrange = create_dofrange(domain.sdh)
+# Type-unstable switch
+setup_itembuffer(autodiff::Bool, domain::DomainSpec, states) = setup_itembuffer(Val(autodiff), domain, states)
+function setup_itembuffer(::Val{false}, domain::DomainSpec{Int}, states)
     # An empty `states` (empty domain.set) has no real cell to sample; `nothing` is used as a
     # placeholder, matching facet buffers, since it is never dereferenced (work! is a no-op).
     sample_state = isempty(states) ? nothing : first(values(states))
-    return setup_cellbuffer(adb, domain.sdh, domain.fe_values, domain.material, sample_state, dofrange, domain.user_data)
+    coords = sample_coordinates(domain.sdh)
+    return CellBuffer(DofBuffer(domain), coords, domain.fe_values, domain.material, sample_state, domain.user_data)
+end
+function setup_itembuffer(::Val{true}, domain::DomainSpec{Int}, states)
+    return AutoDiffCellBuffer(setup_itembuffer(Val(false), domain, states))
+end
+function setup_itembuffer(::Val{false}, domain::DomainSpec{FacetIndex}, states)
+    coords = sample_coordinates(domain.sdh)
+    return FacetBuffer(DofBuffer(domain), coords, domain.fe_values, domain.material, domain.user_data)
+end
+function setup_itembuffer(::Val{true}, ::DomainSpec{FacetIndex}, states)
+    error("AutoDiffBuffer not implemented for FacetBuffer")
 end
 
 function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false), kwargs...)
