@@ -60,6 +60,7 @@ function QuadPointEvaluator{VT}(domainbuffers::DomainBuffers, qe_type::Union{Sym
 end
 
 can_thread(::QuadPointEvaluator) = true 
+can_thread_shared_dofs(::QuadPointEvaluator) = true # Only writes to values that are unique for each cell
 skip_this_domain(::QuadPointEvaluator, ::String) = false
 
 create_local(qe::QuadPointEvaluator) = qe # Safe to alias
@@ -84,9 +85,12 @@ function work_single_cell!(qe::QuadPointEvaluator, cellbuffer)
 end
 
 function eval_quadpoints_cell!(vals::AbstractVector, f::Function, cell_state, ae, material, cv::AbstractCellValues, cellbuffer)
+    fieldnames = _spatial_fieldnames(cellbuffer)
+    length(fieldnames) == 1 || throw(DimensionMismatch("Only one field supported for `CellValues`"))
+    dr = dof_range(cellbuffer, first(fieldnames))
     for q_point in 1:getnquadpoints(cv)
-        u  = function_value(cv, q_point, ae)
-        ∇u = function_gradient(cv, q_point, ae)
+        u  = function_value(cv, q_point, ae, dr)
+        ∇u = function_gradient(cv, q_point, ae, dr)
         vals[q_point] = f(material, u, ∇u, _get_qp_state(cell_state, q_point))
     end
 end

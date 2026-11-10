@@ -117,6 +117,7 @@ SimpleIntegrator(fun::Function, val, domain::String) = SimpleIntegrator(fun, val
 
 # Properties:
 can_thread(::SimpleIntegrator) = true
+can_thread_shared_dofs(::SimpleIntegrator) = true # Only accumulates into task local values
 skip_this_domain(::SimpleIntegrator{<:Function,<:Any,Nothing}, ::String) = false
 skip_this_domain(ig::SimpleIntegrator{<:Function,<:Any,<:Set}, name::String) = name ∉ ig.domains
 
@@ -143,18 +144,20 @@ zero_val!(integrator::SimpleIntegrator{<:Function,<:Tuple}) = (integrator.val = 
 zero_val!(integrator::SimpleIntegrator) = (integrator.val = zero(integrator.val))
 
 function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv::AbstractCellValues, cellbuffer)
-    length(Ferrite.getfieldnames(cellbuffer)) == 1 || throw(DimensionMismatch("Only one field supported for `CellValues`"))
+    fieldnames = _spatial_fieldnames(cellbuffer)
+    length(fieldnames) == 1 || throw(DimensionMismatch("Only one field supported for `CellValues`"))
+    dr = dof_range(cellbuffer, first(fieldnames))
     for q_point in 1:getnquadpoints(cv)
         dΩ = getdetJdV(cv, q_point)
-        u = function_value(cv, q_point, ae)
-        ∇u = function_gradient(cv, q_point, ae)
+        u = function_value(cv, q_point, ae, dr)
+        ∇u = function_gradient(cv, q_point, ae, dr)
         f_val = integrator.fun(u, ∇u, _get_qp_state(cell_state, q_point))
         add_to_val!(integrator, f_val, dΩ)
     end
 end
 
 function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv::NamedTuple, cellbuffer)
-    length(Ferrite.getfieldnames(cellbuffer)) == length(cv) || throw(DimensionMismatch("Number of fields must match length of cellvalues tuple"))
+    length(_spatial_fieldnames(cellbuffer)) == length(cv) || throw(DimensionMismatch("Number of fields must match length of cellvalues tuple"))
     cv0 = first(values(cv))
     for q_point in 1:getnquadpoints(cv0)
         dΩ = getdetJdV(cv0, q_point)
@@ -167,18 +170,20 @@ function integrate_cell!(integrator::SimpleIntegrator, cell_state, ae, ::Any, cv
 end
 
 function integrate_facet!(integrator::SimpleIntegrator, ae, ::Any, fv::AbstractFacetValues, facetbuffer)
-    length(Ferrite.getfieldnames(facetbuffer)) == 1 || throw(DimensionMismatch("Only one field supported for single `FacetValues`"))
+    fieldnames = _spatial_fieldnames(facetbuffer)
+    length(fieldnames) == 1 || throw(DimensionMismatch("Only one field supported for single `FacetValues`"))
+    dr = dof_range(facetbuffer, first(fieldnames))
     for q_point in 1:getnquadpoints(fv)
         dΩ = getdetJdV(fv, q_point)
-        u = function_value(fv, q_point, ae)
-        ∇u = function_gradient(fv, q_point, ae)
+        u = function_value(fv, q_point, ae, dr)
+        ∇u = function_gradient(fv, q_point, ae, dr)
         f_val = integrator.fun(u, ∇u, getnormal(fv, q_point))
         add_to_val!(integrator, f_val, dΩ)
     end
 end
 
 function integrate_facet!(integrator::SimpleIntegrator, ae, ::Any, fv::NamedTuple, facetbuffer)
-    length(Ferrite.getfieldnames(facetbuffer)) == length(fv) || throw(DimensionMismatch("Number of fields must match length of facetvalues tuple"))
+    length(_spatial_fieldnames(facetbuffer)) == length(fv) || throw(DimensionMismatch("Number of fields must match length of facetvalues tuple"))
     fv0 = first(values(fv))
     for q_point in 1:getnquadpoints(fv0)
         dΩ = getdetJdV(fv0, q_point)

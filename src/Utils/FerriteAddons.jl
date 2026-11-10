@@ -13,6 +13,23 @@ function create_dofrange(sdh::SubDofHandler)
 end
 
 # ================================================= #
+# Algebraic variables                               #
+# ================================================= #
+# Ferrite has no public accessors for the following, access to the internal fields is collected here
+
+# The names of all algebraic variables in the dofhandler
+_algebraic_names(dh::DofHandler) = dh.algebraic_names
+_algebraic_names(sdh::SubDofHandler) = _algebraic_names(sdh.dh)
+_algebraic_names(::Ferrite.AbstractDofHandler) = Symbol[]
+
+# The `AlgebraicVariable` with name `name`
+function _algebraic_variable(dh::DofHandler, name::Symbol)
+    idx = findfirst(==(name), dh.algebraic_names)
+    idx === nothing && throw(ArgumentError(":$name is not an algebraic variable in the DofHandler"))
+    return dh.algebraic_variables[idx]
+end
+
+# ================================================= #
 # reinit!(::NamedTuple, args...)                    #
 # ================================================= #
 # Should be replaced by MultiCellValues

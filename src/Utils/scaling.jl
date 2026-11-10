@@ -35,13 +35,21 @@ for each cell
 ```
 Note that `p=Val(2)` is a special case that is supported, for different values 
 it should be given as a `Real`. `p=2` is equivalent to `Val(2)`, but is less efficient. 
+
+If `dh` contains algebraic variables, a scaling factor is also calculated for each of these, 
+based on the corresponding parts of the residual vectors for the items that use the variable
+(see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)).
 """
 struct ElementResidualScaling{T,P}
     factors::Dict{Symbol,T}
     p::P
 end
 function ElementResidualScaling(dh, p=Val(2), T=Float64)
-    return ElementResidualScaling(Dict(key=>zero(T) for key in Ferrite.getfieldnames(dh)), p)
+    factors = Dict(key=>zero(T) for key in Ferrite.getfieldnames(dh))
+    for key in _algebraic_names(dh)
+        factors[key] = zero(T)
+    end
+    return ElementResidualScaling(factors, p)
 end
 
 function update_scaling!(s::ElementResidualScaling, re, buffer, args...)

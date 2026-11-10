@@ -1,6 +1,6 @@
 """
-    DomainSpec(sdh::SubDofHandler, material, fe_values; set=_getcellset(sdh), colors_or_chunks=nothing, user_data=nothing)
-    DomainSpec(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing)
+    DomainSpec(sdh::SubDofHandler, material, fe_values; set=_getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_per_cell=())
+    DomainSpec(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_per_cell=())
 
 Create a `DomainSpec` that can be used to set up a domain buffer. 
 
@@ -26,6 +26,10 @@ Create a `DomainSpec` that can be used to set up a domain buffer.
   during work, care must be taken to ensure thread safety. 
   To avoid allocations, caches can be created separately with `allocate_cell_cache` and 
   `allocate_facet_cache`.
+* `algebraic_per_cell::NTuple{N, Symbol}`: **Experimental**. The names of the algebraic variables
+  (added to the dofhandler with `add!(dh, name, AlgebraicVariable())`) used in the domain.
+  The degrees of freedom for these variables are then added after the cell's degrees of
+  freedom for each item (cell or facet), see [Algebraic variables](@ref).
 """
 struct DomainSpec{I}
     sdh::SubDofHandler
@@ -34,11 +38,15 @@ struct DomainSpec{I}
     set::Union{AbstractVector{I},AbstractSet{I}}
     colors_or_chunks::Any
     user_data::Any
+    algebraic_per_cell::Tuple{Vararg{Symbol}}
 end
-function DomainSpec(sdh::SubDofHandler, material, values; set=_getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing)
+function DomainSpec(sdh::SubDofHandler, material, values; set=_getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_per_cell=())
     intersected_set = intersect_cellset_sort(set,_getcellset(sdh))
     colors_or_chunks = chunks!==nothing ? chunks : colors
-    return DomainSpec(sdh, material, values, intersected_set, colors_or_chunks, user_data)
+    if !isa(algebraic_per_cell, Tuple{Vararg{Symbol}})
+        throw(ArgumentError("`algebraic_per_cell` must be a tuple with the names (`Symbol`s) of the algebraic variables, got $(repr(algebraic_per_cell))"))
+    end
+    return DomainSpec(sdh, material, values, intersected_set, colors_or_chunks, user_data, algebraic_per_cell)
 end
 function DomainSpec(dh::DofHandler, args...; kwargs...)
     length(dh.subdofhandlers) > 1 && error("A domain requires a single SubDofHandler")
@@ -133,7 +141,7 @@ function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
     return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
-DofBuffer(domain::DomainSpec) = DofBuffer(domain.sdh)
+DofBuffer(domain::DomainSpec) = DofBuffer(domain.sdh, setup_layout(domain.sdh, domain.algebraic_per_cell))
 
 function create_states(domain::DomainSpec{Int}, dofbuffer::DofBuffer, a)
     return create_states(dofbuffer, domain.sdh, domain.material, domain.fe_values, a, domain.set)

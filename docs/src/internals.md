@@ -27,6 +27,16 @@ FerriteAssembly.fast_getindex
 FerriteAssembly._copydofs!
 ```
 
+## Algebraic layout
+```@docs
+FerriteAssembly.AlgebraicLayout
+FerriteAssembly.compute_fieldwise_ranges
+FerriteAssembly.setup_layout
+FerriteAssembly.create_dofrange
+FerriteAssembly.fill_celldofs!
+FerriteAssembly.update_algebraic_dofs!
+```
+
 ## States
 ```@docs
 FerriteAssembly.create_states

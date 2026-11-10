@@ -9,8 +9,8 @@ Each worker that supports a cellbuffer should overload this function.
 """
 function work_single_cell! end
 
-mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC} <: AbstractCellBuffer
-    const dofbuffer::DofBuffer{T,DR}  # Local dofs, dof values, residual, and stiffness
+mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,L} <: AbstractCellBuffer
+    const dofbuffer::DofBuffer{T,DR,L}# Local dofs, dof values, residual, and stiffness
     const coords::CC                  # cellcoords (or what is required to reinit cellvalues)
     const cellvalues::CV              # Can also be named tuple of cellvalues (will be updated to MultiCellValues later)
     Δt::T                             # Time step (updated at start of assembly loop)
@@ -52,6 +52,7 @@ end
 
 set_time_increment!(cb::CellBuffer, Δt) = (cb.Δt=Δt)
 @inline get_dofbuffer(cb::CellBuffer) = cb.dofbuffer
+@inline get_layout(cb::CellBuffer) = cb.dofbuffer.layout
 @inline get_material(cb::CellBuffer) = cb.material
 @inline get_values(cb::CellBuffer) = cb.cellvalues
 
@@ -115,7 +116,7 @@ abstract type AbstractCellBufferWrapper <: AbstractCellBuffer end
 function get_wrapped end
 
 for op in (:get_dofbuffer, :get_material, :get_values, :get_time_increment, :get_state, :get_old_state,
-        :get_user_data, :get_user_cache, :get_coupled_buffers, :(Ferrite.getcoordinates), :(Ferrite.cellid))
+        :get_user_data, :get_user_cache, :get_coupled_buffers, :get_layout, :(Ferrite.getcoordinates), :(Ferrite.cellid))
     @eval @inline $op(cb::AbstractCellBufferWrapper) = $op(get_wrapped(cb))
 end
 set_time_increment!(cb::AbstractCellBufferWrapper, Δt) = set_time_increment!(get_wrapped(cb), Δt)

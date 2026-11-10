@@ -43,6 +43,26 @@ jobs:
           disable_search: true
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  test-min-ferrite:
+    name: Julia 1 - Ferrite 1.7.0 (lower compat bound) - ${{ github.event_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JULIA_NUM_THREADS: 2
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v3
+      - run: |
+          julia --color=yes --project=. -e '
+            using Pkg
+            Pkg.add(PackageSpec(; name="Ferrite", version="1.7.0"))
+            Pkg.pin("Ferrite")
+            Pkg.instantiate()'
+        shell: bash
+      - uses: julia-actions/julia-runtest@v1
   docs:
     name: Documentation
     runs-on: ubuntu-latest
