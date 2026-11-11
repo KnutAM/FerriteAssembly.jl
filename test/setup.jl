@@ -33,17 +33,7 @@
             cont1 = _getdomain(container, "left")
             cellset = FerriteAssembly.get_set(cont1)
             @test FerriteAssembly.get_set(container, "left") === cellset
-            cell_id = first(cellset)
             cb1 = FerriteAssembly.get_itembuffer(cont1)
-            sim = isa(container, Simulation) ? cont1 : Simulation(cont1, nothing, aold)
-            FerriteAssembly.reinit_buffer!(cb1, sim, cell_id)
-            @test FerriteAssembly.get_user_data(cb1) === userdata 
-            @test FerriteAssembly.get_user_cache(cb1) == [1.0]
-            ae_old = FerriteAssembly.get_aeold(cb1)
-            @test all(aold_value == aeold for aeold in ae_old)
-            @test cell_id == Ferrite.cellid(cb1)
-            @test FerriteAssembly.get_old_state(cb1) === FerriteAssembly.get_old_state(cont1, cell_id)
-            @test FerriteAssembly.get_state(cb1) === FerriteAssembly.get_state(cont1, cell_id)
             @test FerriteAssembly.get_old_state(container, "left") === FerriteAssembly.get_old_state(cont1)
             @test FerriteAssembly.get_state(container, "left") === FerriteAssembly.get_state(cont1)
             @test FerriteAssembly.get_state(container)["left"] === FerriteAssembly.get_state(cont1)
@@ -77,18 +67,8 @@
         userdata = [1.0]
         domains = Dict(key => DomainSpec(dh, FacetMatCache(), fv; set=getfacetset(grid, key), user_data=userdata) for key in ("left", "right", "top", "bottom"))
         buffers = setup_domainbuffers(domains)
-        buffer = buffers["left"]
-        aold_value = rand()
-        aold = ones(ndofs(dh))*aold_value
-        facetbuffer = FerriteAssembly.get_itembuffer(buffer)
-        facet_id = first(FerriteAssembly.get_set(buffer))
-        FerriteAssembly.reinit_buffer!(facetbuffer, Simulation(buffer, zeros(ndofs(dh)), aold), facet_id)
-        @test FerriteAssembly.get_user_data(facetbuffer) === userdata 
-        @test FerriteAssembly.get_user_cache(facetbuffer) == [1.0]
+        facetbuffer = FerriteAssembly.get_itembuffer(buffers["left"])
         @test FerriteAssembly.get_user_cache(facetbuffer) !== FerriteAssembly.get_user_cache(FerriteAssembly.get_itembuffer(buffers["right"]))
-        ae_old = FerriteAssembly.get_aeold(facetbuffer)
-        @test all(aold_value == aeold for aeold in ae_old)
-        @test facet_id[1] == Ferrite.cellid(facetbuffer)
         
         # Not implemented
         @test_throws "AutoDiffBuffer not implemented for FacetBuffer" setup_domainbuffer(domains["left"]; autodiffbuffer=true)

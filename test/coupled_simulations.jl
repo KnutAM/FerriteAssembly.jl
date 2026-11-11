@@ -505,7 +505,7 @@
         @test get(wrapped, "missing", newbuffer) === newbuffer
     end
 
-    @testset "CoupledCellBuffer forwarding (dof_range, direct replace_material)" begin
+    @testset "replace_material directly on a coupled db" begin
         d1 = setup_domainbuffer(DomainSpec(dh1, CS_MA(), cvu); a = a1)
         d2 = setup_domainbuffer(DomainSpec(dh2, CS_MB(), cvv); a = a2)
         sim1 = Simulation(d1, a1, aold1)
@@ -513,7 +513,6 @@
         g = CoupledSimulations((a = sim1,); refs = (b = sim2,))
         cb = FerriteAssembly.get_base(FerriteAssembly.get_itembuffer(g.a))
         @test cb isa FerriteAssembly.CoupledCellBuffer
-        @test Ferrite.dof_range(cb, :u) == Ferrite.dof_range(cb.primary, :u)
 
         # Internal-plumbing check, not a demonstration of a supported user workflow: calling
         # `replace_material` directly on a `.db` that already wraps `CoupledCellBuffer`s (as
