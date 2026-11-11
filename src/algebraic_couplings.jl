@@ -1,7 +1,7 @@
 """
     algebraic_couplings(buffers...)
 
-Create a `Vector` of coupling descriptors for the domains with algebraic variables (see the 
+Create a `Vector` of coupling descriptors for the domains with algebraic variables (see the
 `algebraic_per_cell` keyword of [`DomainSpec`](@ref)) in `buffers`.
 Each element in `buffers` can be a domain buffer, a [`DomainBuffers`](@ref FerriteAssembly.DomainBuffers),
 or a [`Simulation`](@ref). The output can be passed to Ferrite's `allocate_matrix`, to allocate the
@@ -13,7 +13,7 @@ K = allocate_matrix(dh, ch; algebraic_couplings)
 For each domain, all fields in the domain are coupled to all algebraic variables in the domain,
 and all algebraic variables in the domain are coupled to each other. If this gives too many entries
 in the sparsity pattern, the coupling descriptors can instead be created manually. If more coupling
-entries are desired, they can be `push!`ed to `algebraic_coupling`.
+entries are desired, they can be `push!`ed to `algebraic_couplings`.
 """
 function algebraic_couplings(buffers...)
     couplings = Union{CellCoupling, FacetCoupling, AlgebraicCoupling}[]

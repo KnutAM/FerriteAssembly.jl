@@ -337,8 +337,12 @@ end
         a = rand(ndofs(dh))
         db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))
         couplings = FA.algebraic_couplings(db)
-        @test couplings isa Vector{Union{CellCoupling, FacetCoupling}}
         @test only(couplings) isa CellCoupling
+        # Additional descriptors can be added, here giving no new entries
+        extended = push!(copy(couplings), AlgebraicCoupling(algebraic_coupling = [(:λ, :λ)]))
+        K_ext = allocate_matrix(dh; algebraic_couplings = extended)
+        K_std = allocate_matrix(dh; algebraic_couplings = couplings)
+        @test K_ext.colptr == K_std.colptr && rowvals(K_ext) == rowvals(K_std)
         K_ref = allocate_matrix(dh; algebraic_couplings = couplings)
         r_ref = zeros(ndofs(dh))
         av_manual_heatmean!(K_ref, r_ref, dh, cv, material, a)
