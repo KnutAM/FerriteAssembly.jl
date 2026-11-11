@@ -135,31 +135,31 @@ _getnquadpoints(fe_v::Ferrite.AbstractValues) = getnquadpoints(fe_v)
 _getnquadpoints(nt::NamedTuple) = getnquadpoints(first(nt))
 
 """
-    _create_cell_state(cell, material, cellvalues, a, ae, dofrange, cellnr)
+    _create_cell_state(dofbuffer::DofBuffer, coords, material, cellvalues, a, sdh, cellnr)
 
-Internal function to reinit and extract the relevant quantities from the 
-`cell::CellCache`, reinit cellvalues, update `ae` from `a`, and 
+Internal function to update `coords`, reinit `cellvalues`, and update the local 
+dof values in `dofbuffer` from `a` for cell number `cellnr`, and 
 pass these into the `create_cell_state` function that the user should specify. 
 """
-function _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr)
-    getcoordinates!(coords, _getgrid(sdh), cellnr)
-    reinit!(cellvalues, getcells(_getgrid(sdh), cellnr), coords)
-    celldofs!(dofs, sdh.dh, cellnr)
-    _copydofs!(ae, a, dofs)
-    return create_cell_state(material, cellvalues, coords, ae, dofrange)
+function _create_cell_state(dofbuffer::DofBuffer, coords, material, cellvalues, a, sdh, cellnr)
+    grid = _getgrid(sdh)
+    getcoordinates!(coords, grid, cellnr)
+    reinit!(cellvalues, getcells(grid, cellnr), coords)
+    set_dofs!(dofbuffer, sdh.dh, cellnr)
+    _copydofs!(dofbuffer.ae, a, dofbuffer.dofs)
+    return create_cell_state(material, cellvalues, coords, dofbuffer.ae, dofbuffer.dofrange)
 end
 
 """
-    create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
+    create_states(dofbuffer::DofBuffer, sdh::SubDofHandler, material, cellvalues, a, cellset)
 
 Create a `Dict` of states for the cells in `cellset`, where the user should 
 define the [`create_cell_state`](@ref) function for their `material` (and corresponding `cellvalues`)
-`dofrange::NamedTuple` is passed onto `create_cell_state` and contains the local dof ranges for each field. 
+The local dof values and the local dof ranges for each field, which are passed to 
+`create_cell_state`, are taken from `dofbuffer` (see [`DofBuffer`](@ref FerriteAssembly.DofBuffer)).
 """
-function create_states(sdh::SubDofHandler, material, cellvalues, a, cellset, dofrange)
+function create_states(dofbuffer::DofBuffer, sdh::SubDofHandler, material, cellvalues, a, cellset)
     isempty(cellset) && return Dict{eltype(cellset), Nothing}()
-    ae = zeros(ndofs_per_cell(sdh))
     coords = getcoordinates(_getgrid(sdh), first(cellset))
-    dofs = zeros(Int, ndofs_per_cell(sdh))
-    return Dict(cellnr => _create_cell_state(coords, dofs, material, cellvalues, a, ae, dofrange, sdh, cellnr) for cellnr in cellset)
+    return Dict(cellnr => _create_cell_state(dofbuffer, coords, material, cellvalues, a, sdh, cellnr) for cellnr in cellset)
 end

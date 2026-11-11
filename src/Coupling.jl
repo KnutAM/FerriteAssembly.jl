@@ -232,7 +232,7 @@ function build_coupled_simulation(name::Symbol, reader_sim::Simulation, all_memb
     return CoupledSimulation(new_sim, partner_sims)
 end
 
-_scratch_identity(cb::CellBuffer) = cb.ae # survives replace_material's setproperties (fields copied by reference)
+_scratch_identity(cb::CellBuffer) = get_ae(cb) # survives replace_material's setproperties (fields copied by reference)
 
 function _domain_entries(name::Symbol, sim::Simulation)
     db = sim.db

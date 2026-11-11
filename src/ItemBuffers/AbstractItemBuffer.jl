@@ -1,7 +1,16 @@
 abstract type AbstractItemBuffer end
 
 # Access functions
-function get_ae end
+"""
+    get_dofbuffer(itembuffer::AbstractItemBuffer)
+
+Get the [`DofBuffer`](@ref FerriteAssembly.DofBuffer) for the item. Internal function, which each
+item buffer must define. The accessors for the local dofs, their values, and the local residual
+and stiffness are defined for all item buffers by using this function.
+"""
+function get_dofbuffer end
+
+@inline get_ae(b::AbstractItemBuffer) = get_dofbuffer(b).ae
 """
     get_aeold(itembuffer::AbstractItemBuffer)
 
@@ -10,10 +19,10 @@ in the itembuffer.
 
 **Note:** Filled by `NaN`s unless `aold` is passed to `work!`
 """
-function get_aeold end
+@inline get_aeold(b::AbstractItemBuffer) = get_dofbuffer(b).ae_old
 
-function get_re end
-function get_Ke end
+@inline get_re(b::AbstractItemBuffer) = get_dofbuffer(b).re
+@inline get_Ke(b::AbstractItemBuffer) = get_dofbuffer(b).Ke
 function get_material end
 function get_values end
 """
@@ -70,7 +79,7 @@ item buffer, e.g. by calling `get_state(coupled_buffer)`.
 Get the degree of freedom indices for the current cell referred to 
 by the current item. 
 """
-Ferrite.celldofs(::AbstractItemBuffer) = error("Not supported") # Implemented for specific buffers
+@inline Ferrite.celldofs(b::AbstractItemBuffer) = get_dofbuffer(b).dofs
 
 """
     Ferrite.getcoordinates(::AbstractItemBuffer)
@@ -93,7 +102,10 @@ Get the `dof_range` for a specific field, same as
 `Ferrite.dof_range(::SubDofHandler, ::Symbol)`, 
 but fully type-stable. 
 """
-Ferrite.dof_range(::AbstractItemBuffer, ::Symbol) = error("Not implemented")
+@inline Ferrite.dof_range(b::AbstractItemBuffer, name::Symbol) = get_dofbuffer(b).dofrange[name]
+
+# Internal overload for now
+Ferrite.getfieldnames(b::AbstractItemBuffer) = keys(get_dofbuffer(b).dofrange)
 
 # Set functions
 # No docstring - public API is calling this on a domain buffer

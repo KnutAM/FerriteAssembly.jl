@@ -2,8 +2,22 @@
 Note that the internal API may change without being considered a breaking change!
 
 ## Item buffers
+An item buffer holds what is required to work one item (cell or facet). The parts are kept in
+one place each, such that an extension only needs to change that place:
+
+* The local degrees of freedom (which global dofs an item has, their local order, and the
+  arrays with this size) are defined by the `DofBuffer`, which is used by `CellBuffer`,
+  `FacetBuffer`, and by the creation of state variables.
+* A cell buffer wrapping another cell buffer subtypes `AbstractCellBufferWrapper`, which
+  forwards all accessor functions to the wrapped buffer.
+* The setup functions take the [`DomainSpec`](@ref) and get the information they need from it.
+
 ```@docs
+FerriteAssembly.DofBuffer
+FerriteAssembly.get_dofbuffer
+FerriteAssembly.set_dofs!
 FerriteAssembly.CellBuffer
+FerriteAssembly.AbstractCellBufferWrapper
 FerriteAssembly.AutoDiffCellBuffer
 FerriteAssembly.FacetBuffer
 FerriteAssembly.CoupledCellBuffer

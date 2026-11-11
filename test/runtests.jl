@@ -8,6 +8,7 @@ import MaterialModelsBase as MMB
 import MechanicalMaterialModels as MMM
 using Logging
 
+include("itembuffers.jl")
 include("replacements.jl")
 include("coupled_simulations.jl")
 include("states.jl")
