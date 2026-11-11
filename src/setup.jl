@@ -141,7 +141,7 @@ end
 create_states(::DomainSpec{FacetIndex}, ::Any, ::Any) = Dict{Int,Nothing}()
 
 # Type-unstable switch
-setup_itembuffer(autodiff::Bool, domain::DomainSpec, states) = setup_itembuffer(Val(autodiff), domain, states)
+setup_itembuffer(autodiff::Bool, domain::DomainSpec, dofbuffer::DofBuffer, states) = setup_itembuffer(Val(autodiff), domain, dofbuffer, states)
 function setup_itembuffer(::Val{false}, domain::DomainSpec{Int}, dofbuffer::DofBuffer, states)
     # An empty `states` (empty domain.set) has no real cell to sample; `nothing` is used as a
     # placeholder, matching facet buffers, since it is never dereferenced (work! is a no-op).
@@ -149,22 +149,22 @@ function setup_itembuffer(::Val{false}, domain::DomainSpec{Int}, dofbuffer::DofB
     coords = sample_coordinates(domain.sdh)
     return CellBuffer(dofbuffer, coords, domain.fe_values, domain.material, sample_state, domain.user_data)
 end
-function setup_itembuffer(::Val{true}, domain::DomainSpec{Int}, states)
-    return AutoDiffCellBuffer(setup_itembuffer(Val(false), domain, states))
+function setup_itembuffer(::Val{true}, domain::DomainSpec{Int}, dofbuffer::DofBuffer, states)
+    return AutoDiffCellBuffer(setup_itembuffer(Val(false), domain, dofbuffer, states))
 end
 function setup_itembuffer(::Val{false}, domain::DomainSpec{FacetIndex}, dofbuffer::DofBuffer, states)
     coords = sample_coordinates(domain.sdh)
     return FacetBuffer(dofbuffer, coords, domain.fe_values, domain.material, domain.user_data)
 end
-function setup_itembuffer(::Val{true}, ::DomainSpec{FacetIndex}, states)
+function setup_itembuffer(::Val{true}, ::DomainSpec{FacetIndex}, ::DofBuffer, states)
     error("AutoDiffBuffer not implemented for FacetBuffer")
 end
 
 function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false), kwargs...)
-    dof_buffer = DofBuffer(domain)
-    new_states = create_states(domain, dof_buffer, a)
-    old_states = create_states(domain, dof_buffer, a)
-    itembuffer = setup_itembuffer(autodiffbuffer, domain, dof_buffer, new_states)
+    dofbuffer = DofBuffer(domain)
+    new_states = create_states(domain, dofbuffer, a)
+    old_states = create_states(domain, dofbuffer, a)
+    itembuffer = setup_itembuffer(autodiffbuffer, domain, dofbuffer, new_states)
     return _setup_domainbuffer(threaded, domain.set, itembuffer, StateVariables(old_states, new_states), domain.sdh, domain.colors_or_chunks; kwargs...)
 end
 
