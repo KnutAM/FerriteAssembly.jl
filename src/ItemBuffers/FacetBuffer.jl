@@ -74,9 +74,8 @@ function reinit_buffer!(fb::FacetBuffer, sim::Simulation, fi::FacetIndex)
     cellnum = first(fi)
     dh = get_dofhandler(sim)
     fb.cellid = cellnum
-    update_dofs!(fb.dofbuffer, dh, cellnum)
+    reinit_buffer!(fb.dofbuffer, sim, cellnum)
     reinit_values!(fb.facetvalues, fb.coords, dh.grid, fi)
-    update_dofvalues!(fb.dofbuffer, sim.a, sim.aold)
     return nothing  # Ferrite's reinit! doesn't return 
 end
 

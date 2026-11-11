@@ -92,9 +92,8 @@ function reinit_buffer!(cb::CellBuffer, sim::Simulation, cellnum::Int)
     cb.cellid = cellnum
     cb.old_state = get_old_state(sim, cellnum)
     cb.state = get_state(sim, cellnum)
-    update_dofs!(cb.dofbuffer, dh, cellnum)
+    reinit_buffer!(cb.dofbuffer, sim, cellnum)
     reinit_values!(cb.cellvalues, cb.coords, dh.grid, cellnum)
-    update_dofvalues!(cb.dofbuffer, sim.a, sim.aold)
     return nothing  # Ferrite's reinit! doesn't return
 end
 

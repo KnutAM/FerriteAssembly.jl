@@ -23,15 +23,17 @@
         @test all(length(getfield(d, name)) == ndofs_per_cell(sdh) for name in (:ae_old, :ae, :re, :dofs))
         @test size(d.Ke) == (ndofs_per_cell(sdh), ndofs_per_cell(sdh))
 
-        FA.update_dofs!(d, dh, cellnum)
+        FA.set_dofs!(d, dh, cellnum)
         @test d.dofs == celldofs(dh, cellnum)
 
-        fill!(d.Ke, 1); fill!(d.re, 1)
-        FA.update_dofvalues!(d, a, nothing)
+        db = setup_domainbuffer(DomainSpec(dh, nothing, cv))
+        fill!(d.Ke, 1); fill!(d.re, 1); fill!(d.dofs, 0)
+        FA.reinit_buffer!(d, Simulation(db, a, nothing), cellnum)
+        @test d.dofs == celldofs(dh, cellnum)
         @test d.ae == a[celldofs(dh, cellnum)]
         @test all(isnan, d.ae_old)
         @test all(iszero, d.Ke) && all(iszero, d.re)
-        FA.update_dofvalues!(d, nothing, aold)
+        FA.reinit_buffer!(d, Simulation(db, nothing, aold), cellnum)
         @test all(isnan, d.ae)
         @test d.ae_old == aold[celldofs(dh, cellnum)]
 

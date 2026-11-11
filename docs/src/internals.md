@@ -16,8 +16,7 @@ one place each, such that an extension only needs to change that place:
 ```@docs
 FerriteAssembly.DofBuffer
 FerriteAssembly.get_dofbuffer
-FerriteAssembly.update_dofs!
-FerriteAssembly.update_dofvalues!
+FerriteAssembly.set_dofs!
 FerriteAssembly.reinit_values!
 FerriteAssembly.CellBuffer
 FerriteAssembly.AbstractCellBufferWrapper
