@@ -10,6 +10,15 @@ and stiffness are defined for all item buffers by using this function.
 """
 function get_dofbuffer end
 
+"""
+    get_ae(itembuffer::AbstractItemBuffer)
+
+Get the values of the item's local degrees of freedom stored in the itembuffer,
+e.g. for a coupled buffer, see [`get_coupled_buffer`](@ref).
+
+**Note:** In `element_residual!`, use the input `ae` instead, as `get_ae(itembuffer)`
+doesn't contain the dual numbers required for automatic differentiation.
+"""
 @inline get_ae(b::AbstractItemBuffer) = get_dofbuffer(b).ae
 """
     get_aeold(itembuffer::AbstractItemBuffer)

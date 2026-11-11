@@ -103,18 +103,19 @@ FerriteAssembly.allocate_facet_cache(::AVStateMaterial, fv) = :facetcache
 
 # Record information available in the buffer for each quadrature point (using the `QuadPointEvaluator`)
 # (λ, z[1], z[2], global dof for λ, first global dof for z), with `z = (NaN, NaN)` if not available
-function av_record(buffer, zbuffer)
+function av_record(buffer, ae, zbuffer, zae)
     rλ = dof_range(buffer, :λ)
-    λ = algebraic_value(FA.get_algebraic_values(buffer, :λ), FA.get_ae(buffer), rλ)
+    λ = algebraic_value(FA.get_algebraic_values(buffer, :λ), ae, rλ)
     rz = dof_range(zbuffer, :z)
-    z = algebraic_value(FA.get_algebraic_values(zbuffer, :z), FA.get_ae(zbuffer), rz)
+    z = algebraic_value(FA.get_algebraic_values(zbuffer, :z), zae, rz)
     return (λ, z[1], z[2], Float64(celldofs(buffer)[only(rλ)]), Float64(celldofs(zbuffer)[first(rz)]))
 end
 function FerriteAssembly.eval_quadpoints_cell!(vals::AbstractVector, ::Val{:av_record}, state, ae, m, cv, buffer)
-    fill!(vals, av_record(buffer, buffer))
+    fill!(vals, av_record(buffer, ae, buffer, ae))
 end
 function FerriteAssembly.eval_quadpoints_cell!(vals::AbstractVector, ::Val{:av_record_coupled}, state, ae, m, cv, buffer)
-    fill!(vals, av_record(buffer, FA.get_coupled_buffer(buffer, :b)))
+    zbuffer = FA.get_coupled_buffer(buffer, :b)
+    fill!(vals, av_record(buffer, ae, zbuffer, FA.get_ae(zbuffer)))
 end
 
 # Worker that can be threaded, but doesn't support domains with dofs shared between all items.

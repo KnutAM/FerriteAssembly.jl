@@ -90,6 +90,8 @@ element_routine!(args...) = element_routine_ad!(args...)    # If not defined, tr
 To calculate the element tangent stiffness `Ke` automatically by using `ForwardDiff`,
 it is possible to overload `element_residual!` instead of `element_routine!`. See 
 [`element_routine!`](@ref) for a description of the input parameters. 
+The values of the item's degrees of freedom must be taken from the input `ae`, and not from
+[`get_ae(buffer)`](@ref FerriteAssembly.get_ae), for the tangent stiffness to be correct.
 
 !!! note 
     `MethodError` with `ForwardDiff.Dual`\\
