@@ -8,7 +8,6 @@ one place each, such that an extension only needs to change that place:
 * The local degrees of freedom (which global dofs an item has, their local order, and the
   arrays with this size) are defined by the `DofBuffer`, which is used by `CellBuffer`,
   `FacetBuffer`, and by the creation of state variables.
-* The cell coordinates and the values (e.g. `CellValues`) are updated by `reinit_values!`.
 * A cell buffer wrapping another cell buffer subtypes `AbstractCellBufferWrapper`, which
   forwards all accessor functions to the wrapped buffer.
 * The setup functions take the [`DomainSpec`](@ref) and get the information they need from it.
@@ -17,7 +16,6 @@ one place each, such that an extension only needs to change that place:
 FerriteAssembly.DofBuffer
 FerriteAssembly.get_dofbuffer
 FerriteAssembly.set_dofs!
-FerriteAssembly.reinit_values!
 FerriteAssembly.CellBuffer
 FerriteAssembly.AbstractCellBufferWrapper
 FerriteAssembly.AutoDiffCellBuffer

@@ -49,21 +49,3 @@ Reinitialize `d` for the item belonging to cell number `cellnum`: Set the global
     fill!(d.re, 0)
     return nothing
 end
-
-"""
-    reinit_values!(values, coords, grid, cellnum::Int)
-    reinit_values!(values, coords, grid, facet::FacetIndex)
-
-Update the cell coordinates, `coords`, and reinitialize `values` (e.g. `CellValues`
-or `FacetValues`, or a `NamedTuple` of such) for the given cell or facet in `grid`.
-"""
-@inline function reinit_values!(values, coords, grid, cellnum::Int)
-    getcoordinates!(coords, grid, cellnum)
-    reinit!(values, getcells(grid, cellnum), coords)
-    return nothing
-end
-@inline function reinit_values!(values, coords, grid, (cellnum, facetnr)::FacetIndex)
-    getcoordinates!(coords, grid, cellnum)
-    reinit!(values, getcells(grid, cellnum), coords, facetnr)
-    return nothing
-end

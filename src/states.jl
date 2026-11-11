@@ -142,7 +142,9 @@ dof values in `dofbuffer` from `a` for cell number `cellnr`, and
 pass these into the `create_cell_state` function that the user should specify. 
 """
 function _create_cell_state(dofbuffer::DofBuffer, coords, material, cellvalues, a, sdh, cellnr)
-    reinit_values!(cellvalues, coords, _getgrid(sdh), cellnr)
+    grid = _getgrid(sdh)
+    getcoordinates!(coords, grid, cellnr)
+    reinit!(cellvalues, getcells(grid, cellnr), coords)
     set_dofs!(dofbuffer, sdh.dh, cellnr)
     _copydofs!(dofbuffer.ae, a, dofbuffer.dofs)
     return create_cell_state(material, cellvalues, coords, dofbuffer.ae, dofbuffer.dofrange)
