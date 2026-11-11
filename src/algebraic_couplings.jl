@@ -1,20 +1,22 @@
 """
     algebraic_couplings(buffers...)
 
-Create the coupling descriptors, `Vector{Union{CellCoupling, FacetCoupling}}`, for the domains with
-algebraic variables (see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)) in `buffers`.
+Create a `Vector` of coupling descriptors for the domains with algebraic variables (see the 
+`algebraic_per_cell` keyword of [`DomainSpec`](@ref)) in `buffers`.
 Each element in `buffers` can be a domain buffer, a [`DomainBuffers`](@ref FerriteAssembly.DomainBuffers),
 or a [`Simulation`](@ref). The output can be passed to Ferrite's `allocate_matrix`, to allocate the
 entries required for the algebraic variables in the sparsity pattern, i.e.
 ```julia
-K = allocate_matrix(dh, ch; algebraic_couplings = FerriteAssembly.algebraic_couplings(cellbuffers, facetbuffers))
+algebraic_couplings = FerriteAssembly.algebraic_couplings(cellbuffers, facetbuffers)
+K = allocate_matrix(dh, ch; algebraic_couplings)
 ```
 For each domain, all fields in the domain are coupled to all algebraic variables in the domain,
 and all algebraic variables in the domain are coupled to each other. If this gives too many entries
-in the sparsity pattern, the coupling descriptors can instead be created manually.
+in the sparsity pattern, the coupling descriptors can instead be created manually. If more coupling
+entries are desired, they can be `push!`ed to `algebraic_coupling`.
 """
 function algebraic_couplings(buffers...)
-    couplings = Union{CellCoupling, FacetCoupling}[]
+    couplings = Union{CellCoupling, FacetCoupling, AlgebraicCoupling}[]
     foreach(b -> add_algebraic_couplings!(couplings, b), buffers)
     return couplings
 end
