@@ -389,6 +389,7 @@ end
     @testset "Facet domain" begin
         dh = setup_dh()
         a = rand(ndofs(dh))
+        a[only(algebraic_dofs(dh, :λ))] = 1.0 # Nonzero residual for the u dofs, independent of the random u values
         facetset = getfacetset(dh.grid, "right")
         db = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; set = facetset, algebraic_per_cell = (:λ,)))
         couplings = FA.algebraic_couplings(db)
@@ -597,6 +598,7 @@ end
         variables = (:λ => AlgebraicVariable(), :z => AlgebraicVariable{Vec{2}}())
         dh = setup_dh(; variables)
         a = rand(ndofs(dh))
+        a[only(algebraic_dofs(dh, :λ))] = 1.0 # Nonzero facet residual for the u dofs, independent of the random u values
         # Setup all buffers before renumbering
         db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))
         db_record = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ, :z)))
