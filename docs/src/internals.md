@@ -30,7 +30,6 @@ FerriteAssembly._copydofs!
 ## Algebraic layout
 ```@docs
 FerriteAssembly.AlgebraicLayout
-FerriteAssembly.compute_fieldwise_ranges
 FerriteAssembly.setup_layout
 FerriteAssembly.create_dofrange
 FerriteAssembly.fill_celldofs!

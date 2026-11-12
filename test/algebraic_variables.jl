@@ -251,28 +251,24 @@ end
     material = AVHeatMean(1.2, 0.7, 2.5)
     facetmaterial = AVFacetMean(0.4)
 
-    @testset "Layout computation" begin
-        # Only standalone variables: The cell dofs are not moved
-        r = FA.compute_fieldwise_ranges([:u => 8, :p => 4], Dict{Symbol, Vector{Pair{Symbol, Int}}}(), [:a => 1, :b => 3])
-        @test r.field_sources == [1:8, 9:12]
-        @test r.field_destinations == [1, 9]
-        @test r.field_ranges == [1:8, 9:12]
-        @test r.variable_names == [:a, :b]
-        @test r.variable_ranges == [13:13, 14:16]
-        @test r.ndofs == 16
-        # Variables attached to a field are located directly after the field's cell dofs
-        r = FA.compute_fieldwise_ranges([:u => 8, :p => 4], Dict(:u => [:H => 3, :γ => 2]), [:a => 1])
-        @test r.field_sources == [1:8, 9:12]
-        @test r.field_destinations == [1, 14]
-        @test r.field_ranges == [1:13, 14:17]
-        @test r.variable_names == [:H, :γ, :a]
-        @test r.variable_ranges == [9:11, 12:13, 18:18]
-        @test r.ndofs == 18
-        r = FA.compute_fieldwise_ranges([:u => 8, :p => 4], Dict(:p => [:H => 2]), Pair{Symbol, Int}[])
-        @test r.field_destinations == [1, 9]
-        @test r.field_ranges == [1:8, 9:14]
-        @test r.variable_ranges == [13:14]
-        @test r.ndofs == 14
+    @testset "Layout" begin
+        grid = generate_grid(Quadrilateral, (2, 2))
+        dh = DofHandler(grid)
+        add!(dh, :u, Lagrange{RefQuadrilateral, 1}()^2)
+        add!(dh, :p, ip)
+        add!(dh, :λ, AlgebraicVariable())
+        add!(dh, :z, AlgebraicVariable{Vec{2}}())
+        close!(dh)
+        sdh = only(dh.subdofhandlers)
+        @test FA.setup_layout(sdh, ()) === nothing
+        # The cell dofs are not moved, and the variables follow in the given order
+        layout = FA.setup_layout(sdh, (:z, :λ))
+        @test layout.ncelldofs == 12
+        @test layout.ranges == (z = 13:14, λ = 15:15)
+        @test keys(layout.values) == (:z, :λ)
+        @test FA.ndofs_per_item(sdh, layout) == 15
+        @test FA.create_dofrange(sdh, layout) == (u = 1:8, p = 9:12, z = 13:14, λ = 15:15)
+        @test (@inferred FA._spatial_fieldnames((:u, :p, :z, :λ), layout)) == (:u, :p)
     end
 
     @testset "Ferrite helpers" begin

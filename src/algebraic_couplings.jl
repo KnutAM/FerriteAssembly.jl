@@ -30,7 +30,7 @@ function add_algebraic_couplings!(couplings, db::StdDomainBuffer)
     layout = get_layout(get_base(get_itembuffer(db)))
     set = get_set(db)
     (layout === nothing || isempty(set)) && return couplings
-    names = layout.names
+    names = keys(layout.ranges)
     pairs = Tuple{Symbol, Symbol}[]
     for fieldname in Ferrite.getfieldnames(db.sdh), name in names
         push!(pairs, (fieldname, name))
