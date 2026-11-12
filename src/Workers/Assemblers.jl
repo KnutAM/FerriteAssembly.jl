@@ -1,6 +1,6 @@
 
 function create_local(a::Ferrite.AbstractAssembler)
-    _start_assemble(a.K, a.f; fillzero=false, atomic=_is_atomic(a))::typeof(a)
+    start_assemble(a.K, a.f; fillzero=false, atomic=_is_atomic(a))::typeof(a)
 end
 
 scatter!(::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
@@ -116,7 +116,7 @@ struct KeReAssembler{A<:Ferrite.AbstractAssembler, CH, SC}
     can_thread::Bool
 end
 function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, atomic::Bool=false, kwargs...)
-    a = _start_assemble(K, r; fillzero, atomic)
+    a = start_assemble(K, r; fillzero, atomic)
     return KeReAssembler(a; kwargs...)
 end
 function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=nothing, scaling=NoScaling())
