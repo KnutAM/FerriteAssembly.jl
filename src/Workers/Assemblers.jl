@@ -7,6 +7,7 @@ scatter!(::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
 gather!( ::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
 
 can_thread(::Ferrite.AbstractAssembler) = true
+can_thread_shared_dofs(a::Ferrite.AbstractAssembler) = _is_atomic(a)
 
 function work_single_cell!(assembler::Ferrite.AbstractAssembler, cellbuffer)
     Ke = get_Ke(cellbuffer)
@@ -61,6 +62,7 @@ scatter!(task::ReAssembler, base::ReAssembler) = scatter!(task.scaling, base.sca
 gather!(base::ReAssembler, task::ReAssembler) = gather!(base.scaling, task.scaling)
 
 can_thread(::ReAssembler) = true
+can_thread_shared_dofs(::ReAssembler) = false
 
 function work_single_cell!(assembler::ReAssembler, cellbuffer)
     re = get_re(cellbuffer)
@@ -155,7 +157,7 @@ function gather!(base::KeReAssembler, task::KeReAssembler)
 end
 
 can_thread(a::KeReAssembler) = a.can_thread
-can_thread_shared_dofs(a::KeReAssembler) = a.atomic
+can_thread_shared_dofs(a::KeReAssembler) = _is_atomic(a.a)
 
 # assemble! routines
 # # No constraint handler - no local application of constraints

@@ -34,3 +34,8 @@ end
 # ================================================= #
 # Should be replaced by MultiCellValues
 Ferrite.reinit!(vals::NamedTuple, args...) = map(v->reinit!(v, args...), values(vals))
+
+# ================================================= #
+# Ferrite.AbstractAssembler                         #
+# ================================================= #
+_is_atomic(a::Ferrite.AbstractAssembler) = Ferrite._is_atomic(a)
