@@ -758,32 +758,32 @@ end
         end
 
         @testset "assembly" begin
-            for (seq, thr) in ((db, dbt), (dbf, dbft))
+            for (sequential, threaded) in ((db, dbt), (dbf, dbft))
                 K_ref = allocate_matrix(dh; algebraic_couplings = couplings)
                 r_ref = zeros(ndofs(dh))
-                work!(KeReAssembler(K_ref, r_ref), seq; a = a)
+                work!(KeReAssembler(K_ref, r_ref), sequential; a = a)
 
                 # Atomic assembly is done multithreaded
                 K = allocate_matrix(dh; algebraic_couplings = couplings)
                 r = zeros(ndofs(dh))
-                @test_logs work!(KeReAssembler(K, r; atomic = true), thr; a = a)
+                @test_logs work!(KeReAssembler(K, r; atomic = true), threaded; a = a)
                 @test K ≈ K_ref
                 @test r ≈ r_ref
-                @test_logs work!(KeReAssembler(start_assemble(K, r; atomic = true)), thr; a = a)
+                @test_logs work!(KeReAssembler(start_assemble(K, r; atomic = true)), threaded; a = a)
                 @test K ≈ K_ref
                 @test r ≈ r_ref
-                @test_logs work!(start_assemble(K, r; atomic = true), thr; a = a)
+                @test_logs work!(start_assemble(K, r; atomic = true), threaded; a = a)
                 @test K ≈ K_ref
                 @test r ≈ r_ref
 
                 # Workers that are not safe for shared dofs fall back to sequential assembly
-                @test_logs (:warn, r"algebraic variables") work!(KeReAssembler(K, r), thr; a = a)
+                @test_logs (:warn, r"algebraic variables") work!(KeReAssembler(K, r), threaded; a = a)
                 @test K ≈ K_ref
                 @test r ≈ r_ref
                 fill!(r, 0)
-                @test_logs (:warn, r"algebraic variables") work!(ReAssembler(r), thr; a = a)
+                @test_logs (:warn, r"algebraic variables") work!(ReAssembler(r), threaded; a = a)
                 @test r ≈ r_ref
-                @test_logs (:warn, r"algebraic variables") work!(start_assemble(K, r), thr; a = a)
+                @test_logs (:warn, r"algebraic variables") work!(start_assemble(K, r), threaded; a = a)
                 @test K ≈ K_ref
                 @test r ≈ r_ref
             end
