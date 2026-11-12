@@ -60,6 +60,7 @@ FerriteAssembly._uncouple
 ```@docs
 FerriteAssembly.skip_this_domain
 FerriteAssembly.can_thread
+FerriteAssembly.can_thread_shared_dofs
 FerriteAssembly.work_single_cell!
 FerriteAssembly.work_single_facet!
 FerriteAssembly.autogenerate_cellvalues

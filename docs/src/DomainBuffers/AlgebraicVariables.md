@@ -62,19 +62,8 @@ A degree of freedom that doesn't get any contributions, e.g. a component of a te
 isn't used in any element, must be constrained to avoid a singular system matrix.
 
 ## Multithreading
-The degrees of freedom of an algebraic variable are shared between all items in the domain. The coloring
-used for multithreading does therefore not prevent race conditions when assembling. Consequently, a threaded
-domain with algebraic variables is worked sequentially, unless the worker supports multithreading for
-such domains:
-```@docs
-FerriteAssembly.can_thread_shared_dofs
-```
-For assembling the system matrix and residual, this is supported by `KeReAssembler(K, r; atomic = true)`,
-where the task-local assemblers are atomic `Ferrite` assemblers. The result of such an assembly is not
-deterministic to machine precision, since the order of the additions depends on the task scheduling.
-The [`ReAssembler`](@ref), `Ferrite`'s assemblers, and a `KeReAssembler` created without `atomic = true`
-work such domains sequentially. The [`SimpleIntegrator`](@ref) and [`QuadPointEvaluator`](@ref) work
-multithreaded as for other domains.
+Multithreaded assembly of domains with algebraic variables requires an atomic assembler, e.g.
+`KeReAssembler(K, r; atomic = true)`. Otherwise, such domains are assembled sequentially.
 
 ## Further details
 * **Automatic differentiation**: Defining only `element_residual!` works as for other cell domains,
