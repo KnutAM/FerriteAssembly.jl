@@ -233,6 +233,41 @@
         wait(interruptor)
         @test caught isa InterruptException
     end
+
+    @static if isdefined(Base, :CANCEL_TOKEN)
+        @testset "cancellation of the caller's scope (Ctrl-C on Julia 1.14+)" begin
+            # Ctrl-C cancels the token of the caller's scope. The spawned tasks must not be
+            # cancelled themselves (they stop via `abort[]`), and since the cancellation persists,
+            # draining must not spin on repeated `CancellationRequest`s (which would be counted
+            # as multiple asynchronous exceptions and logged).
+            src = Base.CancellationTokenSource()
+            started = Threads.Atomic{Bool}(false)
+            finished = Threads.Atomic{Int}(0)
+            canceller = Threads.@spawn begin
+                wait_for(() -> started[])
+                Base.cancel!(src)
+            end
+            caught = nothing
+            # Logs are checked outside the cancelled scope, where printing test results works.
+            logs, _ = Test.collect_test_logs() do
+                Base.ScopedValues.with(Base.CANCEL_TOKEN => Base.CancellationToken(src)) do
+                    try
+                        FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
+                            taskid == 1 && (started[] = true)
+                            wait_for(() -> abort[]; timeout = 30.0) # sleep is a cancellation point
+                            Threads.atomic_add!(finished, 1)
+                        end
+                    catch e
+                        caught = e
+                    end
+                end
+            end
+            wait(canceller)
+            @test caught isa Base.CancellationRequest
+            @test finished[] == 2
+            @test isempty(logs)
+        end
+    end
 end
 
 # `drain_tasks` is the lower-level primitive `spawn_tasks_safe_wait` builds on; it is only ever

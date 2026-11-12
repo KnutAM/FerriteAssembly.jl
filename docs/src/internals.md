@@ -71,6 +71,7 @@ FerriteAssembly.autogenerate_facetvalues
 FerriteAssembly.TaskChunks
 FerriteAssembly.drain_tasks
 FerriteAssembly.spawn_tasks_safe_wait
+FerriteAssembly.shield_interrupts
 ```
 
 ## Utilities

@@ -1,4 +1,21 @@
 """
+    shield_interrupts(f)
+
+Call `f()` such that it cannot be interrupted by Ctrl-C. On Julia 1.14 and later, Ctrl-C is
+delivered as a cancellation, and `f` is run with `Base.CANCEL_TOKEN => nothing`; tasks spawned
+by `f` inherit this shielding. On earlier versions, `f` is run with `disable_sigint`.
+"""
+function shield_interrupts end
+
+@static if isdefined(Base, :CANCEL_TOKEN)
+    shield_interrupts(f) = Base.ScopedValues.with(f, Base.CANCEL_TOKEN => nothing)
+    is_cancellation(e) = e isa Base.CancellationRequest
+else
+    shield_interrupts(f) = disable_sigint(f)
+    is_cancellation(_) = false
+end
+
+"""
     spawn_tasks_safe_wait(f, num_tasks::Int)
 
 Run `f(taskid::Int, abort::Threads.Atomic{Bool})` as `num_tasks` spawned tasks, and wait for
@@ -34,8 +51,10 @@ sibling failing after seeing `abort[] == true` cannot set `first_failed`.
 A task's own failure takes precedence over an asynchronous exception observed while waiting
 (see [`drain_tasks`](@ref)), even if the latter happened first.
 
-`disable_sigint` ensures that a Ctrl-C event cannot land *between* spawning a task and recording
-it in `tasks` (losing its reference so `drain_tasks` doesn't see it).
+[`shield_interrupts`](@ref) ensures that a Ctrl-C event cannot land *between* spawning a task
+and recording it in `tasks` (losing its reference so `drain_tasks` doesn't see it).
+On Julia 1.14 and later, the spawned tasks inherit the shielded scope, such that they are not
+cancelled by Ctrl-C, but stop via `abort[]`.
 Exception raised while spawning is treated as asynchronous exception:
 `abort[]=true` and all spawned tasks are drained before it is reported.
 """
@@ -45,7 +64,7 @@ function spawn_tasks_safe_wait(f, num_tasks::Int)
     tasks = Task[]
     async_exceptions = Exception[]
     try
-        disable_sigint() do
+        shield_interrupts() do
             for taskid in 1:num_tasks
                 push!(tasks, Threads.@spawn begin
                     try
@@ -105,17 +124,27 @@ caught here is necessarily asynchronous (did not come from `t`, which may still 
 running), with no need to inspect the exception's type or identity to tell the two cases
 apart. `Base.waitall` will be killed by an asynchronous exception and may leave tasks
 running.
+
+On Julia 1.14 and later, Ctrl-C cancels the caller's scope, and since this cancellation persists,
+every subsequent `wait` would throw again. The remaining waits are therefore shielded after the
+first cancellation request.
 """
 function drain_tasks(tasks::AbstractVector{<:Task}, abort::Threads.Atomic{Bool})
     async_exceptions = Exception[]
+    shielded = false
     for t in tasks
         t === current_task() && continue # Just skip it, cannot wait for itself
         while true
             try
-                wait(t; throw=false)
+                if shielded
+                    shield_interrupts(() -> wait(t; throw=false))
+                else
+                    wait(t; throw=false)
+                end
             catch e
                 abort[] = true
                 push!(async_exceptions, e)
+                shielded |= is_cancellation(e)
                 continue
             end
             break
