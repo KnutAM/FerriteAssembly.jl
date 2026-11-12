@@ -20,7 +20,6 @@ end
 # The names of all algebraic variables in the dofhandler
 _algebraic_names(dh::DofHandler) = dh.algebraic_names
 _algebraic_names(sdh::SubDofHandler) = _algebraic_names(sdh.dh)
-_algebraic_names(::Ferrite.AbstractDofHandler) = Symbol[]
 
 # The `AlgebraicVariable` with name `name`
 function _algebraic_variable(dh::DofHandler, name::Symbol)
