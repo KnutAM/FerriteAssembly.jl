@@ -103,7 +103,8 @@ that are controllable via the keyword arguments:
 if a matrix, `K`, and vector, `r`, are given as input. In this case, the keyword argument 
 `atomic=true` can be given to create an atomic assembler (see `Ferrite.start_assemble`), which 
 is required for multithreaded assembly of domains with algebraic variables 
-(see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)). An atomic assembler, `a`, can
+(see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)), and when `ch` contains affine 
+constraints. An atomic assembler, `a`, can
 also be given directly to the second definition.
 
 [`reset_scaling!`](@ref) is called when creating `KeReAssembler`
@@ -128,7 +129,8 @@ function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=noth
         if !Ferrite.isclosed(ch)
             throw(ArgumentError("`ch` must be closed (via `close!`) before constructing a `KeReAssembler`"))
         end
-        can_thread = all(c -> (c === nothing || isempty(c)), ch.dofcoefficients)
+        # Affine constraints may write outside the item's dofs, which is only thread-safe if atomic
+        can_thread = _is_atomic(a) || all(c -> (c === nothing || isempty(c)), ch.dofcoefficients)
         return KeReAssembler(a, ch, apply_zero, scaling, can_thread)
     else
         return KeReAssembler(a, nothing, false, scaling, true)
