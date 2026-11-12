@@ -1,12 +1,13 @@
 
 function create_local(a::Ferrite.AbstractAssembler)
-    start_assemble(a.K, a.f; fillzero=false)
+    start_assemble(a.K, a.f; fillzero=false, atomic=_is_atomic(a))::typeof(a)
 end
 
 scatter!(::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
 gather!( ::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
 
 can_thread(::Ferrite.AbstractAssembler) = true
+can_thread_shared_dofs(a::Ferrite.AbstractAssembler) = _is_atomic(a)
 
 function work_single_cell!(assembler::Ferrite.AbstractAssembler, cellbuffer)
     Ke = get_Ke(cellbuffer)
@@ -61,6 +62,7 @@ scatter!(task::ReAssembler, base::ReAssembler) = scatter!(task.scaling, base.sca
 gather!(base::ReAssembler, task::ReAssembler) = gather!(base.scaling, task.scaling)
 
 can_thread(::ReAssembler) = true
+can_thread_shared_dofs(::ReAssembler) = false
 
 function work_single_cell!(assembler::ReAssembler, cellbuffer)
     re = get_re(cellbuffer)
@@ -84,7 +86,7 @@ function work_single_facet!(assembler::ReAssembler, facetbuffer)
 end
 
 """
-    KeReAssembler(K, r; fillzero=true, kwargs...)
+    KeReAssembler(K, r; fillzero=true, atomic=false, kwargs...)
     KeReAssembler(a::Ferrite.AbstractAssembler; kwargs...)
 
 The default `KeReAssembler` works just like a `Ferrite.AbstractAssembler`:
@@ -97,8 +99,10 @@ that are controllable via the keyword arguments:
 - `scaling`: Calculate a scaling measure locally at the residual level, see e.g., 
   [`ElementResidualScaling`](@ref)
 
-`a=Ferrite.start_assemble(K, r; fillzero=fillzero)` is passed to the second definition 
-if a matrix, `K`, and vector, `r`, are given as input.
+`a=Ferrite.start_assemble(K, r; fillzero, atomic)` is passed to the second definition 
+if a matrix, `K`, and vector, `r`, are given as input. An `atomic` assembler is required 
+for multithreaded assembly of domains with algebraic variables added to [`DomainSpec`](@ref), 
+and when `ch` contains affine constraints.
 
 [`reset_scaling!`](@ref) is called when creating `KeReAssembler`
 """
@@ -109,8 +113,8 @@ struct KeReAssembler{A<:Ferrite.AbstractAssembler, CH, SC}
     scaling::SC
     can_thread::Bool
 end
-function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, kwargs...)
-    a = start_assemble(K, r; fillzero=fillzero)
+function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, atomic::Bool=false, kwargs...)
+    a = start_assemble(K, r; fillzero, atomic)
     return KeReAssembler(a; kwargs...)
 end
 function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=nothing, scaling=NoScaling())
@@ -122,7 +126,8 @@ function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=noth
         if !Ferrite.isclosed(ch)
             throw(ArgumentError("`ch` must be closed (via `close!`) before constructing a `KeReAssembler`"))
         end
-        can_thread = all(c -> (c === nothing || isempty(c)), ch.dofcoefficients)
+        # Affine constraints may write outside the item's dofs, which is only thread-safe if atomic
+        can_thread = _is_atomic(a) || all(c -> (c === nothing || isempty(c)), ch.dofcoefficients)
         return KeReAssembler(a, ch, apply_zero, scaling, can_thread)
     else
         return KeReAssembler(a, nothing, false, scaling, true)
@@ -145,6 +150,7 @@ function gather!(base::KeReAssembler, task::KeReAssembler)
 end
 
 can_thread(a::KeReAssembler) = a.can_thread
+can_thread_shared_dofs(a::KeReAssembler) = _is_atomic(a.a)
 
 # assemble! routines
 # # No constraint handler - no local application of constraints

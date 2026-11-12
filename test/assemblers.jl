@@ -82,6 +82,7 @@
         @test FA.can_thread(KeReAssembler(Kd, rd))
         @test FA.can_thread(KeReAssembler(Kd, rd; ch=ch_dbc, apply_zero=true))
         @test !FA.can_thread(KeReAssembler(Kd, rd; ch=ch_affine, apply_zero=true))
+        @test FA.can_thread(KeReAssembler(Kd, rd; ch=ch_affine, apply_zero=true, atomic=true))
 
         # can_thread is cached at construction, so an open (not-yet-closed) `ch` must be
         # rejected: otherwise constraints added after construction wouldn't be reflected.
@@ -103,6 +104,12 @@
             work!(asm_threaded, db_threaded)
             @test Kb ≈ Ka
             @test rb ≈ ra
+            # Atomic assembly is done multithreaded also with affine constraints
+            Kc = allocate_matrix(dh_line, ch_affine); rc = zeros(ndofs(dh_line))
+            asm_atomic = KeReAssembler(Kc, rc; ch=ch_affine, apply_zero=true, atomic=true)
+            work!(asm_atomic, db_threaded)
+            @test Kc ≈ Ka
+            @test rc ≈ ra
         end
     end
 

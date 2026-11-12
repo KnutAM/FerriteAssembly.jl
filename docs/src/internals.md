@@ -27,6 +27,15 @@ FerriteAssembly.fast_getindex
 FerriteAssembly._copydofs!
 ```
 
+## Algebraic layout
+```@docs
+FerriteAssembly.AlgebraicLayout
+FerriteAssembly.setup_layout
+FerriteAssembly.create_dofrange
+FerriteAssembly.fill_celldofs!
+FerriteAssembly.update_algebraic_dofs!
+```
+
 ## States
 ```@docs
 FerriteAssembly.create_states
@@ -50,6 +59,7 @@ FerriteAssembly._uncouple
 ```@docs
 FerriteAssembly.skip_this_domain
 FerriteAssembly.can_thread
+FerriteAssembly.can_thread_shared_dofs
 FerriteAssembly.work_single_cell!
 FerriteAssembly.work_single_facet!
 FerriteAssembly.autogenerate_cellvalues

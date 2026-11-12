@@ -30,7 +30,7 @@ generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [
     "threaded_assembly.jl", "automatic_differentiation.jl", "local_constraints.jl",
     "robin_bc.jl", "volume_integral.jl", 
-    "surface_integral.jl"]
+    "surface_integral.jl", "mean_value_constraint.jl"]
 generated_howto = build_examples(howto; type="howto")
 
 DocMeta.setdocmeta!(FerriteAssembly, :DocTestSetup, :(using FerriteAssembly); recursive=true)
@@ -56,6 +56,7 @@ makedocs(;
                 "DomainBuffers" => "DomainBuffers/Setup.md",
                 "State variables" => "DomainBuffers/StateVariables.md",
                 "ItemBuffer" => "DomainBuffers/ItemBuffer.md",
+                "Algebraic variables" => "DomainBuffers/AlgebraicVariables.md",
             ],
             "Workers" => [
                 "Workers" => "Workers/Workers.md",

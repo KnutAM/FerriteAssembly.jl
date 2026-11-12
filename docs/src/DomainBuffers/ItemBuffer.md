@@ -10,6 +10,7 @@ For each item (cell or facet), the values in the buffer are updated to the curre
 and can be accessed with the following functions:
 
 ```@docs
+get_ae
 get_aeold
 get_old_state
 get_state

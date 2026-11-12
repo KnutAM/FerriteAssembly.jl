@@ -10,8 +10,8 @@ Each worker that supports for a facetbuffer should overload this function.
 function work_single_facet! end
 
 
-mutable struct FacetBuffer{T,CC,FV,DR,MT,UD,UC} <: AbstractFacetBuffer
-    const dofbuffer::DofBuffer{T,DR}  # Local dofs, dof values, residual, and stiffness
+mutable struct FacetBuffer{T,CC,FV,DR,MT,UD,UC,L} <: AbstractFacetBuffer
+    const dofbuffer::DofBuffer{T,DR,L}# Local dofs, dof values, residual, and stiffness
     const coords::CC                  # cellcoords (or what is required to reinit facetvalues, in addition to facetnr)
     const facetvalues::FV              # Can also be named tuple of facetvalues (will be updated to MultiCellValues later)
     Δt::T                             # Time step (updated at start of assembly loop)
@@ -43,6 +43,7 @@ end
 
 # Access functions
 get_dofbuffer(fb::FacetBuffer) = fb.dofbuffer
+get_layout(fb::FacetBuffer) = fb.dofbuffer.layout
 get_material(fb::FacetBuffer) = fb.material
 get_values(fb::FacetBuffer) = fb.facetvalues
 get_time_increment(fb::FacetBuffer) = fb.Δt
