@@ -86,7 +86,7 @@ function work_single_facet!(assembler::ReAssembler, facetbuffer)
 end
 
 """
-    KeReAssembler(K, r; fillzero=true, atomic=true, kwargs...)
+    KeReAssembler(K, r; fillzero=true, atomic=false, kwargs...)
     KeReAssembler(a::Ferrite.AbstractAssembler; kwargs...)
 
 The default `KeReAssembler` works just like a `Ferrite.AbstractAssembler`:
@@ -101,7 +101,7 @@ that are controllable via the keyword arguments:
 
 `a=Ferrite.start_assemble(K, r; fillzero, atomic)` is passed to the second definition 
 if a matrix, `K`, and vector, `r`, are given as input. An `atomic` assembler is required 
-for multithreaded assembly of domains with algebraic variables added to [`DomainSpec`](@ref)), 
+for multithreaded assembly of domains with algebraic variables added to [`DomainSpec`](@ref), 
 and when `ch` contains affine constraints.
 
 [`reset_scaling!`](@ref) is called when creating `KeReAssembler`
