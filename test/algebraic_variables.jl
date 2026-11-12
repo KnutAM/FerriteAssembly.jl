@@ -145,6 +145,18 @@ FerriteAssembly.scatter!(::AVSharedCountWorker, ::AVSharedCountWorker) = nothing
 FerriteAssembly.gather!(::AVSharedCountWorker, ::AVSharedCountWorker) = nothing
 FerriteAssembly.work_single_cell!(w::AVSharedCountWorker, cellbuffer) = FA.work_single_cell!(w.w, cellbuffer)
 
+# Assembler backend whose `start_assemble` doesn't support the `atomic` keyword
+struct AVNoAtomicMatrix <: AbstractMatrix{Float64}
+    K::Matrix{Float64}
+end
+Base.size(K::AVNoAtomicMatrix) = size(K.K)
+Base.getindex(K::AVNoAtomicMatrix, i::Int, j::Int) = K.K[i, j]
+struct AVNoAtomicAssembler <: Ferrite.AbstractAssembler{Float64}
+    K::AVNoAtomicMatrix
+    f::Vector{Float64}
+end
+Ferrite.start_assemble(K::AVNoAtomicMatrix, f::Vector{Float64}; fillzero::Bool = true) = AVNoAtomicAssembler(K, f)
+
 # Custom cell buffer, that only defines what is required to be worked with the `AVCountWorker`s
 mutable struct AVCustomBuffer <: FA.AbstractCellBuffer
     cellid::Int
@@ -716,20 +728,37 @@ end
         @testset "traits" begin
             K = allocate_matrix(dh; algebraic_couplings = couplings)
             r = zeros(ndofs(dh))
+            @test !FA._is_atomic(start_assemble(K, r))
+            @test FA._is_atomic(start_assemble(K, r; atomic = true))
             @test FA.can_thread_shared_dofs(KeReAssembler(K, r; atomic = true))
             @test !FA.can_thread_shared_dofs(KeReAssembler(K, r))
-            @test !FA.can_thread_shared_dofs(KeReAssembler(start_assemble(K, r; atomic = true)))
-            @test !FA.can_thread_shared_dofs(start_assemble(K, r; atomic = true))
+            @test FA.can_thread_shared_dofs(KeReAssembler(start_assemble(K, r; atomic = true)))
+            @test !FA.can_thread_shared_dofs(KeReAssembler(start_assemble(K, r)))
+            @test FA.can_thread_shared_dofs(start_assemble(K, r; atomic = true))
+            @test !FA.can_thread_shared_dofs(start_assemble(K, r))
             @test !FA.can_thread_shared_dofs(ReAssembler(r))
             @test FA.can_thread_shared_dofs(SimpleIntegrator(Returns(1.0), 0.0))
             @test FA.can_thread_shared_dofs(QuadPointEvaluator{Float64}(db, Returns(1.0)))
             @test !FA.can_thread_shared_dofs(Integrator(zeros(1)))
             @test !FA.can_thread_shared_dofs(AVCountWorker())
-            # The task-local assemblers keep the atomic mode
-            assembler = KeReAssembler(K, r; atomic = true)
+            # The task-local assemblers keep the atomic mode, and assemble into the same `K` and `r`
+            for atomic in (false, true)
+                ferrite_assembler = start_assemble(K, r; atomic)
+                local_assembler = FA.create_local(ferrite_assembler)
+                @test local_assembler isa typeof(ferrite_assembler)
+                @test local_assembler.K === K
+                @test local_assembler.f === r
+                for assembler in (KeReAssembler(K, r; atomic), KeReAssembler(ferrite_assembler))
+                    @test FA.create_local(assembler) isa typeof(assembler)
+                    @test FA.create_local(assembler).a isa typeof(ferrite_assembler)
+                end
+            end
+            # The `atomic` keyword is not passed to `start_assemble` unless required
+            assembler = KeReAssembler(AVNoAtomicMatrix(zeros(2, 2)), zeros(2))
+            @test assembler.a isa AVNoAtomicAssembler
+            @test !FA.can_thread_shared_dofs(assembler)
             @test FA.create_local(assembler) isa typeof(assembler)
-            @test typeof(FA.create_local(assembler).a) === typeof(start_assemble(K, r; atomic = true))
-            @test typeof(FA.create_local(KeReAssembler(K, r)).a) === typeof(start_assemble(K, r))
+            @test_throws MethodError KeReAssembler(AVNoAtomicMatrix(zeros(2, 2)), zeros(2); atomic = true)
         end
 
         @testset "task local buffers" begin
@@ -758,6 +787,12 @@ end
                 K = allocate_matrix(dh; algebraic_couplings = couplings)
                 r = zeros(ndofs(dh))
                 @test_logs work!(KeReAssembler(K, r; atomic = true), thr; a = a)
+                @test K ≈ K_ref
+                @test r ≈ r_ref
+                @test_logs work!(KeReAssembler(start_assemble(K, r; atomic = true)), thr; a = a)
+                @test K ≈ K_ref
+                @test r ≈ r_ref
+                @test_logs work!(start_assemble(K, r; atomic = true), thr; a = a)
                 @test K ≈ K_ref
                 @test r ≈ r_ref
 

@@ -39,3 +39,8 @@ Ferrite.reinit!(vals::NamedTuple, args...) = map(v->reinit!(v, args...), values(
 # Ferrite.AbstractAssembler                         #
 # ================================================= #
 _is_atomic(a::Ferrite.AbstractAssembler) = Ferrite._is_atomic(a)
+
+# `atomic` is only passed if `true`, since not all `start_assemble` methods support it
+function _start_assemble(K, f; fillzero::Bool, atomic::Bool)
+    return atomic ? start_assemble(K, f; fillzero, atomic = true) : start_assemble(K, f; fillzero)
+end

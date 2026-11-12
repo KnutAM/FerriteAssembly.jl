@@ -1,6 +1,6 @@
 
 function create_local(a::Ferrite.AbstractAssembler)
-    start_assemble(a.K, a.f; fillzero=false)
+    _start_assemble(a.K, a.f; fillzero=false, atomic=_is_atomic(a))::typeof(a)
 end
 
 scatter!(::Ferrite.AbstractAssembler, ::Ferrite.AbstractAssembler) = nothing
@@ -103,7 +103,8 @@ that are controllable via the keyword arguments:
 if a matrix, `K`, and vector, `r`, are given as input. In this case, the keyword argument 
 `atomic=true` can be given to create an atomic assembler (see `Ferrite.start_assemble`), which 
 is required for multithreaded assembly of domains with algebraic variables 
-(see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)).
+(see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)). An atomic assembler, `a`, can
+also be given directly to the second definition.
 
 [`reset_scaling!`](@ref) is called when creating `KeReAssembler`
 """
@@ -113,15 +114,12 @@ struct KeReAssembler{A<:Ferrite.AbstractAssembler, CH, SC}
     apply_zero::Bool
     scaling::SC
     can_thread::Bool
-    atomic::Bool # Known to be an atomic assembler (only when created from `K` and `r`)
 end
 function KeReAssembler(K::AbstractMatrix, r::AbstractVector; fillzero=true, atomic::Bool=false, kwargs...)
-    a = atomic ? start_assemble(K, r; fillzero=fillzero, atomic=true) : start_assemble(K, r; fillzero=fillzero)
-    return _KeReAssembler(a, atomic; kwargs...)
+    a = _start_assemble(K, r; fillzero, atomic)
+    return KeReAssembler(a; kwargs...)
 end
-KeReAssembler(a::Ferrite.AbstractAssembler; kwargs...) = _KeReAssembler(a, false; kwargs...)
-
-function _KeReAssembler(a::Ferrite.AbstractAssembler, atomic::Bool; apply_zero=nothing, ch=nothing, scaling=NoScaling())
+function KeReAssembler(a::Ferrite.AbstractAssembler; apply_zero=nothing, ch=nothing, scaling=NoScaling())
     reset_scaling!(scaling)
     if !isnothing(ch)
         if isnothing(apply_zero)
@@ -131,21 +129,17 @@ function _KeReAssembler(a::Ferrite.AbstractAssembler, atomic::Bool; apply_zero=n
             throw(ArgumentError("`ch` must be closed (via `close!`) before constructing a `KeReAssembler`"))
         end
         can_thread = all(c -> (c === nothing || isempty(c)), ch.dofcoefficients)
-        return KeReAssembler(a, ch, apply_zero, scaling, can_thread, atomic)
+        return KeReAssembler(a, ch, apply_zero, scaling, can_thread)
     else
-        return KeReAssembler(a, nothing, false, scaling, true, atomic)
+        return KeReAssembler(a, nothing, false, scaling, true)
     end
 end
 
 # TaskLocals interface:
 function create_local(ra::KeReAssembler)
-    a = if ra.atomic
-        start_assemble(ra.a.K, ra.a.f; fillzero=false, atomic=true)::typeof(ra.a)
-    else
-        create_local(ra.a)
-    end
+    a = create_local(ra.a)
     scaling = create_local(ra.scaling)
-    return KeReAssembler(a, ra.ch, ra.apply_zero, scaling, ra.can_thread, ra.atomic)
+    return KeReAssembler(a, ra.ch, ra.apply_zero, scaling, ra.can_thread)
 end
 function scatter!(task::KeReAssembler, base::KeReAssembler)
     scatter!(task.a, base.a)
