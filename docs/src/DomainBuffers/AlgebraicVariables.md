@@ -37,7 +37,8 @@ of shape functions, the element routine must pass the dof range when evaluating 
 `function_value(cellvalues, q_point, ae, dof_range(buffer, :u))`.
 The value of an algebraic variable is obtained as
 ```julia
-λ = algebraic_value(FerriteAssembly.get_algebraic_values(buffer, :λ), ae, dof_range(buffer, :λ))
+av = FerriteAssembly.get_algebraic_values(buffer, :λ)
+λ = algebraic_value(av, ae, dof_range(buffer, :λ))
 ```
 which, e.g., gives a tensor for an `AlgebraicVariable{SymmetricTensor{2, 3}}`.
 `Ferrite.getfieldnames(buffer)` and the `dofrange` given to [`create_cell_state`](@ref) contain the fields,
