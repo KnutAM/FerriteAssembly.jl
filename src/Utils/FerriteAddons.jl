@@ -23,7 +23,7 @@ _algebraic_names(sdh::SubDofHandler) = _algebraic_names(sdh.dh)
 
 # The `AlgebraicVariable` with name `name`
 function _algebraic_variable(dh::DofHandler, name::Symbol)
-    idx = findfirst(==(name), dh.algebraic_names)
+    idx = findfirst(==(name), _algebraic_names(dh))
     idx === nothing && throw(ArgumentError(":$name is not an algebraic variable in the DofHandler"))
     return dh.algebraic_variables[idx]
 end
