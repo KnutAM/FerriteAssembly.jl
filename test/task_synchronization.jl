@@ -287,7 +287,7 @@ end
 
 @static if VERSION.minor ≥ 15
     # Fails on Julia 1.15 without https://github.com/KnutAM/FerriteAssembly.jl/pull/121
-    @testset "drain_tasks makes progress when the caller's scope is cancelled (Ctrl-C on Julia 1.15+)" begin
+    @testset "drain_tasks progress after caller's scope cancelled (Ctrl-C on Julia 1.15+), fix in PR121" begin
         # A cancellation persists, so every unshielded `wait` in the cancelled scope throws.
         # Without shielding the remaining waits, the drain loop would spin, collecting a new
         # exception on each retry until the tasks finish.
