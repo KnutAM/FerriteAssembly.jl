@@ -284,3 +284,34 @@ end
         @test finished_at_return # sibling was actually drained despite coming after the self-reference
     end
 end
+
+@static if VERSION.minor ≥ 15
+    # Fails on Julia 1.15 without https://github.com/KnutAM/FerriteAssembly.jl/pull/121
+    @testset "drain_tasks progress after caller's scope cancelled (Ctrl-C on Julia 1.15+), fix in PR121" begin
+        # A cancellation persists, so every unshielded `wait` in the cancelled scope throws.
+        # Without shielding the remaining waits, the drain loop would spin, collecting a new
+        # exception on each retry until the tasks finish.
+        abort = Threads.Atomic{Bool}(false)
+        # Spawned inside `disable_sigint` (as in `spawn_tasks_safe_wait`), which shields the tasks
+        tasks = disable_sigint() do
+            map(1:2) do _
+                Threads.@spawn begin
+                    t0 = time()
+                    while !abort[] && time() - t0 < 30.0
+                        sleep(0.001)
+                    end
+                end
+            end
+        end
+        src = Base.CancellationTokenSource()
+        Base.cancel!(src)
+        # Results are tested outside the cancelled scope, where printing test results works.
+        async_exceptions = Base.ScopedValues.with(Base.CANCEL_TOKEN => Base.CancellationToken(src)) do
+            FerriteAssembly.drain_tasks(tasks, abort)
+        end
+        @test length(async_exceptions) == 1
+        @test only(async_exceptions) isa Base.CancellationRequest
+        @test all(istaskdone, tasks)
+        @test !any(istaskfailed, tasks)
+    end
+end
