@@ -56,7 +56,7 @@ set_time_increment!(cb::CellBuffer, Δt) = (cb.Δt=Δt)
 @inline get_material(cb::CellBuffer) = cb.material
 @inline get_values(cb::CellBuffer) = cb.cellvalues
 
-@inline Ferrite.getcoordinates(cb::CellBuffer) = cb.coords
+@inline Ferrite.getcoordinates(cb::CellBuffer) = routine_coordinates(cb.cellvalues, cb.coords)
 
 @inline Ferrite.cellid(cb::CellBuffer) = cb.cellid
 

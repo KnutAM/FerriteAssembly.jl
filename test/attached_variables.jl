@@ -35,6 +35,14 @@ function manual_generalized_plane_strain(dh, cv, m, a)
     return K, r
 end
 
+# Material saving the coordinates given to `create_cell_state` and to the routine
+struct CoordinateRecorder end
+FerriteAssembly.create_cell_state(::CoordinateRecorder, cv, x, ae, dofrange) = [copy(x)]
+function FerriteAssembly.element_routine!(Ke, re, state, ae, ::CoordinateRecorder, cv, buffer)
+    push!(state, copy(getcoordinates(buffer)))
+    push!(state, [spatial_coordinate(cv, q_point, getcoordinates(buffer)) for q_point in 1:getnquadpoints(cv)])
+end
+
 # Values type with an extra base function whose value has a different type
 struct MismatchValues{CV} <: Ferrite.AbstractCellValues
     v::OutOfPlaneCellValues{CV}
@@ -290,6 +298,16 @@ end
         apply_zero!(K, r, ch)
         a .-= K \ r
         @test a[only(algebraic_dofs(dh, :e33))] ≈ -ν / (1 - ν) * (ϵ1 + ϵ2)
+
+        # 3d coordinates given to the routines
+        db_x = setup_domainbuffer(DomainSpec(dh, CoordinateRecorder(), cv_oop; algebraic_variables = (FA.AttachAlgebraic(:e33 => :u),)))
+        work!(KeReAssembler(K, r), db_x; a)
+        for cellnr in 1:getncells(grid)
+            x3 = lift3d.(getcoordinates(grid, cellnr))
+            state = FA.get_state(db_x, cellnr)
+            @test state[1] == state[2] == x3
+            @test state[3] ≈ [lift3d(spatial_coordinate(cv_u, q, getcoordinates(grid, cellnr))) for q in 1:getnquadpoints(cv_u)]
+        end
 
         # Residual scaling uses the field's own dofs
         scaling = ElementResidualScaling(dh, 1)

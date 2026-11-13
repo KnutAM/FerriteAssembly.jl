@@ -9,15 +9,20 @@ lift3d(t::Tensor{3, 2, T}) where {T} = Tensor{3, 3, T}((i, j, k) -> (i ≤ 2 && 
 
 # 2d cell values lifted to 3d, with one additional base function, which has a zero value and the gradient
 # e₃ (scalar field) or e₃ ⊗ e₃ (vector field), i.e. a constant out-of-plane gradient (generalized plane strain).
+# The coordinates given to the routines are lifted to 3d as well.
 struct OutOfPlaneCellValues{CV <: CellValues} <: Ferrite.AbstractCellValues
     cv::CV
+    x3::Vector{Vec{3, Float64}}
 end
+OutOfPlaneCellValues(cv::CellValues) = OutOfPlaneCellValues(cv, zeros(Vec{3, Float64}, Ferrite.getngeobasefunctions(cv)))
+FerriteAssembly.routine_coordinates(v::OutOfPlaneCellValues, ::AbstractVector{<:Vec}) = v.x3
 Ferrite.getnbasefunctions(v::OutOfPlaneCellValues) = getnbasefunctions(v.cv) + 1
 Ferrite.getnquadpoints(v::OutOfPlaneCellValues) = getnquadpoints(v.cv)
 Ferrite.getdetJdV(v::OutOfPlaneCellValues, q_point::Int) = getdetJdV(v.cv, q_point)
 Ferrite.getngeobasefunctions(v::OutOfPlaneCellValues) = Ferrite.getngeobasefunctions(v.cv)
 Ferrite.geometric_value(v::OutOfPlaneCellValues, q_point::Int, i::Int) = Ferrite.geometric_value(v.cv, q_point, i)
 function Ferrite.reinit!(v::OutOfPlaneCellValues, cell::Union{Nothing, Ferrite.AbstractCell}, x::AbstractVector{<:Vec})
+    v.x3 .= lift3d.(x)
     return reinit!(v.cv, cell, x)
 end
 out_of_plane_gradient(::Number) = Vec{3}((0.0, 0.0, 1.0))

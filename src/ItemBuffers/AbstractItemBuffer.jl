@@ -96,8 +96,23 @@ include the degree of freedom indices for the algebraic variables, see [Algebrai
     Ferrite.getcoordinates(::AbstractItemBuffer)
 
 Get the **cell** coordinates for the current item. 
+These are the grid's coordinates, unless modified for the values type by 
+[`FerriteAssembly.routine_coordinates`](@ref).
 """
 Ferrite.getcoordinates(::AbstractItemBuffer) = error("Not implemented") # Implemented for specific buffers
+
+"""
+    FerriteAssembly.routine_coordinates(values, x::AbstractVector{<:Vec})
+
+**Experimental**. Return the cell coordinates given to the element (or facet) routines and to
+[`create_cell_state`](@ref), via `getcoordinates(buffer)`, for the grid's coordinates `x` and the values
+object `values` (as given to [`DomainSpec`](@ref)). Defaults to `x`, but can be overloaded for a values type,
+e.g. to give 3d coordinates for values that lift a 2d problem to a 3d element routine, see
+[Values for attached variables](@ref). This function is called after `reinit!(values, cell, x)`, and should
+not allocate. A typical implementation therefore returns coordinates stored in the values object, which
+are updated in `reinit!`.
+"""
+routine_coordinates(::Any, x::AbstractVector{<:Vec}) = x
 
 """
     Ferrite.cellid(::AbstractItemBuffer)
