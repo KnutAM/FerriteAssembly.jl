@@ -125,15 +125,15 @@
                 schedule(maintask, InterruptException(); error = true)
                 sleep(0.05) # let the already-sent exception actually land in `maintask`
             end
-            release[] = true
+            Threads.atomic_xchg!(release, true)
         end
         caught = nothing
         try
             FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
                 if taskid == 1
-                    started[] = true
+                    Threads.atomic_xchg!(started, true)
                     wait_for(() -> release[]; timeout = 30.0)
-                    finished[] = true
+                    Threads.atomic_xchg!(finished, true)
                 end
             end
         catch e
@@ -179,15 +179,15 @@
                 schedule(maintask, TaskFailedException(other); error = true)
                 sleep(0.05) # let the already-sent exception actually land in `maintask`
             end
-            release[] = true
+            Threads.atomic_xchg!(release, true)
         end
         caught = nothing
         try
             FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
                 if taskid == 1
-                    started[] = true
+                    Threads.atomic_xchg!(started, true)
                     wait_for(() -> release[]; timeout = 30.0)
-                    finished[] = true
+                    Threads.atomic_xchg!(finished, true)
                 end
             end
         catch e
@@ -224,7 +224,7 @@
         caught = nothing
         try
             FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
-                taskid == 1 && (started[] = true)
+                taskid == 1 && Threads.atomic_xchg!(started, true)
                 wait_for(() -> abort[]; timeout = 30.0)
             end
         catch e
@@ -261,11 +261,11 @@ end
             while !release[]
                 sleep(0.001)
             end
-            finished[] = true
+            Threads.atomic_xchg!(finished, true)
         end
         releaser = Threads.@spawn begin
             sleep(0.05)
-            release[] = true
+            Threads.atomic_xchg!(release, true)
         end
         caught = nothing
         try

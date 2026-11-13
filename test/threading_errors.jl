@@ -87,7 +87,7 @@
     work!(KeReAssembler(allocate_matrix(dh), zeros(ndofs(dh))), db; a)
 
     @testset "failure surfaces, assembly stops early, retry matches reference" begin
-        FAILING[] = true
+        Threads.atomic_xchg!(FAILING, true)
         calls_before = CALLS[]
         K = allocate_matrix(dh)
         r = zeros(ndofs(dh))
@@ -96,7 +96,7 @@
         # (or throws), so this is stable right away - no sleeping/polling needed.
         @test CALLS[] - calls_before < length(colors[1]) ÷ 2
 
-        FAILING[] = false
+        Threads.atomic_xchg!(FAILING, false)
         work!(KeReAssembler(K, r), db; a) # retry: fresh KeReAssembler re-zeros K, r
         @test K ≈ K_ref
         @test r ≈ r_ref
@@ -116,14 +116,14 @@
         # color before noticing `abort[]`, undermining the early-abort assertion below.
         work!(KeReAssembler(allocate_matrix(dh), zeros(ndofs(dh))), g.u)
 
-        FAILING[] = true
+        Threads.atomic_xchg!(FAILING, true)
         calls_before = CALLS[]
         K = allocate_matrix(dh)
         r = zeros(ndofs(dh))
         @test_throws TaskFailedException work!(KeReAssembler(K, r), g.u)
         @test CALLS[] - calls_before < length(colors[1]) ÷ 2
 
-        FAILING[] = false
+        Threads.atomic_xchg!(FAILING, false)
         work!(KeReAssembler(K, r), g.u) # retry must succeed and match the sequential reference
         @test K ≈ K_ref
         @test r ≈ r_ref

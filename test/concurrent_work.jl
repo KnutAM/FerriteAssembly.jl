@@ -108,7 +108,7 @@
         # test/threading_errors.jl. What's new and worth asserting here is specific to the
         # *nested* case: the failure's shape/identity, and that it leaves the concurrently
         # running sibling outer call entirely correct and unaffected.
-        fail_on[1][] = throwcell
+        Threads.atomic_xchg!(fail_on[1], throwcell)
         K1, r1 = allocate_matrix(dh), zeros(ndofs(dh))
         K2, r2 = allocate_matrix(dh), zeros(ndofs(dh))
         t1 = Threads.@spawn work!(KeReAssembler(K1, r1), dbs[1]; a)
@@ -120,7 +120,7 @@
             e1 = caught
         end
         wait(t2) # must complete successfully and correctly despite the sibling's failure
-        fail_on[1][] = 0 # reset, in case this testset is ever re-run within the same session
+        Threads.atomic_xchg!(fail_on[1], 0) # reset, in case this testset is ever re-run within the same session
 
         # `work!` itself throws `TaskFailedException(inner_task)` (from `spawn_tasks_safe_wait`),
         # so the outer `@spawn`ed task's own stored exception is a `TaskFailedException`
