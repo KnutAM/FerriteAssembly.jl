@@ -78,7 +78,7 @@ end
 
 # Standard method if no AutoDiffCellBuffer is defined. Should be no need to use, but good to keep for 
 # benchmarks if desired. 
-function element_routine_ad!(Ke, re, state, ae, material, cellvalues, buffer::AnyCellBuffer)
+function element_routine_ad!(Ke, re, state, ae, material, cellvalues, buffer::Union{AnyCellBuffer, FieldBlockBuffer})
     rf!(re_, ae_) = element_residual!(re_, state, ae_, material, cellvalues, buffer)
     try
         # Setting Chunk explicitly to solve https://github.com/KnutAM/FerriteAssembly.jl/issues/9

@@ -50,6 +50,56 @@ function Ferrite.shape_value(v::MismatchValues, q::Int, i::Int)
     return i < getnbasefunctions(v) ? shape_value(v.v, q, i) : zero(Vec{2})
 end
 
+# Mean value of the first component of `u` (including attached modes) enforced by the standalone variable `λ`
+function add_multiplier_terms!(Ke, re, ae, cv, buffer)
+    ru = dof_range(buffer, :u)
+    iλ = only(dof_range(buffer, :λ))
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        re[iλ] += function_value(cv, q_point, ae, ru)[1] * dΩ
+        for (i, I) in pairs(ru)
+            N = shape_value(cv, q_point, i)[1]
+            re[I] += ae[iλ] * N * dΩ
+            if Ke !== nothing
+                Ke[I, iλ] += N * dΩ
+                Ke[iλ, I] += N * dΩ
+            end
+        end
+    end
+end
+struct MultiplierOnly end
+FerriteAssembly.element_routine!(Ke, re, state, ae, ::MultiplierOnly, cv, buffer) = add_multiplier_terms!(Ke, re, ae, cv, buffer)
+# Calls the unmodified routine of `inner` for the fields via `field_block`
+struct WithMultiplier{M}
+    inner::M
+end
+function FerriteAssembly.element_routine!(Ke, re, state, ae, m::WithMultiplier, cv, buffer)
+    Ke_f, re_f, ae_f, buffer_f = FA.field_block(Ke, re, ae, buffer)
+    FA.element_routine!(Ke_f, re_f, state, ae_f, m.inner, cv, buffer_f)
+    add_multiplier_terms!(Ke, re, ae, cv, buffer)
+end
+# Only residual, calling the inner residual via `field_block`
+struct WithMultiplierAD{M}
+    inner::M
+end
+for MT in (WithMultiplier, WithMultiplierAD)
+    @eval FerriteAssembly.create_cell_state(m::$MT, args...) = FerriteAssembly.create_cell_state(m.inner, args...)
+    @eval FerriteAssembly.allocate_cell_cache(m::$MT, cv) = FerriteAssembly.allocate_cell_cache(m.inner, cv)
+end
+function FerriteAssembly.element_residual!(re, state, ae, m::WithMultiplierAD, cv, buffer)
+    _, re_f, ae_f, buffer_f = FA.field_block(nothing, re, ae, buffer)
+    FA.element_residual!(re_f, state, ae_f, m.inner, cv, buffer_f)
+    add_multiplier_terms!(nothing, re, ae, cv, buffer)
+end
+
+# Gradient of the partner `:b`'s field, in each quadrature point
+function FerriteAssembly.eval_quadpoints_cell!(vals::AbstractVector, ::Val{:partner_gradient}, state, ae, m, cv, buffer)
+    pb = FA.get_coupled_buffer(buffer, :b)
+    for q_point in eachindex(vals)
+        vals[q_point] = function_gradient(FA.get_values(pb), q_point, FA.get_ae(pb))
+    end
+end
+
 @testset "Attached algebraic variables" begin
     ip = Lagrange{RefQuadrilateral, 1}()
     qr = QuadratureRule{RefQuadrilateral}(2)
@@ -306,6 +356,71 @@ end
         end
     end
 
+    @testset "Attached and standalone variables (field_block)" begin
+        H_indices = ((2, 1), (1, 1))
+        dh_plain, dh = setup_affine_dhs(; variables = (:H => AlgebraicVariable{Tensor{2, 2}}(), :λ => AlgebraicVariable()))
+        values = AffineCellValues(cv_u, xc, H_indices)
+        attach_H = FA.AttachAlgebraic(:H => :u; indices = H_indices)
+        weakform = EE.WeakForm((δu, ∇δu, u, ∇u, u_dot, ∇u_dot) -> (∇δu ⊡ (2 * symmetric(∇u) + tr(∇u) * one(∇u)) + δu ⋅ u_dot))
+        a = 1.0e-3 * randn(ndofs(dh))
+        aold = 1.0e-3 * randn(ndofs(dh))
+        function assemble(material, declarations; kwargs...)
+            db = setup_domainbuffer(DomainSpec(dh, material, values; algebraic_variables = declarations); kwargs...)
+            K = allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(db))
+            r = zeros(ndofs(dh))
+            set_time_increment!(db, 0.1)
+            work!(KeReAssembler(K, r; atomic = true), db; a, aold)
+            return K, r
+        end
+        K_mult, r_mult = assemble(MultiplierOnly(), (attach_H, :λ))
+        for inner in (m_2d, weakform)
+            K_inner, r_inner = assemble(inner, (attach_H,))
+            for (outer, autodiffbuffer, threading) in (
+                    (WithMultiplier(inner), false, false), (WithMultiplier(inner), true, false),
+                    (WithMultiplier(inner), false, true), (WithMultiplierAD(inner), true, false),
+                    (WithMultiplierAD(inner), false, true),
+                )
+                K, r = assemble(outer, (attach_H, :λ); autodiffbuffer, threading)
+                @test K ≈ K_inner + K_mult
+                @test r ≈ r_inner + r_mult
+            end
+        end
+
+        # The buffer view
+        db = setup_domainbuffer(DomainSpec(dh, nothing, values; algebraic_variables = (:λ, attach_H)))
+        buffer = FA.get_itembuffer(db)
+        sim = Simulation(db, a, aold)
+        FA.refresh_algebraic_dofs!(sim)
+        FA.reinit_buffer!(buffer, sim, 2)
+        Ke, re, ae = (FA.get_Ke(buffer), FA.get_re(buffer), FA.get_ae(buffer))
+        Ke_f, re_f, ae_f, buffer_f = FA.field_block(Ke, re, ae, buffer)
+        @test size(Ke_f) == (10, 10)
+        @test length(re_f) == length(ae_f) == 10
+        @test ae_f == ae[1:10]
+        @test FA.get_ae(buffer_f) == FA.get_ae(buffer)[1:10]
+        @test FA.get_aeold(buffer_f) == FA.get_aeold(buffer)[1:10]
+        @test celldofs(buffer_f) == celldofs(buffer)[1:10]
+        @test size(FA.get_Ke(buffer_f)) == (10, 10)
+        @test length(FA.get_re(buffer_f)) == 10
+        @test dof_range(buffer_f, :u) == 1:10
+        @test FA.get_values(buffer_f) === FA.get_values(buffer)
+        @test FA.get_material(buffer_f) === FA.get_material(buffer)
+        @test Ferrite.cellid(buffer_f) == 2
+        @test getcoordinates(buffer_f) === getcoordinates(buffer)
+        alloc_field_block(Ke, re, ae, buffer) = @allocated FA.field_block(Ke, re, ae, buffer)
+        alloc_field_block(Ke, re, ae, buffer)
+        @test alloc_field_block(Ke, re, ae, buffer) == 0
+        # Without standalone variables, and without algebraic variables
+        for decl in ((attach_H,), ())
+            db = setup_domainbuffer(DomainSpec(decl == () ? dh_plain : dh, nothing, decl == () ? cv_u : values; algebraic_variables = decl))
+            buffer = FA.get_itembuffer(db)
+            n = length(FA.get_ae(buffer))
+            Ke_f, re_f, ae_f, buffer_f = FA.field_block(FA.get_Ke(buffer), FA.get_re(buffer), FA.get_ae(buffer), buffer)
+            @test size(Ke_f) == (n, n)
+            @test length(FA.get_ae(buffer_f)) == n
+        end
+    end
+
     @testset "Integrators" begin
         H_indices = ((1, 2),)
         dh_plain, dh = setup_affine_dhs(; variables = (:H => AlgebraicVariable{Tensor{2, 2}}(),))
@@ -327,6 +442,28 @@ end
         qe_plain = QuadPointEvaluator{Float64}(db_plain, (m, u, ∇u, state) -> u[1] + ∇u[1, 2])
         work!(qe_plain, db_plain; a = T * a)
         @test qe.data ≈ qe_plain.data
+    end
+
+    @testset "Coupled simulations" begin
+        H_indices = ((1, 2), (2, 2))
+        dh_plain, dh = setup_affine_dhs(; variables = (:H => AlgebraicVariable{Tensor{2, 2}}(),))
+        T = affine_map(dh_plain, dh, xc, H_indices)
+        dh_reader = DofHandler(dh.grid)
+        add!(dh_reader, :c, ip)
+        close!(dh_reader)
+        a = randn(ndofs(dh))
+        for threading in (false, true), autodiffbuffer in (false, true)
+            partner = DomainSpec(dh, m_2d, AffineCellValues(cv_u, xc, H_indices); algebraic_variables = (FA.AttachAlgebraic(:H => :u; indices = H_indices),))
+            results = map(((partner, a), (DomainSpec(dh_plain, m_2d, cv_u), T * a))) do (spec, a_partner)
+                sim_reader = Simulation(setup_domainbuffer(DomainSpec(dh_reader, nothing, cv_p); threading, autodiffbuffer))
+                sim_partner = Simulation(setup_domainbuffer(spec; threading, autodiffbuffer), a_partner)
+                group = CoupledSimulations((r = sim_reader,); refs = (b = sim_partner,))
+                qe = QuadPointEvaluator{Tensor{2, 2, Float64, 4}}(group.r.db, :partner_gradient)
+                work!(qe, group.r)
+                return qe.data
+            end
+            @test all(cellnr -> results[1][cellnr] ≈ results[2][cellnr], 1:getncells(dh.grid))
+        end
     end
 
     @testset "Renumbering and replacing material" begin

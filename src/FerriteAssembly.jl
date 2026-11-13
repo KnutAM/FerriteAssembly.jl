@@ -23,6 +23,7 @@ include("setup.jl")
 include("ItemBuffers/CellBuffer.jl")
 include("ItemBuffers/CoupledCellBuffer.jl")
 include("ItemBuffers/FacetBuffer.jl")
+include("ItemBuffers/FieldBlockBuffer.jl")
 include("Autodiff/autodiff.jl")
 
 include("Coupling.jl")
