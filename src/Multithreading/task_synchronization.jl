@@ -52,14 +52,14 @@ function spawn_tasks_safe_wait(f, num_tasks::Int)
                         f(taskid, abort)
                     catch
                         Threads.atomic_cas!(first_failed, 0, taskid) # compare-and-set (if not set)
-                        abort[] = true
+                        Threads.atomic_xchg!(abort, true) # I.e. `@atomic abort[] = true`
                         rethrow()
                     end
                 end)
             end
         end
     catch e
-        abort[] = true
+        Threads.atomic_xchg!(abort, true) # I.e. `@atomic abort[] = true`
         push!(async_exceptions, e)
     end
     append!(async_exceptions, drain_tasks(tasks, abort))
@@ -114,7 +114,7 @@ function drain_tasks(tasks::AbstractVector{<:Task}, abort::Threads.Atomic{Bool})
             try
                 wait(t; throw=false)
             catch e
-                abort[] = true
+                Threads.atomic_xchg!(abort, true) # I.e. `@atomic abort[] = true`
                 push!(async_exceptions, e)
                 continue
             end
