@@ -105,17 +105,30 @@ caught here is necessarily asynchronous (did not come from `t`, which may still 
 running), with no need to inspect the exception's type or identity to tell the two cases
 apart. `Base.waitall` will be killed by an asynchronous exception and may leave tasks
 running.
+
+After the first asynchronous exception, the remaining waits run inside `disable_sigint`.
+From Julia 1.15, Ctrl-C cancels the caller's scope, and this cancellation persists, such that
+every subsequent unshielded `wait` would throw again without making progress.
+On earlier Julia versions, this means that further Ctrl-C events are deferred until
+draining completes, whereas exceptions scheduled to the calling task
+(`schedule(task, e; error = true)`) are still caught and collected.
 """
 function drain_tasks(tasks::AbstractVector{<:Task}, abort::Threads.Atomic{Bool})
     async_exceptions = Exception[]
+    shielded = false
     for t in tasks
         t === current_task() && continue # Just skip it, cannot wait for itself
         while true
             try
-                wait(t; throw=false)
+                if shielded
+                    disable_sigint(() -> wait(t; throw=false))
+                else
+                    wait(t; throw=false)
+                end
             catch e
                 Threads.atomic_xchg!(abort, true) # I.e. `@atomic abort[] = true`
                 push!(async_exceptions, e)
+                shielded = true
                 continue
             end
             break
