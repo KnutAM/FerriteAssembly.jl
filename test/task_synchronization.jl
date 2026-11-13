@@ -233,6 +233,74 @@
         wait(interruptor)
         @test caught isa InterruptException
     end
+
+    @testset "asynchronous exceptions after the first one are still collected while draining" begin
+        # After the first asynchronous exception, `drain_tasks` waits inside `disable_sigint`.
+        # Exceptions scheduled to the caller must still be caught there and draining continue.
+        started = Threads.Atomic{Bool}(false)
+        release = Threads.Atomic{Bool}(false)
+        finished = Threads.Atomic{Int}(0)
+        observed_abort = Threads.Atomic{Bool}(false)
+        maintask = current_task()
+        # Running on the caller's thread, the interruptor only runs while the caller is
+        # suspended, i.e. blocked in `drain_tasks`' wait when the exceptions are scheduled.
+        interruptor = @async begin
+            if wait_for(() -> started[])
+                schedule(maintask, InterruptException(); error = true)
+                if wait_for(() -> observed_abort[])
+                    schedule(maintask, ErrorException("second"); error = true)
+                    sleep(0.05) # let the already-sent exception actually land in `maintask`
+                end
+            end
+            release[] = true
+        end
+        caught = nothing
+        logs, _ = Test.collect_test_logs() do
+            try
+                FerriteAssembly.spawn_tasks_safe_wait(2) do taskid, abort
+                    taskid == 1 && (started[] = true)
+                    wait_for(() -> abort[]; timeout = 30.0)
+                    taskid == 1 && (observed_abort[] = true)
+                    wait_for(() -> release[]; timeout = 30.0)
+                    Threads.atomic_add!(finished, 1)
+                end
+            catch e
+                caught = e
+            end
+        end
+        finished_at_return = finished[]
+        try
+            wait(interruptor)
+        catch
+        end
+        @test caught isa InterruptException # the first one is propagated
+        @test finished_at_return == 2
+        @test length(logs) == 1
+        @test occursin("2 asynchronous exceptions", logs[1].message)
+    end
+
+    @static if isdefined(Base, :CANCEL_TOKEN)
+        @testset "drain_tasks makes progress when the caller's scope is cancelled (Ctrl-C on Julia 1.15+)" begin
+            # A cancellation persists, so every unshielded `wait` in the cancelled scope throws.
+            # Without shielding the remaining waits, the drain loop would spin, collecting a new
+            # exception on each retry until the tasks finish.
+            abort = Threads.Atomic{Bool}(false)
+            # Spawned inside `disable_sigint` (as in `spawn_tasks_safe_wait`), which shields the tasks
+            tasks = disable_sigint() do
+                [Threads.@spawn(wait_for(() -> abort[]; timeout = 30.0)) for _ in 1:2]
+            end
+            src = Base.CancellationTokenSource()
+            Base.cancel!(src)
+            # Results are tested outside the cancelled scope, where printing test results works.
+            async_exceptions = Base.ScopedValues.with(Base.CANCEL_TOKEN => Base.CancellationToken(src)) do
+                FerriteAssembly.drain_tasks(tasks, abort)
+            end
+            @test length(async_exceptions) == 1
+            @test only(async_exceptions) isa Base.CancellationRequest
+            @test all(istaskdone, tasks)
+            @test !any(istaskfailed, tasks)
+        end
+    end
 end
 
 # `drain_tasks` is the lower-level primitive `spawn_tasks_safe_wait` builds on; it is only ever
