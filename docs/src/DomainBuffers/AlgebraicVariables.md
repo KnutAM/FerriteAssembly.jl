@@ -17,7 +17,7 @@ dh = DofHandler(grid)
 add!(dh, :u, ip)
 add!(dh, :λ, AlgebraicVariable())
 close!(dh)
-domain = DomainSpec(dh, material, cellvalues; algebraic_per_cell = (:λ,))
+domain = DomainSpec(dh, material, cellvalues; algebraic_variables = (:λ,))
 ```
 The same keyword is used for facet domains, and the same variable can be used in several domains,
 including both cell and facet domains. The contributions from the different domains are then added
@@ -25,7 +25,7 @@ during assembly. See [Mean value constraints](@ref) for a complete example.
 
 ## Local degrees of freedom
 For each item (cell or facet) in a domain with algebraic variables, the degrees of freedom of
-each variable in `algebraic_per_cell` are added after the cell's degrees of freedom, in the given order.
+each variable in `algebraic_variables` are added after the cell's degrees of freedom, in the given order.
 Consequently, the following have the size of, and are ordered according to, these local degrees of freedom:
 * `ae` and `get_aeold(buffer)`, including the current and old values of the algebraic variables
 * `re` and `Ke`, including the contributions to the equations for the algebraic variables
