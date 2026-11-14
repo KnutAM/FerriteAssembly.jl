@@ -102,7 +102,7 @@ These are the grid's coordinates, unless modified for the values type by
 Ferrite.getcoordinates(::AbstractItemBuffer) = error("Not implemented") # Implemented for specific buffers
 
 """
-    FerriteAssembly.routine_coordinates(values, x::AbstractVector{<:Vec})
+    FerriteAssembly.routine_coordinates(values, x)
 
 **Experimental**. Return the cell coordinates given to the element (or facet) routines and to
 [`create_cell_state`](@ref), via `getcoordinates(buffer)`, for the grid's coordinates `x` and the values
@@ -112,7 +112,7 @@ e.g. to give 3d coordinates for values that lift a 2d problem to a 3d element ro
 not allocate. A typical implementation therefore returns coordinates stored in the values object, which
 are updated in `reinit!`.
 """
-routine_coordinates(::Any, x::AbstractVector{<:Vec}) = x
+routine_coordinates(::Any, x) = x
 
 """
     Ferrite.cellid(::AbstractItemBuffer)
