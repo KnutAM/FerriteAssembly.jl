@@ -1,4 +1,4 @@
-# Materials and workers used to test algebraic variables (`algebraic_per_cell` in `DomainSpec`)
+# Materials and workers used to test algebraic variables (`algebraic_variables` in `DomainSpec`)
 
 # Heat equation with the mean value of `u` prescribed to `ū` via the algebraic variable `λ`
 struct AVHeatMean{T}
@@ -286,8 +286,8 @@ end
         a = rand(ndofs(dh))
         n = ndofs_per_cell(dh)
         for (db, set) in (
-                (setup_domainbuffer(DomainSpec(dh, nothing, cv; algebraic_per_cell = (:z, :λ))), 1:getncells(dh.grid)),
-                (setup_domainbuffer(DomainSpec(dh, nothing, fv; algebraic_per_cell = (:z, :λ), set = getfacetset(dh.grid, "left"))), getfacetset(dh.grid, "left")),
+                (setup_domainbuffer(DomainSpec(dh, nothing, cv; algebraic_variables = (:z, :λ))), 1:getncells(dh.grid)),
+                (setup_domainbuffer(DomainSpec(dh, nothing, fv; algebraic_variables = (:z, :λ), set = getfacetset(dh.grid, "left"))), getfacetset(dh.grid, "left")),
             )
             buffer = FA.get_itembuffer(db)
             @test Ferrite.getfieldnames(buffer) == (:u, :z, :λ)
@@ -319,19 +319,19 @@ end
 
     @testset "Validation" begin
         dh = setup_dh()
-        @test_throws ArgumentError DomainSpec(dh, nothing, cv; algebraic_per_cell = :λ)
-        @test_throws ArgumentError DomainSpec(dh, nothing, cv; algebraic_per_cell = ("λ",))
-        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; algebraic_per_cell = (:u,)))
-        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; algebraic_per_cell = (:nonexistent,)))
-        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; algebraic_per_cell = (:λ, :λ)))
-        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, fv; algebraic_per_cell = (:nonexistent,), set = getfacetset(dh.grid, "left")))
-        @test_throws ArgumentError setup_domainbuffers(Dict("a" => DomainSpec(dh, nothing, cv; algebraic_per_cell = (:u,))))
+        @test_throws ArgumentError DomainSpec(dh, nothing, cv; algebraic_variables = :λ)
+        @test_throws ArgumentError DomainSpec(dh, nothing, cv; algebraic_variables = ("λ",))
+        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; algebraic_variables = (:u,)))
+        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; algebraic_variables = (:nonexistent,)))
+        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, cv; algebraic_variables = (:λ, :λ)))
+        @test_throws ArgumentError setup_domainbuffer(DomainSpec(dh, nothing, fv; algebraic_variables = (:nonexistent,), set = getfacetset(dh.grid, "left")))
+        @test_throws ArgumentError setup_domainbuffers(Dict("a" => DomainSpec(dh, nothing, cv; algebraic_variables = (:u,))))
     end
 
     @testset "Cell domain" begin
         dh = setup_dh()
         a = rand(ndofs(dh))
-        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))
+        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)))
         couplings = FA.algebraic_couplings(db)
         @test only(couplings) isa CellCoupling
         # Additional descriptors can be added, here giving no new entries
@@ -369,7 +369,7 @@ end
 
         # Automatic differentiation
         for autodiffbuffer in (false, true)
-            db_ad = setup_domainbuffer(DomainSpec(dh, AVHeatMeanAD(material), cv; algebraic_per_cell = (:λ,)); autodiffbuffer)
+            db_ad = setup_domainbuffer(DomainSpec(dh, AVHeatMeanAD(material), cv; algebraic_variables = (:λ,)); autodiffbuffer)
             @test (FA.get_itembuffer(db_ad) isa FA.AutoDiffCellBuffer) == autodiffbuffer
             K_ad = allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(db_ad))
             r_ad = zeros(ndofs(dh))
@@ -387,7 +387,7 @@ end
         a = rand(ndofs(dh))
         a[only(algebraic_dofs(dh, :λ))] = 1.0 # Nonzero residual for the u dofs, independent of the random u values
         facetset = getfacetset(dh.grid, "right")
-        db = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; set = facetset, algebraic_per_cell = (:λ,)))
+        db = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; set = facetset, algebraic_variables = (:λ,)))
         couplings = FA.algebraic_couplings(db)
         @test only(couplings) isa FacetCoupling
         K_ref = allocate_matrix(dh; algebraic_couplings = couplings)
@@ -411,10 +411,10 @@ end
         a = rand(ndofs(dh))
         facetset = getfacetset(dh.grid, "top")
         cellbuffers = setup_domainbuffers(Dict(
-            "left" => DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,), set = 1:10),
-            "right" => DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,), set = 11:getncells(dh.grid)));
+            "left" => DomainSpec(dh, material, cv; algebraic_variables = (:λ,), set = 1:10),
+            "right" => DomainSpec(dh, material, cv; algebraic_variables = (:λ,), set = 11:getncells(dh.grid)));
             )
-        facetbuffer = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; set = facetset, algebraic_per_cell = (:λ,)))
+        facetbuffer = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; set = facetset, algebraic_variables = (:λ,)))
         couplings = FA.algebraic_couplings(cellbuffers, Simulation(facetbuffer))
         @test length(couplings) == 3
         @test count(c -> c isa CellCoupling, couplings) == 2
@@ -445,10 +445,10 @@ end
         close!(dh)
         cvs = (u = CellValues(QuadratureRule{RefQuadrilateral}(2), ip^2), p = cv)
         fvs = (u = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip^2), p = fv)
-        cellbuffer = setup_domainbuffer(DomainSpec(dh, AVDense(), cvs; algebraic_per_cell = (:λ, :z)))
-        facetbuffer = setup_domainbuffer(DomainSpec(dh, AVDense(), fvs; algebraic_per_cell = (:z,), set = getfacetset(grid, "left")))
+        cellbuffer = setup_domainbuffer(DomainSpec(dh, AVDense(), cvs; algebraic_variables = (:λ, :z)))
+        facetbuffer = setup_domainbuffer(DomainSpec(dh, AVDense(), fvs; algebraic_variables = (:z,), set = getfacetset(grid, "left")))
         nodomain = setup_domainbuffer(DomainSpec(dh, AVDense(), cvs))
-        emptydomain = setup_domainbuffer(DomainSpec(dh, AVDense(), cvs; algebraic_per_cell = (:λ,), set = Int[]))
+        emptydomain = setup_domainbuffer(DomainSpec(dh, AVDense(), cvs; algebraic_variables = (:λ,), set = Int[]))
         @test isempty(FA.algebraic_couplings(nodomain, emptydomain))
         @test isempty(FA.algebraic_couplings())
 
@@ -484,7 +484,7 @@ end
         add!(ch, AffineConstraint(λdof, Pair{Int, Float64}[], -0.8))
         add!(ch, AffineConstraint(udof, [Hdof => 2.0], 0.1))
         close!(ch)
-        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))
+        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)))
         K = allocate_matrix(dh, ch; algebraic_couplings = FA.algebraic_couplings(db))
         r = zeros(ndofs(dh))
 
@@ -522,7 +522,7 @@ end
         fun = (u, ∇u, state) -> (u, ∇u)
         val0 = (0.0, zero(Vec{2}))
         for (values, kwargs) in ((cv, (;)), (fv, (; set = getfacetset(dh.grid, "left"))))
-            db = setup_domainbuffer(DomainSpec(dh, material, values; algebraic_per_cell = (:λ,), kwargs...))
+            db = setup_domainbuffer(DomainSpec(dh, material, values; algebraic_variables = (:λ,), kwargs...))
             db_plain = setup_domainbuffer(DomainSpec(dh_plain, material, values; kwargs...))
             integrator = SimpleIntegrator(fun, val0)
             work!(integrator, db; a = a)
@@ -531,7 +531,7 @@ end
             @test integrator.val[1] ≈ integrator_plain.val[1]
             @test integrator.val[2] ≈ integrator_plain.val[2]
         end
-        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))
+        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)))
         db_plain = setup_domainbuffer(DomainSpec(dh_plain, material, cv))
         qe = QuadPointEvaluator{Float64}(db, (m, u, ∇u, state) -> u + ∇u[1])
         work!(qe, db; a = a)
@@ -562,7 +562,7 @@ end
         @test scaling.factors[:u] ≈ factor_u
         @test scaling.factors[:λ] ≈ factor_λ
         for autodiffbuffer in (false, true)
-            db_ad = setup_domainbuffer(DomainSpec(dh, AVHeatMeanAD(material), cv; algebraic_per_cell = (:λ,)); autodiffbuffer)
+            db_ad = setup_domainbuffer(DomainSpec(dh, AVHeatMeanAD(material), cv; algebraic_variables = (:λ,)); autodiffbuffer)
             K = allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(db_ad))
             scaling = ElementResidualScaling(dh, 1)
             work!(KeReAssembler(K, r; scaling), db_ad; a = a)
@@ -574,7 +574,7 @@ end
         dh = setup_dh(; variables = (:λ => AlgebraicVariable(), :z => AlgebraicVariable{Vec{2}}()))
         a = rand(ndofs(dh))
         n = ndofs_per_cell(dh)
-        db = setup_domainbuffer(DomainSpec(dh, AVStateMaterial(), cv; algebraic_per_cell = (:z, :λ)); a = a)
+        db = setup_domainbuffer(DomainSpec(dh, AVStateMaterial(), cv; algebraic_variables = (:z, :λ)); a = a)
         for cellnr in (1, getncells(dh.grid))
             state = FA.get_state(db, cellnr)
             @test keys(state.dofrange) == (:u, :z, :λ)
@@ -583,10 +583,10 @@ end
             @test FA.get_old_state(db, cellnr).ae == state.ae
         end
         @test FA.get_user_cache(FA.get_itembuffer(db)) === :cellcache
-        db = setup_domainbuffer(DomainSpec(dh, AVStateMaterial(), cv; algebraic_per_cell = (:z, :λ)))
+        db = setup_domainbuffer(DomainSpec(dh, AVStateMaterial(), cv; algebraic_variables = (:z, :λ)))
         @test all(isnan, FA.get_state(db, 1).ae)
         @test length(FA.get_state(db, 1).ae) == n + 3
-        db = setup_domainbuffer(DomainSpec(dh, AVStateMaterial(), fv; algebraic_per_cell = (:z, :λ), set = getfacetset(dh.grid, "left")))
+        db = setup_domainbuffer(DomainSpec(dh, AVStateMaterial(), fv; algebraic_variables = (:z, :λ), set = getfacetset(dh.grid, "left")))
         @test FA.get_user_cache(FA.get_itembuffer(db)) === :facetcache
     end
 
@@ -596,10 +596,10 @@ end
         a = rand(ndofs(dh))
         a[only(algebraic_dofs(dh, :λ))] = 1.0 # Nonzero facet residual for the u dofs, independent of the random u values
         # Setup all buffers before renumbering
-        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))
-        db_record = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ, :z)))
-        db_facet = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_per_cell = (:λ,), set = getfacetset(dh.grid, "left")))
-        threaded = [setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ, :z)); threading = true, autodiffbuffer)
+        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)))
+        db_record = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ, :z)))
+        db_facet = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_variables = (:λ,), set = getfacetset(dh.grid, "left")))
+        threaded = [setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ, :z)); threading = true, autodiffbuffer)
             for autodiffbuffer in (false, true)]
         qe = QuadPointEvaluator{NTuple{5, Float64}}(db_record, :av_record)
         work!(qe, db_record; a = a)
@@ -625,8 +625,8 @@ end
 
         # Assembly with buffers created before and after renumbering
         for (old, new) in (
-                (db, setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))),
-                (db_facet, setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_per_cell = (:λ,), set = getfacetset(dh.grid, "left")))),
+                (db, setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)))),
+                (db_facet, setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_variables = (:λ,), set = getfacetset(dh.grid, "left")))),
             )
             K_new = allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(new))
             r_new = zeros(ndofs(dh))
@@ -642,7 +642,7 @@ end
         # Replacing the material
         material2 = AVHeatMean(2 * material.k, material.f, material.ū - 1)
         db2 = FA.replace_material(db, Returns(material2))
-        db2_ref = setup_domainbuffer(DomainSpec(dh, material2, cv; algebraic_per_cell = (:λ,)))
+        db2_ref = setup_domainbuffer(DomainSpec(dh, material2, cv; algebraic_variables = (:λ,)))
         r2 = zeros(ndofs(dh))
         r2_ref = zeros(ndofs(dh))
         work!(ReAssembler(r2), db2; a = a)
@@ -651,7 +651,7 @@ end
 
         # Empty domains
         for threading in (false, true)
-            db_empty = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,), set = Int[]); threading)
+            db_empty = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,), set = Int[]); threading)
             worker = AVSharedCountWorker()
             work!(worker, db_empty; a = a)
             @test worker.w.nbase[] == worker.w.nlocal[] == 0
@@ -675,8 +675,8 @@ end
         λ0 = algebraic_value(dh_a, a_a, :λ)
         z0 = algebraic_value(dh_b, a_b, :z)
         for threading in (false, true), ad_a in (false, true), ad_b in (false, true)
-            sim_a = Simulation(setup_domainbuffer(DomainSpec(dh_a, material, cv; algebraic_per_cell = (:λ,)); threading, autodiffbuffer = ad_a), a_a)
-            sim_b = Simulation(setup_domainbuffer(DomainSpec(dh_b, material, cv; algebraic_per_cell = (:z,)); threading, autodiffbuffer = ad_b), a_b)
+            sim_a = Simulation(setup_domainbuffer(DomainSpec(dh_a, material, cv; algebraic_variables = (:λ,)); threading, autodiffbuffer = ad_a), a_a)
+            sim_b = Simulation(setup_domainbuffer(DomainSpec(dh_b, material, cv; algebraic_variables = (:z,)); threading, autodiffbuffer = ad_b), a_b)
             group = CoupledSimulations((a = sim_a,); refs = (b = sim_b,))
             qe = QuadPointEvaluator{NTuple{5, Float64}}(group.a.db, :av_record_coupled)
             work!(qe, group.a)
@@ -685,8 +685,8 @@ end
         end
         # Renumbering the partner's dofhandler after setting up the simulations
         sims = map(((false, false), (true, false), (true, true))) do (threading, autodiffbuffer)
-            sim_a = Simulation(setup_domainbuffer(DomainSpec(dh_a, material, cv; algebraic_per_cell = (:λ,)); threading, autodiffbuffer), a_a)
-            db_b = setup_domainbuffer(DomainSpec(dh_b, material, cv; algebraic_per_cell = (:z,)); threading, autodiffbuffer)
+            sim_a = Simulation(setup_domainbuffer(DomainSpec(dh_a, material, cv; algebraic_variables = (:λ,)); threading, autodiffbuffer), a_a)
+            db_b = setup_domainbuffer(DomainSpec(dh_b, material, cv; algebraic_variables = (:z,)); threading, autodiffbuffer)
             return (sim_a, db_b)
         end
         a_b = av_renumber!(dh_b, a_b)
@@ -705,10 +705,10 @@ end
         a = rand(ndofs(dh))
         ncells = getncells(dh.grid)
         facetset = getfacetset(dh.grid, "right")
-        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))
-        dbt = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)); threading = true)
-        dbf = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_per_cell = (:λ,), set = facetset))
-        dbft = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_per_cell = (:λ,), set = facetset); threading = true)
+        db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)))
+        dbt = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)); threading = true)
+        dbf = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_variables = (:λ,), set = facetset))
+        dbft = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_variables = (:λ,), set = facetset); threading = true)
         couplings = FA.algebraic_couplings(db, dbf)
 
         @testset "traits" begin
@@ -743,7 +743,7 @@ end
 
         @testset "task local buffers" begin
             for autodiffbuffer in (false, true)
-                dbt_ad = setup_domainbuffer(DomainSpec(dh, AVHeatMeanAD(material), cv; algebraic_per_cell = (:λ,)); threading = true, autodiffbuffer)
+                dbt_ad = setup_domainbuffer(DomainSpec(dh, AVHeatMeanAD(material), cv; algebraic_variables = (:λ,)); threading = true, autodiffbuffer)
                 itembuffers = FA.get_itembuffer(dbt_ad)
                 base = FA.get_base(itembuffers)
                 locals = FA.get_locals(itembuffers)
@@ -791,7 +791,7 @@ end
 
         @testset "choice of sequential or threaded work per domain" begin
             specs = Dict(
-                "with" => DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,), set = 1:100),
+                "with" => DomainSpec(dh, material, cv; algebraic_variables = (:λ,), set = 1:100),
                 "without" => DomainSpec(dh, material, cv; set = 101:ncells))
             buffers = setup_domainbuffers(specs; threading = true)
             worker = AVCountWorker()
@@ -842,8 +842,8 @@ end
     @testset "Allocations" begin
         function setup_assembly(nel)
             dh = setup_dh(nel)
-            db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)))
-            dbf = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_per_cell = (:λ,), set = getfacetset(dh.grid, "left")))
+            db = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)))
+            dbf = setup_domainbuffer(DomainSpec(dh, facetmaterial, fv; algebraic_variables = (:λ,), set = getfacetset(dh.grid, "left")))
             K = allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(db, dbf))
             return db, dbf, KeReAssembler(K, zeros(ndofs(dh))), zeros(ndofs(dh))
         end
@@ -868,7 +868,7 @@ end
         # Task-local buffers
         dh = setup_dh((4, 4))
         a = zeros(ndofs(dh))
-        dbt = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)); threading = true)
+        dbt = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)); threading = true)
         K = allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(dbt))
         worker = FA.create_local(KeReAssembler(K, zeros(ndofs(dh)); atomic = true))
         sim = Simulation(dbt, a)

@@ -9,6 +9,7 @@ include("Multithreading/task_synchronization.jl") # Spawn+wait+abort-on-failure 
 include("Utils/FerriteAddons.jl")       # Temporary solutions until Ferrite is updated
 include("Utils/utils.jl")
 include("Utils/scaling.jl")
+include("Utils/values_interface.jl")
 include("ItemBuffers/AlgebraicLayout.jl")
 include("ItemBuffers/DofBuffer.jl")
 include("states.jl")
@@ -22,6 +23,7 @@ include("setup.jl")
 include("ItemBuffers/CellBuffer.jl")
 include("ItemBuffers/CoupledCellBuffer.jl")
 include("ItemBuffers/FacetBuffer.jl")
+include("ItemBuffers/FieldBlockBuffer.jl")
 include("Autodiff/autodiff.jl")
 
 include("Coupling.jl")

@@ -1,6 +1,6 @@
 """
-    DomainSpec(sdh::SubDofHandler, material, fe_values; set=_getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_per_cell=())
-    DomainSpec(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_per_cell=())
+    DomainSpec(sdh::SubDofHandler, material, fe_values; set=_getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_variables=())
+    DomainSpec(dh::DofHandler, material, fe_values; set=1:getncells(dh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_variables=())
 
 Create a `DomainSpec` that can be used to set up a domain buffer. 
 
@@ -26,10 +26,13 @@ Create a `DomainSpec` that can be used to set up a domain buffer.
   during work, care must be taken to ensure thread safety. 
   To avoid allocations, caches can be created separately with `allocate_cell_cache` and 
   `allocate_facet_cache`.
-* `algebraic_per_cell::NTuple{N, Symbol}`: **Experimental**. The names of the algebraic variables
-  (added to the dofhandler with `add!(dh, name, AlgebraicVariable())`) used in the domain.
-  The degrees of freedom for these variables are then added after the cell's degrees of
-  freedom for each item (cell or facet), see [Algebraic variables](@ref).
+* `algebraic_variables::Tuple`: **Experimental**. The algebraic variables (added to the dofhandler
+  with `add!(dh, name, AlgebraicVariable())`) used in the domain. Each element is either
+  - `name::Symbol`: The degrees of freedom of the variable are added after the degrees of freedom
+    of all fields for each item (cell or facet), see [Algebraic variables](@ref).
+  - [`AttachAlgebraic(name => field)`](@ref FerriteAssembly.AttachAlgebraic): The degrees of freedom of
+    the variable are added directly after the degrees of freedom of `field` for each item,
+    see [Attached variables](@ref).
 """
 struct DomainSpec{I}
     sdh::SubDofHandler
@@ -38,15 +41,16 @@ struct DomainSpec{I}
     set::Union{AbstractVector{I},AbstractSet{I}}
     colors_or_chunks::Any
     user_data::Any
-    algebraic_per_cell::Tuple{Vararg{Symbol}}
+    algebraic_variables::Tuple
 end
-function DomainSpec(sdh::SubDofHandler, material, values; set=_getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_per_cell=())
+function DomainSpec(sdh::SubDofHandler, material, values; set=_getcellset(sdh), colors=nothing, chunks=nothing, user_data=nothing, algebraic_variables=())
     intersected_set = intersect_cellset_sort(set,_getcellset(sdh))
     colors_or_chunks = chunks!==nothing ? chunks : colors
-    if !isa(algebraic_per_cell, Tuple{Vararg{Symbol}})
-        throw(ArgumentError("`algebraic_per_cell` must be a tuple with the names (`Symbol`s) of the algebraic variables, got $(repr(algebraic_per_cell))"))
+    if !isa(algebraic_variables, Tuple{Vararg{Union{Symbol, AttachAlgebraic}}})
+        throw(ArgumentError(string("`algebraic_variables` must be a tuple with the names (`Symbol`s) of the ",
+            "algebraic variables or `AttachAlgebraic` declarations, got $(repr(algebraic_variables))")))
     end
-    return DomainSpec(sdh, material, values, intersected_set, colors_or_chunks, user_data, algebraic_per_cell)
+    return DomainSpec(sdh, material, values, intersected_set, colors_or_chunks, user_data, algebraic_variables)
 end
 function DomainSpec(dh::DofHandler, args...; kwargs...)
     length(dh.subdofhandlers) > 1 && error("A domain requires a single SubDofHandler")
@@ -141,7 +145,7 @@ function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
     return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
-DofBuffer(domain::DomainSpec) = DofBuffer(domain.sdh, setup_layout(domain.sdh, domain.algebraic_per_cell))
+DofBuffer(domain::DomainSpec) = DofBuffer(domain.sdh, setup_layout(domain.sdh, domain.algebraic_variables))
 
 function create_states(domain::DomainSpec{Int}, dofbuffer::DofBuffer, a)
     return create_states(dofbuffer, domain.sdh, domain.material, domain.fe_values, a, domain.set)
@@ -170,6 +174,7 @@ end
 
 function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false), kwargs...)
     dofbuffer = DofBuffer(domain)
+    check_attached_values(dofbuffer.layout, domain.sdh, domain.fe_values)
     new_states = create_states(domain, dofbuffer, a)
     old_states = create_states(domain, dofbuffer, a)
     itembuffer = setup_itembuffer(autodiffbuffer, domain, dofbuffer, new_states)
@@ -187,4 +192,30 @@ end
 # Threaded
 function _setup_domainbuffer(::Val{true}, set, itembuffer, states, sdh, args...; kwargs...)
     return ThreadedDomainBuffer(set, itembuffer, states, sdh, args...; kwargs...)
+end
+
+# The values for fields with attached variables must have one shape function for each local dof
+check_attached_values(::Nothing, ::SubDofHandler, ::Any) = nothing
+function check_attached_values(layout::AlgebraicLayout, sdh::SubDofHandler, values)
+    layout.fields === nothing && return nothing
+    fieldnames = keys(layout.field_ranges)
+    for (field, range) in pairs(layout.field_ranges)
+        length(range) == length(dof_range(sdh, field)) && continue # No attached dofs
+        field_values = if values isa NamedTuple
+            haskey(values, field) || throw(ArgumentError(string("Variables are attached to :$field, but the values ",
+                "(a NamedTuple with keys $(keys(values))) do not contain values for :$field")))
+            values[field]
+        elseif length(fieldnames) == 1
+            values
+        else
+            throw(ArgumentError(string("Variables are attached to :$field, and the values for each field must then ",
+                "be given as a NamedTuple with the field names as keys")))
+        end
+        n = getnbasefunctions(field_values)
+        if n != length(range)
+            throw(ArgumentError(string("The values for :$field have $n base functions, but the field has ",
+                "$(length(range)) local dofs, including those of the attached variables")))
+        end
+    end
+    return nothing
 end

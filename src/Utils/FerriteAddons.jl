@@ -28,6 +28,17 @@ function _algebraic_variable(dh::DofHandler, name::Symbol)
     return dh.algebraic_variables[idx]
 end
 
+# The component number (index into `algebraic_dofs(dh, name)`) of the variable `var` for the
+# index `idx`, which is an `Int` (scalars and `Vec`s) or a tuple of `Int`s (tensors).
+function _algebraic_component(var::AlgebraicVariable{V}, idx) where {V}
+    index = idx isa Integer ? (Int(idx),) : idx
+    space = Ferrite._index_space(V)
+    if !(index isa Tuple{Vararg{Integer}} && length(index) == length(space) && all(map((i, n) -> 1 ≤ i ≤ n, index, space)))
+        throw(ArgumentError("The index $(repr(idx)) is not valid for $(var)"))
+    end
+    return findfirst(==(Ferrite._canonical_index(V, index)), var.components)::Int
+end
+
 # ================================================= #
 # reinit!(::NamedTuple, args...)                    #
 # ================================================= #

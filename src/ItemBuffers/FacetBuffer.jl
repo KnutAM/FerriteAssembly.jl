@@ -50,7 +50,7 @@ get_time_increment(fb::FacetBuffer) = fb.Δt
 get_user_data(fb::FacetBuffer) = fb.user_data
 get_user_cache(fb::FacetBuffer) = fb.user_cache
 
-Ferrite.getcoordinates(fb::FacetBuffer) = fb.coords
+Ferrite.getcoordinates(fb::FacetBuffer) = routine_coordinates(fb.facetvalues, fb.coords)
 Ferrite.cellid(fb::FacetBuffer) = fb.cellid
 
 # Set functions 

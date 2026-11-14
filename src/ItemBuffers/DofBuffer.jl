@@ -6,7 +6,7 @@ The part of an item buffer that follows from the local degrees of freedom (dofs)
 (cell or facet): The global dof numbers, `dofs`, the local dof range for each field, `dofrange`,
 the local dof values, `ae` and `ae_old`, the local residual, `re`, and the local stiffness, `Ke`.
 If the domain uses algebraic variables, `layout` is the [`AlgebraicLayout`](@ref FerriteAssembly.AlgebraicLayout),
-and the local dofs are the cell dofs followed by the dofs of the algebraic variables.
+which describes how the cell dofs and the dofs of the algebraic variables are ordered locally.
 
 The `DofBuffer` constructor and [`set_dofs!`](@ref FerriteAssembly.set_dofs!) are the only
 functions that define which dofs an item has and how these are ordered locally. The item buffers
@@ -18,6 +18,7 @@ struct DofBuffer{T, DR, L}
     re::Vector{T}       # Residual/force vector
     Ke::Matrix{T}       # Stiffness matrix
     dofs::Vector{Int}   # Global dof numbers
+    scratch::Vector{Int}# Cell dofs, used if the local dofs of a field are not given by `celldofs` directly
     dofrange::DR        # Local dof range for each field and algebraic variable (NamedTuple)
     layout::L           # AlgebraicLayout, or nothing if no algebraic variables are used
 end
@@ -25,11 +26,12 @@ function DofBuffer(sdh::SubDofHandler, layout = nothing)
     n = ndofs_per_item(sdh, layout)
     dofs = zeros(Int, n)
     update_algebraic_dofs!(dofs, layout, sdh.dh)
-    return DofBuffer(zeros(n), zeros(n), zeros(n), zeros(n, n), dofs, create_dofrange(sdh, layout), layout)
+    scratch = zeros(Int, scratch_length(layout))
+    return DofBuffer(zeros(n), zeros(n), zeros(n), zeros(n, n), dofs, scratch, create_dofrange(sdh, layout), layout)
 end
 
 # TaskLocals interface
-create_local(d::DofBuffer) = DofBuffer(map(deepcopy, (d.ae_old, d.ae, d.re, d.Ke, d.dofs, d.dofrange))..., d.layout)
+create_local(d::DofBuffer) = DofBuffer(map(deepcopy, (d.ae_old, d.ae, d.re, d.Ke, d.dofs, d.scratch, d.dofrange))..., d.layout)
 
 """
     set_dofs!(d::DofBuffer, dh::DofHandler, cellnum::Int)
@@ -38,7 +40,7 @@ Set the global dof numbers in `d` to those for the item belonging to cell number
 The dofs of algebraic variables do not depend on the item, and are not changed,
 see [`update_algebraic_dofs!`](@ref FerriteAssembly.update_algebraic_dofs!).
 """
-@inline set_dofs!(d::DofBuffer, dh, cellnum::Int) = fill_celldofs!(d.dofs, d.layout, dh, cellnum)
+@inline set_dofs!(d::DofBuffer, dh, cellnum::Int) = fill_celldofs!(d.dofs, d.scratch, d.layout, dh, cellnum)
 
 """
     reinit_buffer!(d::DofBuffer, sim::Simulation, cellnum::Int)
