@@ -38,9 +38,9 @@ it should be given as a `Real`. `p=2` is equivalent to `Val(2)`, but is less eff
 
 If `dh` contains algebraic variables, a scaling factor is also calculated for each of these, 
 based on the corresponding parts of the residual vectors for the items that use the variable
-(see the `algebraic_variables` keyword of [`DomainSpec`](@ref)). The factor of a field only
-includes the field's own degrees of freedom, and not those of variables attached to the field,
-see [`FerriteAssembly.field_dof_range`](@ref).
+(see the `algebraic_variables` keyword of [`DomainSpec`](@ref)). For a variable attached to a field
+(see [`AttachAlgebraic`](@ref FerriteAssembly.AttachAlgebraic)), this includes the attached components,
+while the factor of the field only includes the field's own degrees of freedom.
 """
 struct ElementResidualScaling{T,P}
     factors::Dict{Symbol,T}
@@ -57,16 +57,18 @@ end
 function update_scaling!(s::ElementResidualScaling, re, buffer, args...)
     p = s.p
     pinv = 1/p 
-    for fieldname in keys(s.factors) 
-        if fieldname in Ferrite.getfieldnames(buffer)
-            s.factors[fieldname] += (sum(i->abs(re[i])^p, field_dof_range(buffer, fieldname)))^pinv
+    ranges = _scaling_ranges(buffer)
+    for name in keys(s.factors)
+        if haskey(ranges, name)
+            s.factors[name] += (sum(i->abs(re[i])^p, ranges[name]))^pinv
         end
     end
 end
 function update_scaling!(s::ElementResidualScaling{<:Any,Val{2}}, re, buffer, args...)
-    for fieldname in keys(s.factors) 
-        if fieldname in Ferrite.getfieldnames(buffer)
-            s.factors[fieldname] += sqrt(sum(i->re[i]^2, field_dof_range(buffer, fieldname)))
+    ranges = _scaling_ranges(buffer)
+    for name in keys(s.factors)
+        if haskey(ranges, name)
+            s.factors[name] += sqrt(sum(i->re[i]^2, ranges[name]))
         end
     end
 end

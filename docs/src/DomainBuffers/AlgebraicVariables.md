@@ -98,15 +98,14 @@ domain = DomainSpec(dh, material, (u = cellvalues_u, p = cellvalues_p);
 For each field, in the order of the `SubDofHandler`, the local degrees of freedom are the field's degrees of
 freedom, followed by those of the variables attached to the field, in declaration order. Then the standalone
 variables follow. In the example above, with linear quadrilaterals, the local dof ranges are
-`u = 1:10`, `H = 9:10`, `p = 11:14`, and `λ = 15:15`. Hence, `dof_range(buffer, :u)` includes the attached
+`u = 1:10`, `p = 11:14`, and `λ = 15:15`, where the two components of `H` are the dofs 9 and 10.
+Hence, `dof_range(buffer, :u)` includes the attached
 degrees of freedom, such that the values for `:u` (`cellvalues_u`) must provide 10 base functions, where
-the last two correspond to the attached components of `H`. Without standalone variables, an element routine
+the last two correspond to the attached components of `H`. The attached variable is only seen through the
+extended field: `H` is not available in the buffer, e.g. for `dof_range` and `get_algebraic_values`, nor in
+the `dofrange` given to [`create_cell_state`](@ref). Without standalone variables, an element routine
 written for a problem without algebraic variables can therefore be used unchanged, as long as the values
 for the attached field provide the additional base functions. This is checked when setting up the domain.
-For the field's own degrees of freedom, use
-```@docs
-FerriteAssembly.field_dof_range
-```
 
 Note that the [`LoadHandler`](@ref) only adds contributions to the field's own degrees of freedom. If an
 external load does work on the attached base functions, this must be included in the element routine, or added to
@@ -156,7 +155,7 @@ FerriteAssembly.field_block
   setting up the domain buffer is supported.
 * **Residual scaling**: [`ElementResidualScaling`](@ref) calculates one factor for each algebraic variable,
   in addition to the factor for each field. The factor for a field only includes the field's own degrees
-  of freedom, see [`FerriteAssembly.field_dof_range`](@ref).
+  of freedom, and the factor for an attached variable includes its attached components.
 * **Workers evaluating fields**: The [`SimpleIntegrator`](@ref) and [`QuadPointEvaluator`](@ref) pass the
   values and gradients of the fields, including the contributions from attached variables. The values of
   the standalone algebraic variables are not passed.

@@ -6,7 +6,9 @@ that the degrees of freedom of the algebraic variable `name` are attached to the
 `field`. For each item (cell or facet) in the domain, these dofs are then placed directly after the
 dofs of `field`, and are included in `dof_range(buffer, field)`. The values object of `field` must
 therefore provide one shape function for each attached dof, after the field's ordinary shape functions,
-see [Attached variables](@ref).
+see [Attached variables](@ref). The attached variable is only seen through `field`, i.e. `name` is not
+available in the item buffer (e.g. for `dof_range` and `get_algebraic_values`), nor in the `dofrange`
+given to [`create_cell_state`](@ref).
 
 By default, all components of the variable are attached, in `Ferrite`'s canonical order (which is
 the data order of the corresponding `Tensors.jl` type). Alternatively, the attached components can be
@@ -38,19 +40,22 @@ variables, see the `algebraic_variables` keyword of [`DomainSpec`](@ref). For ea
 order of the `SubDofHandler`), the local dofs are the field's dofs given by `Ferrite.celldofs`, followed
 by the dofs of the variables attached to the field (see [`AttachAlgebraic`](@ref FerriteAssembly.AttachAlgebraic)),
 in declaration order. These are followed by the dofs of the standalone variables, in declaration order.
+Only the fields (with their attached dofs) and the standalone variables are visible in the buffer's `dofrange`.
 The item buffers of domains without algebraic variables store `nothing` instead.
 
 Internal type, set up by [`setup_layout`](@ref).
 """
-struct AlgebraicLayout{R <: NamedTuple, C <: NamedTuple, V <: NamedTuple, FR <: NamedTuple, OR <: NamedTuple, F}
-    ncelldofs::Int      # Number of dofs given by `Ferrite.celldofs`
-    ranges::R           # NamedTuple{names} with the local range of each algebraic variable
-    components::C       # NamedTuple{names} with the components (indices into `algebraic_dofs(dh, name)`) of each variable
-    values::V           # NamedTuple{names} with the AlgebraicValues of each variable (`nothing` if not all components are used)
-    field_ranges::FR    # NamedTuple{fieldnames} with the local range of each field, including attached dofs
-    own_ranges::OR      # NamedTuple with the local range of each field's own dofs, followed by `ranges`
-    fields::F           # `nothing` if no variables are attached, otherwise a tuple with the
-                        # range in `celldofs` and the first local dof for each field's own dofs
+struct AlgebraicLayout{R <: NamedTuple, C <: NamedTuple, V <: NamedTuple, FR <: NamedTuple, SR <: NamedTuple, OR <: NamedTuple, F}
+    ncelldofs::Int          # Number of dofs given by `Ferrite.celldofs`
+    ranges::R               # NamedTuple{names} with the local range of each algebraic variable (attached and standalone)
+    components::C           # NamedTuple{names} with the components (indices into `algebraic_dofs(dh, name)`) of each variable
+    values::V               # NamedTuple with the AlgebraicValues of each standalone variable
+    field_ranges::FR        # NamedTuple{fieldnames} with the local range of each field, including attached dofs
+    standalone_ranges::SR   # NamedTuple with the local range of each standalone variable
+    scaling_ranges::OR      # NamedTuple with the local range of each field's own dofs, followed by `ranges`,
+                            # used to calculate the residual scaling separately for each part
+    fields::F               # `nothing` if no variables are attached, otherwise a tuple with the
+                            # range in `celldofs` and the first local dof for each field's own dofs
 end
 
 """
@@ -107,12 +112,15 @@ function setup_layout(sdh::SubDofHandler, declarations::Tuple)
         end
     end
     ranges = NamedTuple{names}(map(name -> var_ranges[name], names))
-    values = NamedTuple{names}(map(name -> _layout_values(dh, name, components[name]), names))
+    standalone_names = Tuple(decl for decl in declarations if decl isa Symbol)
+    values = NamedTuple{standalone_names}(map(name -> AlgebraicValues(_algebraic_variable(dh, name)), standalone_names))
+    standalone_ranges = NamedTuple{standalone_names}(map(name -> var_ranges[name], standalone_names))
     any_attached = any(decl -> decl isa AttachAlgebraic, declarations)
     fields = any_attached ? map(f -> (dof_range(sdh, f), first(own_field_ranges[f])), fieldnames) : nothing
     return AlgebraicLayout(
         ndofs_per_cell(sdh), ranges, components, values,
         NamedTuple{fieldnames}(map(f -> field_ranges[f], fieldnames)),
+        standalone_ranges,
         merge(NamedTuple{fieldnames}(map(f -> own_field_ranges[f], fieldnames)), ranges),
         fields)
 end
@@ -132,12 +140,6 @@ function _attached_components(dh::DofHandler, decl::AttachAlgebraic{<:Tuple})
     return components
 end
 
-# AlgebraicValues if the whole variable is used, otherwise `nothing`
-function _layout_values(dh::DofHandler, name::Symbol, components::Tuple)
-    var = _algebraic_variable(dh, name)
-    return components == ntuple(identity, Ferrite.n_algebraic_dofs(var)) ? AlgebraicValues(var) : nothing
-end
-
 # Number of local dofs for an item
 ndofs_per_item(sdh::SubDofHandler, ::Nothing) = ndofs_per_cell(sdh)
 ndofs_per_item(::SubDofHandler, layout::AlgebraicLayout) = layout.ncelldofs + sum(length, layout.ranges)
@@ -150,10 +152,10 @@ scratch_length(layout::AlgebraicLayout) = layout.fields === nothing ? 0 : layout
     create_dofrange(sdh::SubDofHandler, layout)
 
 Create the `NamedTuple` with the local dof range for each field in `sdh` (including attached
-dofs), followed by the range for each algebraic variable in `layout`.
+dofs), followed by the range for each standalone algebraic variable in `layout`.
 """
 create_dofrange(sdh::SubDofHandler, ::Nothing) = create_dofrange(sdh)
-create_dofrange(::SubDofHandler, layout::AlgebraicLayout) = merge(layout.field_ranges, layout.ranges)
+create_dofrange(::SubDofHandler, layout::AlgebraicLayout) = merge(layout.field_ranges, layout.standalone_ranges)
 
 """
     fill_celldofs!(dofs::Vector{Int}, scratch::Vector{Int}, layout, dh, cellnum::Int)
@@ -203,18 +205,22 @@ function copy_algebraic_dofs!(dst::Vector{Int}, src::Vector{Int}, layout::Algebr
     return nothing
 end
 
-@inline _get_algebraic_values(layout::AlgebraicLayout, name::Symbol) = _check_algebraic_values(layout.values[name], name)
+@inline function _get_algebraic_values(layout::AlgebraicLayout, name::Symbol)
+    haskey(layout.values, name) || _throw_not_standalone(layout, name)
+    return layout.values[name]
+end
 _get_algebraic_values(::Nothing, name::Symbol) = throw(ArgumentError(
     "No algebraic variables in the domain, cannot get the algebraic values for :$name"))
-@inline _check_algebraic_values(av::AlgebraicValues, ::Symbol) = av
-_check_algebraic_values(::Nothing, name::Symbol) = throw(ArgumentError(
-    "Only some components of :$name are used in the domain, cannot get the algebraic values"))
+@noinline function _throw_not_standalone(layout::AlgebraicLayout, name::Symbol)
+    if haskey(layout.ranges, name)
+        throw(ArgumentError(":$name is attached to a field, and can only be accessed via that field"))
+    end
+    throw(ArgumentError(":$name is not a standalone algebraic variable in the domain (standalone variables: $(keys(layout.values)))"))
+end
 
-@inline _own_ranges(::Nothing, dofrange::NamedTuple) = dofrange
-@inline _own_ranges(layout::AlgebraicLayout, ::NamedTuple) = layout.own_ranges
+@inline _scaling_ranges(::Nothing, dofrange::NamedTuple) = dofrange
+@inline _scaling_ranges(layout::AlgebraicLayout, ::NamedTuple) = layout.scaling_ranges
 
 # The names of the spatial fields, given all `names` in the dofrange
 _spatial_fieldnames(names::Tuple{Vararg{Symbol}}, ::Nothing) = names
-function _spatial_fieldnames(names::NTuple{N, Symbol}, ::AlgebraicLayout{<:NamedTuple{vnames}}) where {N, vnames}
-    return ntuple(i -> names[i], Val(N - length(vnames)))
-end
+_spatial_fieldnames(::Tuple{Vararg{Symbol}}, layout::AlgebraicLayout) = keys(layout.field_ranges)

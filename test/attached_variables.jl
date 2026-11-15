@@ -3,7 +3,8 @@ include("attached_values_types.jl")
 # Facet routine adding the facet length to each dof attached to :u, used to check facet domains with attached variables
 struct AttachedFacetTest end
 function FerriteAssembly.facet_routine!(Ke, re, ae, ::AttachedFacetTest, fv, buffer)
-    for q_point in 1:getnquadpoints(fv), i in dof_range(buffer, :e33)
+    i = last(dof_range(buffer, :u)) # Attached :e33 dof
+    for q_point in 1:getnquadpoints(fv)
         re[i] += getdetJdV(fv, q_point)
     end
 end
@@ -36,6 +37,10 @@ function manual_generalized_plane_strain(dh, cv, m, a)
 end
 
 # Material saving the coordinates given to `create_cell_state` and to the routine
+# Stores the names in the `dofrange` given to `create_cell_state`
+struct DofrangeRecorder end
+FerriteAssembly.create_cell_state(::DofrangeRecorder, cv, x, ae, dofrange) = keys(dofrange)
+
 struct CoordinateRecorder end
 FerriteAssembly.create_cell_state(::CoordinateRecorder, cv, x, ae, dofrange) = [copy(x)]
 function FerriteAssembly.element_routine!(Ke, re, state, ae, ::CoordinateRecorder, cv, buffer)
@@ -152,16 +157,17 @@ end
         @test layout.ranges == (A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
         # SymmetricTensor{2, 3} components: (1, 1), (2, 1), (3, 1), (2, 2), (3, 2), (3, 3)
         @test layout.components == (A = (6, 5, 3), γ = (1,), e33 = (1,), b = (1, 2, 3))
-        @test layout.values.A === nothing
-        @test layout.values.b isa AlgebraicValues
+        @test keys(layout.values) == (:γ,)
+        @test layout.values.γ isa AlgebraicValues
         @test FA.ndofs_per_item(sdh, layout) == 20
         dofrange = FA.create_dofrange(sdh, layout)
-        @test dofrange == (u = 1:12, p = 13:19, A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
-        @test layout.own_ranges == (u = 1:8, p = 13:16, A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
+        @test dofrange == (u = 1:12, p = 13:19, γ = 20:20)
+        @test layout.scaling_ranges == (u = 1:8, p = 13:16, A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
         @test (@inferred FA._spatial_fieldnames(keys(dofrange), layout)) == (:u, :p)
         # Attached to the last field only
         layout_p = FA.setup_layout(sdh, (FA.AttachAlgebraic(:b => :p; indices = (3, 1)),))
-        @test FA.create_dofrange(sdh, layout_p) == (u = 1:8, p = 9:14, b = 13:14)
+        @test FA.create_dofrange(sdh, layout_p) == (u = 1:8, p = 9:14)
+        @test isempty(layout_p.values)
         @test layout_p.components == (b = (3, 1),)
         # Without attached variables
         layout_γ = FA.setup_layout(sdh, (:γ,))
@@ -199,17 +205,16 @@ end
         for threading in (false, true)
             db = setup_domainbuffer(DomainSpec(dh, nothing, values; algebraic_variables = declarations); threading)
             buffer = FA.get_base(FA.get_itembuffer(db))
-            @test Ferrite.getfieldnames(buffer) == (:u, :p, :γ, :H)
-            @test FA._spatial_fieldnames(buffer) == (:u, :p)
+            @test Ferrite.getfieldnames(buffer) == (:u, :p, :γ)
+            @test (@inferred FA._spatial_fieldnames(buffer)) == (:u, :p)
             @test dof_range(buffer, :u) == 1:10
-            @test dof_range(buffer, :H) == 9:10
             @test dof_range(buffer, :p) == 11:14
             @test dof_range(buffer, :γ) == 15:15
-            @test FA.field_dof_range(buffer, :u) == 1:8
-            @test FA.field_dof_range(buffer, :p) == 11:14
-            @test FA.field_dof_range(buffer, :H) == 9:10
-            @test_throws ArgumentError FA.get_algebraic_values(buffer, :H)
-            @test FA.get_algebraic_values(buffer, :γ) isa AlgebraicValues
+            @test_throws Exception dof_range(buffer, :H)
+            @test FA._scaling_ranges(buffer) == (u = 1:8, p = 11:14, γ = 15:15, H = 9:10)
+            @test_throws "attached to a field" FA.get_algebraic_values(buffer, :H)
+            @test_throws "not a standalone" FA.get_algebraic_values(buffer, :S)
+            @test (@inferred FA.get_algebraic_values(buffer, :γ)) isa AlgebraicValues
             sim = Simulation(db, a, aold)
             FA.refresh_algebraic_dofs!(sim)
             for cellnr in (1, 4)
@@ -221,13 +226,15 @@ end
                 @test FA.get_ae(buffer) == a[expected]
                 @test FA.get_aeold(buffer) == aold[expected]
             end
-            alloc_field_dof_range(b) = @allocated FA.field_dof_range(b, :u)
-            alloc_field_dof_range(buffer)
-            @test alloc_field_dof_range(buffer) == 0
+            db_dr = setup_domainbuffer(DomainSpec(dh, DofrangeRecorder(), values; algebraic_variables = declarations); threading)
+            @test all(p -> p.second == (:u, :p, :γ), pairs(FA.get_state(db_dr)))
+            alloc_scaling_ranges(b) = @allocated FA._scaling_ranges(b)
+            alloc_scaling_ranges(buffer)
+            @test alloc_scaling_ranges(buffer) == 0
         end
         # Without layout
         buffer = FA.get_itembuffer(setup_domainbuffer(DomainSpec(dh_plain, nothing, (u = cv_u, p = cv_p))))
-        @test FA.field_dof_range(buffer, :p) == dof_range(buffer, :p) == 9:12
+        @test FA._scaling_ranges(buffer) == (u = 1:8, p = 9:12)
     end
 
     @testset "Validation" begin
@@ -490,7 +497,7 @@ end
         declarations = (FA.AttachAlgebraic(:H => :u; indices = H_indices),)
         values = AffineCellValues(cv_u, xc, H_indices)
         db = setup_domainbuffer(DomainSpec(dh, m_2d, values; algebraic_variables = declarations))
-        a = av_renumber!(dh, 1.0e-3 * randn(ndofs(dh)))
+        a = av_renumber!(dh, 1.0e-4 * randn(ndofs(dh))) # Small enough to remain elastic, for comparison with `m_elastic`
         db_new = setup_domainbuffer(DomainSpec(dh, m_2d, values; algebraic_variables = declarations))
         K1, K2 = (allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(db_new)) for _ in 1:2)
         r1, r2 = (zeros(ndofs(dh)) for _ in 1:2)
@@ -517,7 +524,7 @@ end
         db = setup_domainbuffer(spec(PaddedFacetValues(fv, 1)))
         buffer = FA.get_itembuffer(db)
         @test dof_range(buffer, :u) == 1:9
-        @test dof_range(buffer, :e33) == 9:9
+        @test Ferrite.getfieldnames(buffer) == (:u,)
         K = allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(db))
         r = zeros(ndofs(dh))
         work!(KeReAssembler(K, r), db)

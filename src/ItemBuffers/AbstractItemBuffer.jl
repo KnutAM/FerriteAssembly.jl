@@ -128,22 +128,17 @@ Get the `dof_range` for a specific field, same as
 `Ferrite.dof_range(::SubDofHandler, ::Symbol)`, 
 but fully type-stable. For a domain with algebraic variables 
 (see the `algebraic_variables` keyword of [`DomainSpec`](@ref)),
-the name of an algebraic variable gives the local dof range for that variable,
+the name of a standalone algebraic variable gives the local dof range for that variable,
 and the range of a field includes the dofs of variables attached to that field.
-See also [`FerriteAssembly.field_dof_range`](@ref).
+The names of attached variables are not available.
 """
 @inline Ferrite.dof_range(b::AbstractItemBuffer, name::Symbol) = get_dofbuffer(b).dofrange[name]
 
-"""
-    FerriteAssembly.field_dof_range(::AbstractItemBuffer, name::Symbol)
-
-Get the local dof range of the field's own degrees of freedom, i.e. excluding the degrees of freedom of
-algebraic variables attached to the field (see [`AttachAlgebraic`](@ref FerriteAssembly.AttachAlgebraic)).
-For an algebraic variable, and for fields without attached variables, this is the same as `dof_range`.
-"""
-@inline function field_dof_range(b::AbstractItemBuffer, name::Symbol)
+# NamedTuple with the local dof ranges for which separate residual scaling factors are calculated:
+# Each field's own dofs (excluding attached dofs), followed by the dofs of each algebraic variable
+@inline function _scaling_ranges(b::AbstractItemBuffer)
     dofbuffer = get_dofbuffer(b)
-    return _own_ranges(dofbuffer.layout, dofbuffer.dofrange)[name]
+    return _scaling_ranges(dofbuffer.layout, dofbuffer.dofrange)
 end
 
 # Internal overload for now
@@ -158,8 +153,7 @@ has_algebraic_dofs(b::AbstractItemBuffer) = get_layout(b) !== nothing
     get_algebraic_values(itembuffer::AbstractItemBuffer, name::Symbol)
 
 Get the `Ferrite.AlgebraicValues` for the algebraic variable `name`, which must be one of the
-variables given as `algebraic_variables` to the [`DomainSpec`](@ref), and use all components
-of that variable. Together with
+standalone variables given as `algebraic_variables` to the [`DomainSpec`](@ref). Together with
 `dof_range(itembuffer, name)`, the value of the variable is then
 `algebraic_value(get_algebraic_values(itembuffer, name), ae, dof_range(itembuffer, name))`.
 """
