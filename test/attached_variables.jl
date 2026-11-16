@@ -544,6 +544,114 @@ end
         @test K1 ≈ K2
     end
 
+    @testset "Sparsity pattern with the used components" begin
+        grid = generate_grid(Quadrilateral, (3, 2), Vec((0.0, 0.0)), Vec((2.0, 1.0)))
+        dh = DofHandler(grid)
+        add!(dh, :u, ip^2)
+        add!(dh, :eps, AlgebraicVariable{SymmetricTensor{2, 3}}())
+        add!(dh, :λ, AlgebraicVariable())
+        add!(dh, :p0, AlgebraicVariable())
+        close!(dh)
+        # SymmetricTensor{2, 3} components: (1, 1), (2, 1), (3, 1), (2, 2), (3, 2), (3, 3)
+        eps_used = algebraic_dofs(dh, :eps)[6]
+        eps_unused = algebraic_dofs(dh, :eps)[1:5]
+        iλ, ip0 = only(algebraic_dofs(dh, :λ)), only(algebraic_dofs(dh, :p0))
+        ch = ConstraintHandler(dh)
+        foreach(d -> add!(ch, AffineConstraint(d, Pair{Int, Float64}[], 0.0)), eps_unused)
+        add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(zero(Vec{2}))))
+        close!(ch)
+        cv_oop = OutOfPlaneCellValues(CellValues(qr, ip^2))
+        fv = PaddedFacetValues(FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip^2), 1)
+        attach_eps = FA.AttachAlgebraic(:eps => :u; indices = ((3, 3),))
+        right = getfacetset(grid, "right")
+        spec_cells = DomainSpec(dh, nothing, cv_oop; algebraic_variables = (attach_eps, :λ))
+        db_cells = setup_domainbuffer(spec_cells)
+        db_facets = setup_domainbuffer(DomainSpec(dh, nothing, fv; set = right, algebraic_variables = (:p0, attach_eps)))
+        dbs = (db_cells, db_facets)
+        function exact_matrix(dh, ch, buffers...)
+            sp = init_sparsity_pattern(dh)
+            add_sparsity_entries!(sp, dh; algebraic_couplings = FA.algebraic_couplings(buffers...; exclude_attached = true))
+            FA.add_algebraic_entries!(sp, buffers...)
+            add_constraint_entries!(sp, ch)
+            return allocate_matrix(sp)
+        end
+        structure(K) = Set(zip(findnz(K)[1:2]...))
+        K_exact = exact_matrix(dh, ch, dbs...)
+        K_desc = allocate_matrix(dh, ch; algebraic_couplings = FA.algebraic_couplings(dbs...))
+        S_exact = structure(K_exact)
+        @test S_exact ⊆ structure(K_desc)
+        # The unused components only have the diagonal entry, in contrast to the coupling descriptors
+        for d in eps_unused
+            @test nnz(K_exact[d, :]) == nnz(K_exact[:, d]) == 1
+            @test nnz(K_desc[d, :]) == ndofs(dh) # Coupled to all dofs
+        end
+        # Expected entries for the used dofs
+        all_cdofs = reduce(vcat, (celldofs(dh, i) for i in 1:getncells(grid)))
+        right_cdofs = reduce(vcat, (celldofs(dh, cellnr) for (cellnr, _) in right))
+        expected_cols = Dict(
+            eps_used => Set(vcat(all_cdofs, eps_used, iλ, ip0)),
+            iλ => Set(vcat(all_cdofs, eps_used, iλ)),
+            ip0 => Set(vcat(right_cdofs, eps_used, ip0)),
+        )
+        for (d, cols) in expected_cols
+            @test Set(findnz(K_exact[d, :])[1]) == cols
+            @test Set(findnz(K_exact[:, d])[1]) == cols
+        end
+        # Field entries as without algebraic variables, apart from the couplings to the used dofs
+        sp_plain = init_sparsity_pattern(dh)
+        add_sparsity_entries!(sp_plain, dh)
+        S_plain = structure(allocate_matrix(sp_plain))
+        S_alg = Set((i, j) for (i, j) in S_exact if (i ∈ keys(expected_cols) || j ∈ keys(expected_cols)))
+        @test S_exact == S_plain ∪ S_alg
+        # Simulation and DomainBuffers give the same pattern as the domain buffer
+        S_cells = structure(exact_matrix(dh, ch, db_cells))
+        @test S_cells ⊆ S_exact
+        @test structure(exact_matrix(dh, ch, Simulation(db_cells))) == S_cells
+        @test structure(exact_matrix(dh, ch, setup_domainbuffers(Dict("cells" => spec_cells)))) == S_cells
+
+        # Same assembled values and structure after applying the constraints
+        db = setup_domainbuffer(DomainSpec(dh, m_3d, cv_oop; algebraic_variables = (attach_eps,)))
+        a = 1.0e-3 * randn(ndofs(dh))
+        K1, K2 = (exact_matrix(dh, ch, db), allocate_matrix(dh, ch; algebraic_couplings = FA.algebraic_couplings(db)))
+        r1, r2 = (zeros(ndofs(dh)) for _ in 1:2)
+        work!(KeReAssembler(K1, r1), db; a)
+        work!(KeReAssembler(K2, r2), db; a)
+        @test Matrix(K1) == Matrix(K2)
+        @test r1 == r2
+        n1 = nnz(K1)
+        apply!(K1, r1, ch)
+        apply!(K2, r2, ch)
+        @test nnz(K1) == n1
+        @test Matrix(K1) == Matrix(K2)
+        @test nnz(K1) < nnz(K2)
+
+        # Without the attached entries, assembly fails
+        K3 = allocate_matrix(dh, ch; algebraic_couplings = FA.algebraic_couplings(db; exclude_attached = true))
+        @test_throws ErrorException work!(KeReAssembler(K3, zeros(ndofs(dh))), db; a)
+
+        # Coupling descriptors excluding the attached variables
+        @test isempty(FA.algebraic_couplings(db; exclude_attached = true))
+        @test length(FA.algebraic_couplings(db)) == 1
+        function pairs_of(couplings)
+            c = only(couplings)
+            return Set(Set((c.fields[i], c.fields[j])) for i in axes(c.coupling, 1), j in axes(c.coupling, 2) if c.coupling[i, j])
+        end
+        P(pairs...) = Set(Set(p) for p in pairs)
+        @test pairs_of(FA.algebraic_couplings(db_cells; exclude_attached = true)) == P((:u, :λ), (:λ, :λ))
+        @test pairs_of(FA.algebraic_couplings(db_cells)) == P((:u, :eps), (:u, :λ), (:eps, :eps), (:eps, :λ), (:λ, :λ))
+        @test pairs_of(FA.algebraic_couplings(db_facets; exclude_attached = true)) == P((:u, :p0), (:p0, :p0))
+        @test length(FA.algebraic_couplings(dbs...; exclude_attached = true)) == 2
+        @test length(FA.algebraic_couplings(Simulation(db); exclude_attached = true)) == 0
+
+        # Only standalone variables: no attached entries are added, and the pattern equals the full coupling descriptors
+        db_standalone = setup_domainbuffer(DomainSpec(dh, nothing, CellValues(qr, ip^2); algebraic_variables = (:eps, :λ)))
+        sp_standalone = init_sparsity_pattern(dh)
+        add_sparsity_entries!(sp_standalone, dh)
+        FA.add_algebraic_entries!(sp_standalone, db_standalone)
+        @test structure(allocate_matrix(sp_standalone)) == S_plain
+        @test structure(exact_matrix(dh, ch, db_standalone)) == structure(allocate_matrix(dh, ch; algebraic_couplings = FA.algebraic_couplings(db_standalone)))
+    end
+
     @testset "Facet domain" begin
         grid = generate_grid(Quadrilateral, (3, 2), Vec((0.0, 0.0)), Vec((2.0, 1.0)))
         dh = DofHandler(grid)

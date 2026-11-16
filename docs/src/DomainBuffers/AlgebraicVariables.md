@@ -59,6 +59,14 @@ coupling information for the domains is created by
 ```@docs
 FerriteAssembly.algebraic_couplings
 ```
+These descriptors couple all components of each algebraic variable in a domain. If only some components of a
+variable are attached to a field, the remaining components get dense rows and columns in the matrix (containing
+zeros). This increases the memory usage and the time to create the matrix, but typically has little influence on
+the time to assemble and solve the system. Optionally, the attached variables can be excluded from the descriptors
+with `exclude_attached = true`, and only the entries for the attached components added with
+```@docs
+FerriteAssembly.add_algebraic_entries!
+```
 `Ferrite`'s `allocate_matrix` also accounts for constraints, e.g. affine constraints where the degrees of
 freedom of an algebraic variable are the masters. Constraining the degrees of freedom of algebraic variables
 is done with `AffineConstraint`s, and these can be applied both locally (with a `ConstraintHandler` given
