@@ -82,26 +82,22 @@ function add_multiplier_terms!(Ke, re, ae, cv, buffer)
 end
 struct MultiplierOnly end
 FerriteAssembly.element_routine!(Ke, re, state, ae, ::MultiplierOnly, cv, buffer) = add_multiplier_terms!(Ke, re, ae, cv, buffer)
-# Calls the unmodified routine of `inner` for the fields via `field_block`
-struct WithMultiplier{M}
-    inner::M
-end
-function FerriteAssembly.element_routine!(Ke, re, state, ae, m::WithMultiplier, cv, buffer)
-    Ke_f, re_f, ae_f, buffer_f = FA.field_block(Ke, re, ae, buffer)
-    FA.element_routine!(Ke_f, re_f, state, ae_f, m.inner, cv, buffer_f)
-    add_multiplier_terms!(Ke, re, ae, cv, buffer)
-end
-# Only residual, calling the inner residual via `field_block`
-struct WithMultiplierAD{M}
-    inner::M
-end
-for MT in (WithMultiplier, WithMultiplierAD)
-    @eval FerriteAssembly.create_cell_state(m::$MT, args...) = FerriteAssembly.create_cell_state(m.inner, args...)
-    @eval FerriteAssembly.allocate_cell_cache(m::$MT, cv) = FerriteAssembly.allocate_cell_cache(m.inner, cv)
-end
-function FerriteAssembly.element_residual!(re, state, ae, m::WithMultiplierAD, cv, buffer)
-    _, re_f, ae_f, buffer_f = FA.field_block(nothing, re, ae, buffer)
-    FA.element_residual!(re_f, state, ae_f, m.inner, cv, buffer_f)
+# Residual of the weak form ∇δu ⊡ (2 sym(∇u) + tr(∇u) I) + δu ⋅ u̇ for the field `:u` (evaluated via `dof_range`),
+# plus the multiplier terms of the standalone variable `λ`.
+struct FieldWithMultiplier end
+function FerriteAssembly.element_residual!(re, state, ae, ::FieldWithMultiplier, cv, buffer)
+    ru = dof_range(buffer, :u)
+    aeold = FA.get_aeold(buffer)
+    Δt = FA.get_time_increment(buffer)
+    for q_point in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, q_point)
+        ∇u = function_gradient(cv, q_point, ae, ru)
+        u_dot = (function_value(cv, q_point, ae, ru) - function_value(cv, q_point, aeold, ru)) / Δt
+        σ = 2 * symmetric(∇u) + tr(∇u) * one(∇u)
+        for (i, I) in pairs(ru)
+            re[I] += (shape_gradient(cv, q_point, i) ⊡ σ + shape_value(cv, q_point, i) ⋅ u_dot) * dΩ
+        end
+    end
     add_multiplier_terms!(nothing, re, ae, cv, buffer)
 end
 
@@ -381,7 +377,7 @@ end
         end
     end
 
-    @testset "Attached and standalone variables (field_block)" begin
+    @testset "Attached and standalone variables in the same domain" begin
         H_indices = ((2, 1), (1, 1))
         dh_plain, dh = setup_affine_dhs(; variables = (:H => AlgebraicVariable{Tensor{2, 2}}(), :λ => AlgebraicVariable()))
         values = AffineCellValues(cv_u, xc, H_indices)
@@ -397,53 +393,22 @@ end
             work!(KeReAssembler(K, r; atomic = true), db; a, aold)
             return K, r
         end
+        # Field contributions from the unchanged routine, without the standalone variable
+        K_field, r_field = assemble(weakform, (attach_H,))
         K_mult, r_mult = assemble(MultiplierOnly(), (attach_H, :λ))
-        for inner in (m_2d, weakform)
-            K_inner, r_inner = assemble(inner, (attach_H,))
-            for (outer, autodiffbuffer, threading) in (
-                    (WithMultiplier(inner), false, false), (WithMultiplier(inner), true, false),
-                    (WithMultiplier(inner), false, true), (WithMultiplierAD(inner), true, false),
-                    (WithMultiplierAD(inner), false, true),
-                )
-                K, r = assemble(outer, (attach_H, :λ); autodiffbuffer, threading)
-                @test K ≈ K_inner + K_mult
-                @test r ≈ r_inner + r_mult
-            end
+        @test !iszero(K_mult) && !iszero(r_mult)
+        # Explicit element routine, threaded
+        @test all(assemble(MultiplierOnly(), (attach_H, :λ); threading = true) .≈ (K_mult, r_mult))
+        # Routine for both, using `dof_range`, with automatic differentiation
+        for autodiffbuffer in (false, true), threading in (false, true)
+            K, r = assemble(FieldWithMultiplier(), (attach_H, :λ); autodiffbuffer, threading)
+            @test K ≈ K_field + K_mult
+            @test r ≈ r_field + r_mult
         end
-
-        # The buffer view
-        db = setup_domainbuffer(DomainSpec(dh, nothing, values; algebraic_variables = (:λ, attach_H)))
-        buffer = FA.get_itembuffer(db)
-        sim = Simulation(db, a, aold)
-        FA.refresh_algebraic_dofs!(sim)
-        FA.reinit_buffer!(buffer, sim, 2)
-        Ke, re, ae = (FA.get_Ke(buffer), FA.get_re(buffer), FA.get_ae(buffer))
-        Ke_f, re_f, ae_f, buffer_f = FA.field_block(Ke, re, ae, buffer)
-        @test size(Ke_f) == (10, 10)
-        @test length(re_f) == length(ae_f) == 10
-        @test ae_f == ae[1:10]
-        @test FA.get_ae(buffer_f) == FA.get_ae(buffer)[1:10]
-        @test FA.get_aeold(buffer_f) == FA.get_aeold(buffer)[1:10]
-        @test celldofs(buffer_f) == celldofs(buffer)[1:10]
-        @test size(FA.get_Ke(buffer_f)) == (10, 10)
-        @test length(FA.get_re(buffer_f)) == 10
-        @test dof_range(buffer_f, :u) == 1:10
-        @test FA.get_values(buffer_f) === FA.get_values(buffer)
-        @test FA.get_material(buffer_f) === FA.get_material(buffer)
-        @test Ferrite.cellid(buffer_f) == 2
-        @test getcoordinates(buffer_f) === getcoordinates(buffer)
-        alloc_field_block(Ke, re, ae, buffer) = @allocated FA.field_block(Ke, re, ae, buffer)
-        alloc_field_block(Ke, re, ae, buffer)
-        @test alloc_field_block(Ke, re, ae, buffer) == 0
-        # Without standalone variables, and without algebraic variables
-        for decl in ((attach_H,), ())
-            db = setup_domainbuffer(DomainSpec(decl == () ? dh_plain : dh, nothing, decl == () ? cv_u : values; algebraic_variables = decl))
-            buffer = FA.get_itembuffer(db)
-            n = length(FA.get_ae(buffer))
-            Ke_f, re_f, ae_f, buffer_f = FA.field_block(FA.get_Ke(buffer), FA.get_re(buffer), FA.get_ae(buffer), buffer)
-            @test size(Ke_f) == (n, n)
-            @test length(FA.get_ae(buffer_f)) == n
-        end
+        # The local dofs of `:λ` follow the extended field
+        buffer = FA.get_itembuffer(setup_domainbuffer(DomainSpec(dh, nothing, values; algebraic_variables = (:λ, attach_H))))
+        @test dof_range(buffer, :u) == 1:10
+        @test dof_range(buffer, :λ) == 11:11
     end
 
     @testset "Integrators" begin

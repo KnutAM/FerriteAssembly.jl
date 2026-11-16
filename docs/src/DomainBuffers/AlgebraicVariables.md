@@ -46,8 +46,7 @@ av = FerriteAssembly.get_algebraic_values(buffer, :λ)
 ```
 which, e.g., gives a tensor for an `AlgebraicVariable{SymmetricTensor{2, 3}}`.
 `Ferrite.getfieldnames(buffer)` and the `dofrange` given to [`create_cell_state`](@ref) contain the fields,
-followed by the algebraic variables. If not all components of a variable are used in a domain (see
-[`AttachAlgebraic`](@ref FerriteAssembly.AttachAlgebraic)), its value cannot be obtained this way.
+followed by the standalone algebraic variables. Attached variables are not included, see [Attached variables](@ref).
 
 ```@docs
 FerriteAssembly.get_algebraic_values
@@ -103,9 +102,11 @@ Hence, `dof_range(buffer, :u)` includes the attached
 degrees of freedom, such that the values for `:u` (`cellvalues_u`) must provide 10 base functions, where
 the last two correspond to the attached components of `H`. The attached variable is only seen through the
 extended field: `H` is not available in the buffer, e.g. for `dof_range` and `get_algebraic_values`, nor in
-the `dofrange` given to [`create_cell_state`](@ref). Without standalone variables, an element routine
-written for a problem without algebraic variables can therefore be used unchanged, as long as the values
-for the attached field provide the additional base functions. This is checked when setting up the domain.
+the `dofrange` given to [`create_cell_state`](@ref). An attached variable therefore doesn't change the
+element routine: the field just has more degrees of freedom, and the values for the field must provide the
+additional base functions. This is checked when setting up the domain. An existing element routine can thus
+be used unchanged, as long as the domain has no standalone variables, see
+[Attached and standalone variables in the same domain](@ref).
 
 Note that the [`LoadHandler`](@ref) only adds contributions to the field's own degrees of freedom. If an
 external load does work on the attached base functions, this must be included in the element routine, or added to
@@ -139,12 +140,12 @@ FerriteAssembly.routine_coordinates
 ```
 
 ### Attached and standalone variables in the same domain
-The degrees of freedom of the standalone variables follow those of the fields, such that `ae`, `re`, and `Ke`
-contain more entries than the base functions of the fields. To still use an existing routine for the fields,
-including their attached variables, it can be called via
-```@docs
-FerriteAssembly.field_block
-```
+A standalone variable is an additional entry in the local degrees of freedom, placed after all fields
+(including their attached degrees of freedom). The element routine must therefore use
+`dof_range(buffer, name)` for each field and each standalone variable, as for any multi-field problem.
+In the example above, the routine evaluates `:u` (including the attached components of `H`) with
+`dof_range(buffer, :u)`, `:p` with `dof_range(buffer, :p)`, and gets the value of `:λ` with
+`dof_range(buffer, :λ)`, see [Local degrees of freedom](@ref).
 
 ## Further details
 * **Automatic differentiation**: Defining only `element_residual!` works as for other cell domains,
