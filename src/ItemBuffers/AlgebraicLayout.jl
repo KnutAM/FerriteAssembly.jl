@@ -11,15 +11,15 @@ available in the item buffer (e.g. for `dof_range` and `get_algebraic_values`), 
 given to [`create_cell_state`](@ref).
 
 The attached components are given as `indices`, in the order of the attached shape functions.
-`indices` can only be omitted if the variable has a single component, e.g. a scalar. Each index is an `Int` for scalar and `Vec` variables,
-and a tuple, e.g. `(3, 3)`, for tensorial variables. For symmetric tensors, `(i, j)` and `(j, i)`
-refer to the same component. Components that are not attached in any domain don't get any contributions,
-and must be constrained.
+`indices` can only be omitted if the variable has a single component, e.g. a scalar.
+Each index is an `Int` for scalar and `Vec` variables, and a tuple, e.g. `(3, 3)`, for tensorial
+variables. For symmetric tensors, `(i, j)` and `(j, i)` refer to the same component. Components that
+are not attached in any domain don't get any contributions, and must be constrained.
 """
 struct AttachAlgebraic{I}
     name::Symbol
     field::Symbol
-    indices::I # `nothing` (all components) or a tuple of indices
+    indices::I # `nothing` (only for a variable with a single component) or a tuple of indices
 end
 function AttachAlgebraic(p::Pair{Symbol, Symbol}; indices = nothing)
     if !(indices === nothing || indices isa Tuple)
@@ -72,6 +72,10 @@ function setup_layout(sdh::SubDofHandler, declarations::Tuple)
     available = _algebraic_names(dh)
     # Sorted by the position in `celldofs`, such that the fields' own dofs are in the same order locally
     fieldnames = Tuple(sort!(collect(Ferrite.getfieldnames(sdh)); by = f -> first(dof_range(sdh, f))))
+    if mapreduce(f -> collect(dof_range(sdh, f)), vcat, fieldnames; init = Int[]) != 1:ndofs_per_cell(sdh)
+        error("The dof ranges of the fields, $(map(f -> dof_range(sdh, f), fieldnames)), do not partition the ",
+            "$(ndofs_per_cell(sdh)) cell dofs, which is required for the layout of algebraic variables")
+    end
     for name in names
         if name ∉ available
             if name ∈ Ferrite.getfieldnames(dh)

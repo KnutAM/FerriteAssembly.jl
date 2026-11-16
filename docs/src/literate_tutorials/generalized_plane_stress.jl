@@ -115,10 +115,12 @@ function create_constrainthandler(dh, Δu; plane_strain = false)
 end;
 
 # The reaction force is the sum of the residual for the degrees of freedom on the right edge, in the loading direction.
-ch_right = ConstraintHandler(dh)
-add!(ch_right, Dirichlet(:u, getfacetset(grid, "right"), Returns(0.0), 1))
-close!(ch_right)
-right_dofs = ch_right.prescribed_dofs;
+function right_edge_dofs(dh)
+    ch = ConstraintHandler(dh)
+    add!(ch, Dirichlet(:u, getfacetset(dh.grid, "right"), Returns(0.0), 1))
+    close!(ch)
+    return ch.prescribed_dofs
+end;
 
 # We use an elasto-plastic material model from
 # [`MechanicalMaterialModels.jl`](https://github.com/KnutAM/MechanicalMaterialModels.jl)
@@ -147,9 +149,11 @@ domain_gps = DomainSpec(dh, material, cv_oop;
 function solve(domain, dh; ϵ33_dofs = Int[], plane_strain = false, Δu = 0.1, num_steps = 40, tolerance = 1.0e-8, maxiter = 20)
     buffer = setup_domainbuffer(domain)
     ch = create_constrainthandler(dh, Δu; plane_strain)
+    right_dofs = right_edge_dofs(dh)
     K = allocate_matrix(dh, ch; algebraic_couplings = FerriteAssembly.algebraic_couplings(buffer))
     r = zeros(ndofs(dh))
     a = zeros(ndofs(dh))
+    displacement = [0.0]
     force = [0.0]
     ϵ33 = [0.0]
     t_old = 0.0
@@ -172,18 +176,19 @@ function solve(domain, dh; ϵ33_dofs = Int[], plane_strain = false, Δu = 0.1, n
             end
         end
         update_states!(buffer)
+        push!(displacement, Δu * t)
         push!(force, reaction)
         push!(ϵ33, isempty(ϵ33_dofs) ? NaN : a[only(ϵ33_dofs)])
         t_old = t
     end
-    return force, ϵ33
+    return displacement, force, ϵ33
 end;
 
 # Generalized plane stress, where we also save the out-of-plane strain
-force_gps, ϵ33_gps = solve(domain_gps, dh; ϵ33_dofs = algebraic_dofs(dh, :ϵ33));
+displacement, force_gps, ϵ33_gps = solve(domain_gps, dh; ϵ33_dofs = algebraic_dofs(dh, :ϵ33));
 
 # Plane strain, using the same domain, but with `:ϵ33` prescribed to zero
-force_pe, _ = solve(domain_gps, dh; plane_strain = true);
+_, force_pe, _ = solve(domain_gps, dh; plane_strain = true);
 
 # For comparison, we also solve the standard plane stress problem, where the material model is
 # solved such that ``\sigma_{33} = 0`` in each quadrature point. For this case, we use a `DofHandler`
@@ -192,7 +197,7 @@ dh_ps = DofHandler(grid)
 add!(dh_ps, :u, ip)
 close!(dh_ps)
 domain_ps = DomainSpec(dh_ps, MMB.ReducedStressState(MMB.PlaneStress(), material), CellValues(qr, ip))
-force_ps, _ = solve(domain_ps, dh_ps);
+_, force_ps, _ = solve(domain_ps, dh_ps);
 
 # ## Results
 # The generalized plane stress solution is stiffer than the plane stress solution, since the out-of-plane strain is
@@ -203,15 +208,14 @@ using Test                                                        #src
 all(force_ps[2:end] .< force_gps[2:end] .< force_pe[2:end])
 
 # Before also plotting the response to see this graphically
-Δu_values = collect(range(0, 0.1, length(force_gps)))
 fig = CM.Figure()
 ax_f = CM.Axis(fig[1, 1]; xlabel = "Displacement [mm]", ylabel = "Force per thickness [N/mm]")
-CM.lines!(ax_f, Δu_values, force_pe; label = "Plane strain")
-CM.lines!(ax_f, Δu_values, force_gps; label = "Generalized plane stress")
-CM.lines!(ax_f, Δu_values, force_ps; label = "Plane stress", linestyle = :dash)
+CM.lines!(ax_f, displacement, force_pe; label = "Plane strain")
+CM.lines!(ax_f, displacement, force_gps; label = "Generalized plane stress")
+CM.lines!(ax_f, displacement, force_ps; label = "Plane stress", linestyle = :dash)
 CM.axislegend(ax_f; position = :rb)
 ax_e = CM.Axis(fig[2, 1]; xlabel = "Displacement [mm]", ylabel = "ϵ₃₃ [-]")
-CM.lines!(ax_e, Δu_values, ϵ33_gps)
+CM.lines!(ax_e, displacement, ϵ33_gps)
 fig
 
 #md # ## [Plain program](@id generalized_plane_stress_plain_program)
