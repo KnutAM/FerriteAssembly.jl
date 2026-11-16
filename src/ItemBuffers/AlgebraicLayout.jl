@@ -10,9 +10,8 @@ see [Attached variables](@ref). The attached variable is only seen through `fiel
 available in the item buffer (e.g. for `dof_range` and `get_algebraic_values`), nor in the `dofrange`
 given to [`create_cell_state`](@ref).
 
-By default, all components of the variable are attached, in `Ferrite`'s canonical order (which is
-the data order of the corresponding `Tensors.jl` type). Alternatively, the attached components can be
-given, in the desired order, as `indices`. Each index is an `Int` for scalar and `Vec` variables,
+The attached components are given as `indices`, in the order of the attached shape functions.
+`indices` can only be omitted if the variable has a single component, e.g. a scalar. Each index is an `Int` for scalar and `Vec` variables,
 and a tuple, e.g. `(3, 3)`, for tensorial variables. For symmetric tensors, `(i, j)` and `(j, i)`
 refer to the same component. Components that are not attached in any domain don't get any contributions,
 and must be constrained.
@@ -122,7 +121,11 @@ end
 
 # The attached components of the variable, as indices into `algebraic_dofs(dh, name)`
 function _attached_components(dh::DofHandler, decl::AttachAlgebraic{Nothing})
-    return ntuple(identity, length(algebraic_dofs(dh, decl.name)))
+    n = length(algebraic_dofs(dh, decl.name))
+    if n != 1
+        throw(ArgumentError(":$(decl.name) has $n components, so the attached components must be given as `indices`, in the order of the attached shape functions"))
+    end
+    return (1,)
 end
 function _attached_components(dh::DofHandler, decl::AttachAlgebraic{<:Tuple})
     isempty(decl.indices) && throw(ArgumentError("The `indices` for :$(decl.name) cannot be empty"))

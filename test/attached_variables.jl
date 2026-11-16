@@ -146,7 +146,7 @@ end
         sdh = only(dh.subdofhandlers)
         declarations = (
             FA.AttachAlgebraic(:A => :u; indices = ((3, 3), (2, 3), (1, 3))), :γ,
-            FA.AttachAlgebraic(:e33 => :u), FA.AttachAlgebraic(:b => :p),
+            FA.AttachAlgebraic(:e33 => :u), FA.AttachAlgebraic(:b => :p; indices = (1, 2, 3)),
         )
         layout, dofrange = FA.setup_layout(sdh, declarations)
         @test layout.ncelldofs == 12
@@ -274,9 +274,14 @@ end
         @test_throws ArgumentError setup_domainbuffer(spec((attach_H(; indices = ((1, 1, 1), (2, 1))),)))
         @test_throws ArgumentError setup_domainbuffer(spec((FA.AttachAlgebraic(:S => :u; indices = ((1, 2), (2, 1))),)))
         @test_throws ArgumentError setup_domainbuffer(spec((FA.AttachAlgebraic(:γ => :u; indices = (2,)),)))
+        # `indices` are required unless the variable has a single component
+        sdh = only(dh.subdofhandlers)
+        @test FA.setup_layout(sdh, (FA.AttachAlgebraic(:γ => :u),))[1].attached_components == (γ = (1,),)
+        @test_throws ArgumentError FA.setup_layout(sdh, (FA.AttachAlgebraic(:H => :u),))
+        @test_throws ArgumentError FA.setup_layout(sdh, (FA.AttachAlgebraic(:S => :p),))
         # A variable once per domain (also across modes and fields)
         @test_throws ArgumentError setup_domainbuffer(spec((attach_H(), :H)))
-        @test_throws ArgumentError setup_domainbuffer(spec((attach_H(), FA.AttachAlgebraic(:H => :p))))
+        @test_throws ArgumentError setup_domainbuffer(spec((attach_H(), FA.AttachAlgebraic(:H => :p; indices = H_indices))))
         # Values
         @test_throws ArgumentError setup_domainbuffer(spec((attach_H(),); vals = (u = cv_u, p = cv_p)))
         @test_throws ArgumentError setup_domainbuffer(spec((attach_H(),); vals = (v = values.u, p = cv_p)))
