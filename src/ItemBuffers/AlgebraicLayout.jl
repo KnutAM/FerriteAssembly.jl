@@ -108,7 +108,7 @@ function setup_layout(sdh::SubDofHandler, declarations::Tuple)
         field_ranges[field] = first(own_ranges[field]):last_dof
     end
     for name in standalone_names
-        own_ranges[name] = (last_dof + 1):(last_dof + Ferrite.n_algebraic_dofs(_algebraic_variable(dh, name)))
+        own_ranges[name] = (last_dof + 1):(last_dof + length(algebraic_dofs(dh, name)))
         last_dof = last(own_ranges[name])
     end
     standalone_values = NamedTuple{standalone_names}(map(name -> AlgebraicValues(_algebraic_variable(dh, name)), standalone_names))
@@ -122,7 +122,7 @@ end
 
 # The attached components of the variable, as indices into `algebraic_dofs(dh, name)`
 function _attached_components(dh::DofHandler, decl::AttachAlgebraic{Nothing})
-    return ntuple(identity, Ferrite.n_algebraic_dofs(_algebraic_variable(dh, decl.name)))
+    return ntuple(identity, length(algebraic_dofs(dh, decl.name)))
 end
 function _attached_components(dh::DofHandler, decl::AttachAlgebraic{<:Tuple})
     isempty(decl.indices) && throw(ArgumentError("The `indices` for :$(decl.name) cannot be empty"))
