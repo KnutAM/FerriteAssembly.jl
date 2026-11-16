@@ -146,7 +146,7 @@ function _create_cell_state(dofbuffer::DofBuffer, coords, material, cellvalues, 
     grid = _getgrid(sdh)
     getcoordinates!(coords, grid, cellnr)
     reinit!(cellvalues, getcells(grid, cellnr), coords)
-    set_dofs!(dofbuffer, sdh.dh, cellnr)
+    celldofs!(dofbuffer.field_dofs, sdh.dh, cellnr)
     _copydofs!(dofbuffer.ae, a, dofbuffer.dofs)
     return create_cell_state(material, cellvalues, routine_coordinates(cellvalues, coords), dofbuffer.ae, dofbuffer.dofrange)
 end
