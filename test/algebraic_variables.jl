@@ -260,14 +260,15 @@ end
         add!(dh, :z, AlgebraicVariable{Vec{2}}())
         close!(dh)
         sdh = only(dh.subdofhandlers)
-        @test FA.setup_layout(sdh, ()) === nothing
+        @test FA.setup_layout(sdh, ()) == (nothing, (u = 1:8, p = 9:12))
         # The cell dofs are not moved, and the variables follow in the given order
-        layout = FA.setup_layout(sdh, (:z, :λ))
+        layout, dofrange = FA.setup_layout(sdh, (:z, :λ))
         @test layout.ncelldofs == 12
-        @test layout.ranges == (z = 13:14, λ = 15:15)
-        @test keys(layout.values) == (:z, :λ)
+        @test layout.own_ranges == (u = 1:8, p = 9:12, z = 13:14, λ = 15:15)
+        @test isempty(layout.attached_components)
+        @test keys(layout.standalone_values) == (:z, :λ)
         @test FA.ndofs_per_item(sdh, layout) == 15
-        @test FA.create_dofrange(sdh, layout) == (u = 1:8, p = 9:12, z = 13:14, λ = 15:15)
+        @test dofrange == (u = 1:8, p = 9:12, z = 13:14, λ = 15:15)
         @test (@inferred FA._spatial_fieldnames((:u, :p, :z, :λ), layout)) == (:u, :p)
     end
 

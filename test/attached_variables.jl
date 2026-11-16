@@ -148,33 +148,36 @@ end
             FA.AttachAlgebraic(:A => :u; indices = ((3, 3), (2, 3), (1, 3))), :γ,
             FA.AttachAlgebraic(:e33 => :u), FA.AttachAlgebraic(:b => :p),
         )
-        layout = FA.setup_layout(sdh, declarations)
+        layout, dofrange = FA.setup_layout(sdh, declarations)
         @test layout.ncelldofs == 12
-        @test layout.ranges == (A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
-        # SymmetricTensor{2, 3} components: (1, 1), (2, 1), (3, 1), (2, 2), (3, 2), (3, 3)
-        @test layout.components == (A = (6, 5, 3), γ = (1,), e33 = (1,), b = (1, 2, 3))
-        @test keys(layout.values) == (:γ,)
-        @test layout.values.γ isa AlgebraicValues
-        @test FA.ndofs_per_item(sdh, layout) == 20
-        dofrange = FA.create_dofrange(sdh, layout)
-        @test dofrange == (u = 1:12, p = 13:19, γ = 20:20)
         @test layout.own_ranges == (u = 1:8, p = 13:16, A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
+        # SymmetricTensor{2, 3} components: (1, 1), (2, 1), (3, 1), (2, 2), (3, 2), (3, 3)
+        @test layout.attached_components == (A = (6, 5, 3), e33 = (1,), b = (1, 2, 3))
+        @test keys(layout.standalone_values) == (:γ,)
+        @test layout.standalone_values.γ isa AlgebraicValues
+        @test FA.ndofs_per_item(sdh, layout) == 20
+        @test dofrange == (u = 1:12, p = 13:19, γ = 20:20)
+        @test (@inferred FA._fieldnames(layout)) == (:u, :p)
         @test (@inferred FA._spatial_fieldnames(keys(dofrange), layout)) == (:u, :p)
+        @test FA._variable_names(layout) == (:A, :e33, :b, :γ)
         # Attached to the last field only
-        layout_p = FA.setup_layout(sdh, (FA.AttachAlgebraic(:b => :p; indices = (3, 1)),))
-        @test FA.create_dofrange(sdh, layout_p) == (u = 1:8, p = 9:14)
-        @test isempty(layout_p.values)
-        @test layout_p.components == (b = (3, 1),)
+        layout_p, dofrange_p = FA.setup_layout(sdh, (FA.AttachAlgebraic(:b => :p; indices = (3, 1)),))
+        @test dofrange_p == (u = 1:8, p = 9:14)
+        @test isempty(layout_p.standalone_values)
+        @test layout_p.attached_components == (b = (3, 1),)
         # Without attached variables
-        layout_γ = FA.setup_layout(sdh, (:γ,))
-        @test FA.create_dofrange(sdh, layout_γ) == (u = 1:8, p = 9:12, γ = 13:13)
+        layout_γ, dofrange_γ = FA.setup_layout(sdh, (:γ,))
+        @test dofrange_γ == (u = 1:8, p = 9:12, γ = 13:13)
+        @test isempty(layout_γ.attached_components)
 
         # Filling the local dofs
-        d = FA.DofBuffer(sdh, layout)
+        d = FA.DofBuffer(sdh, declarations)
+        @test d.layout.own_ranges == layout.own_ranges
+        @test d.dofrange == dofrange
         @test parent(d.field_dofs) === d.dofs
         @test parentindices(d.field_dofs) == ([1:8; 13:16],)
         @test all(f -> parentindices(d.field_dofs)[1][dof_range(sdh, f)] == layout.own_ranges[f], (:u, :p))
-        d_γ = FA.DofBuffer(sdh, layout_γ)
+        d_γ = FA.DofBuffer(sdh, (:γ,))
         @test d_γ.field_dofs isa SubArray{Int, 1, Vector{Int}, Tuple{UnitRange{Int}}}
         @test parentindices(d_γ.field_dofs) == (1:12,)
         d_plain = FA.DofBuffer(sdh)
@@ -196,7 +199,7 @@ end
         set_celldofs!(d, dh, cellnr) = celldofs!(d.field_dofs, dh, cellnr)
         set_celldofs!(d, dh, 1)
         @test (@allocated set_celldofs!(d, dh, 1)) == 0
-        d_p = FA.DofBuffer(sdh, layout_p)
+        d_p = FA.DofBuffer(sdh, (FA.AttachAlgebraic(:b => :p; indices = (3, 1)),))
         celldofs!(d_p.field_dofs, dh, 3)
         @test d_p.dofs == vcat(celldofs(dh, 3), algebraic_dofs(dh, :b)[[3, 1]])
         # A SubDofHandler without fields
@@ -204,7 +207,7 @@ end
         sdh_nofields = SubDofHandler(dh_nofields, Set(1:getncells(grid)))
         add!(dh_nofields, :γ, AlgebraicVariable())
         close!(dh_nofields)
-        d_nofields = FA.DofBuffer(sdh_nofields, FA.setup_layout(sdh_nofields, (:γ,)))
+        d_nofields = FA.DofBuffer(sdh_nofields, (:γ,))
         @test isempty(d_nofields.field_dofs)
         @test d_nofields.dofs == algebraic_dofs(dh_nofields, :γ)
     end

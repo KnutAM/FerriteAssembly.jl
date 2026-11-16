@@ -145,7 +145,7 @@ function setup_domainbuffer(domain::DomainSpec; threading=Val(false), kwargs...)
     return _setup_domainbuffer(threading, domain; kwargs...)
 end
 
-DofBuffer(domain::DomainSpec) = DofBuffer(domain.sdh, setup_layout(domain.sdh, domain.algebraic_variables))
+DofBuffer(domain::DomainSpec) = DofBuffer(domain.sdh, domain.algebraic_variables)
 
 function create_states(domain::DomainSpec{Int}, dofbuffer::DofBuffer, a)
     return create_states(dofbuffer, domain.sdh, domain.material, domain.fe_values, a, domain.set)
@@ -174,7 +174,7 @@ end
 
 function _setup_domainbuffer(threaded, domain; a=nothing, autodiffbuffer=Val(false), kwargs...)
     dofbuffer = DofBuffer(domain)
-    check_attached_values(dofbuffer.layout, domain.sdh, domain.fe_values)
+    check_attached_values(dofbuffer, dofbuffer.layout, domain.fe_values)
     new_states = create_states(domain, dofbuffer, a)
     old_states = create_states(domain, dofbuffer, a)
     itembuffer = setup_itembuffer(autodiffbuffer, domain, dofbuffer, new_states)
@@ -195,11 +195,12 @@ function _setup_domainbuffer(::Val{true}, set, itembuffer, states, sdh, args...;
 end
 
 # The values for fields with attached variables must have one shape function for each local dof
-check_attached_values(::Nothing, ::SubDofHandler, ::Any) = nothing
-function check_attached_values(layout::AlgebraicLayout, sdh::SubDofHandler, values)
-    fieldnames = keys(layout.field_ranges)
-    for (field, range) in pairs(layout.field_ranges)
-        length(range) == length(dof_range(sdh, field)) && continue # No attached dofs
+check_attached_values(::DofBuffer, ::Nothing, ::Any) = nothing
+function check_attached_values(dofbuffer::DofBuffer, layout::AlgebraicLayout, values)
+    fieldnames = _fieldnames(layout)
+    for field in fieldnames
+        range = dofbuffer.dofrange[field]
+        length(range) == length(layout.own_ranges[field]) && continue # No attached dofs
         field_values = if values isa NamedTuple
             haskey(values, field) || throw(ArgumentError(string("Variables are attached to :$field, but the values ",
                 "(a NamedTuple with keys $(keys(values))) do not contain values for :$field")))

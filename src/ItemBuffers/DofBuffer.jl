@@ -1,12 +1,13 @@
 """
-    DofBuffer(sdh::SubDofHandler, layout = nothing)
+    DofBuffer(sdh::SubDofHandler, declarations::Tuple = ())
     DofBuffer(domain::DomainSpec)
 
 The part of an item buffer that follows from the local degrees of freedom (dofs) of an item
 (cell or facet): The global dof numbers, `dofs`, the local dof range for each field, `dofrange`,
 the local dof values, `ae` and `ae_old`, the local residual, `re`, and the local stiffness, `Ke`.
-If the domain uses algebraic variables, `layout` is the [`AlgebraicLayout`](@ref FerriteAssembly.AlgebraicLayout),
-which describes how the cell dofs and the dofs of the algebraic variables are ordered locally.
+If the domain uses algebraic variables, given as `declarations` (see the `algebraic_variables` keyword of
+[`DomainSpec`](@ref)), `layout` is the [`AlgebraicLayout`](@ref FerriteAssembly.AlgebraicLayout), which describes
+how the cell dofs and the dofs of the algebraic variables are ordered locally.
 
 The `DofBuffer` constructor defines which dofs an item has and how these are ordered locally.
 The dofs that depend on the cell are set with `celldofs!(d.field_dofs, dh, cellnum)`. The item buffers
@@ -22,11 +23,12 @@ struct DofBuffer{T, FD<:AbstractVector{Int}, DR, L}
     dofrange::DR        # Local dof range for each field and algebraic variable (NamedTuple)
     layout::L           # AlgebraicLayout, or nothing if no algebraic variables are used
 end
-function DofBuffer(sdh::SubDofHandler, layout = nothing)
+function DofBuffer(sdh::SubDofHandler, declarations::Tuple = ())
+    layout, dofrange = setup_layout(sdh, declarations)
     n = ndofs_per_item(sdh, layout)
     dofs = zeros(Int, n)
     update_algebraic_dofs!(dofs, layout, sdh.dh)
-    return DofBuffer(zeros(n), zeros(n), zeros(n), zeros(n, n), dofs, field_dofs_view(dofs, layout), create_dofrange(sdh, layout), layout)
+    return DofBuffer(zeros(n), zeros(n), zeros(n), zeros(n, n), dofs, field_dofs_view(dofs, layout), dofrange, layout)
 end
 
 # TaskLocals interface
