@@ -160,7 +160,7 @@ standalone variables given as `algebraic_variables` to the [`DomainSpec`](@ref).
 @inline get_algebraic_values(b::AbstractItemBuffer, name::Symbol) = _get_algebraic_values(get_layout(b), name)
 
 # The names of the spatial fields (i.e. excluding the algebraic variables in `getfieldnames`)
-_spatial_fieldnames(b::AbstractItemBuffer) = _spatial_fieldnames(Ferrite.getfieldnames(b), get_layout(b))
+_spatial_fieldnames(b::AbstractItemBuffer) = _spatial_fieldnames(get_layout(b), Ferrite.getfieldnames(b))
 
 # Write the current global dofs of the algebraic variables to the local dofs of the buffer
 update_algebraic_dofs!(b::AbstractItemBuffer, dh) = update_algebraic_dofs!(b, get_layout(b), dh)

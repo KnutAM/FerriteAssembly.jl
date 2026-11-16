@@ -57,19 +57,13 @@ end
 function update_scaling!(s::ElementResidualScaling, re, buffer, args...)
     p = s.p
     pinv = 1/p 
-    ranges = _scaling_ranges(buffer)
-    for name in keys(s.factors)
-        if haskey(ranges, name)
-            s.factors[name] += (sum(i->abs(re[i])^p, ranges[name]))^pinv
-        end
+    for (name, range) in pairs(_scaling_ranges(buffer))
+        haskey(s.factors, name) && (s.factors[name] += (sum(i->abs(re[i])^p, range))^pinv)
     end
 end
 function update_scaling!(s::ElementResidualScaling{<:Any,Val{2}}, re, buffer, args...)
-    ranges = _scaling_ranges(buffer)
-    for name in keys(s.factors)
-        if haskey(ranges, name)
-            s.factors[name] += sqrt(sum(i->re[i]^2, ranges[name]))
-        end
+    for (name, range) in pairs(_scaling_ranges(buffer))
+        haskey(s.factors, name) && (s.factors[name] += sqrt(sum(i->re[i]^2, range)))
     end
 end
 

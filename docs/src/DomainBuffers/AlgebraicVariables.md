@@ -129,7 +129,7 @@ A custom values type for a cell domain should subtype `Ferrite.AbstractCellValue
 `Ferrite`'s generic methods then give the remaining accessors, e.g. `shape_symmetric_gradient`,
 `shape_divergence`, `function_value`, and `function_gradient`. For a facet domain, the values type should
 subtype `Ferrite.AbstractFacetValues` and define `reinit!(values, cell, x, facetnr)` instead.
-A custom values type can be checked with
+A custom cell values type can be checked with
 ```@docs
 FerriteAssembly.check_values_interface
 ```

@@ -197,10 +197,10 @@ end
 # The values for fields with attached variables must have one shape function for each local dof
 check_attached_values(::DofBuffer, ::Nothing, ::Any) = nothing
 function check_attached_values(dofbuffer::DofBuffer, layout::AlgebraicLayout, values)
-    fieldnames = _fieldnames(layout)
+    fieldnames = keys(layout.field_ranges)
     for field in fieldnames
         range = dofbuffer.dofrange[field]
-        length(range) == length(layout.own_ranges[field]) && continue # No attached dofs
+        length(range) == length(layout.field_ranges[field]) && continue # No attached dofs
         field_values = if values isa NamedTuple
             haskey(values, field) || throw(ArgumentError(string("Variables are attached to :$field, but the values ",
                 "(a NamedTuple with keys $(keys(values))) do not contain values for :$field")))

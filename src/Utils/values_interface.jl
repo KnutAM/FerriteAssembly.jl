@@ -15,6 +15,7 @@ checked that
 * `getdetJdV` and `spatial_coordinate(values, q_point, x)` can be called;
 * none of these allocate.
 If `hessians = true`, `shape_hessian` and `function_hessian` are included as well.
+Only cell values are supported; custom facet values cannot be checked with this function.
 
 Returns `true` if all checks pass, and throws an error describing the first failure otherwise.
 """
@@ -34,7 +35,7 @@ function check_values_interface(values::Ferrite.AbstractCellValues, cell, x::Abs
     for accessor in accessors
         T = typeof(accessor(values, 1, 1))
         for q_point in 1:nqp, i in 1:n
-            val = _call_accessor(accessor, values, q_point, i)
+            val = accessor(values, q_point, i)
             if typeof(val) !== T
                 error("$accessor(values, $q_point, $i) returns a $(typeof(val)), but $accessor(values, 1, 1) returns a $T")
             end
@@ -54,15 +55,6 @@ function check_values_interface(values::Ferrite.AbstractCellValues, cell, x::Abs
     nalloc = @allocated _accessor_loop(values, x, ae, flags...)
     nalloc == 0 || error("Calling the accessors allocates ($nalloc bytes)")
     return true
-end
-
-function _call_accessor(accessor::F, values, q_point, i) where {F}
-    try
-        return accessor(values, q_point, i)
-    catch
-        @error "$accessor(values, $q_point, $i) failed"
-        rethrow()
-    end
 end
 
 function _call_functions(values, q_point, ae, dofrange, ::Val{vector_valued}, ::Val{hessians}) where {vector_valued, hessians}

@@ -149,16 +149,15 @@ end
             FA.AttachAlgebraic(:e33 => :u), FA.AttachAlgebraic(:b => :p; indices = (1, 2, 3)),
         )
         layout, dofrange = FA.setup_layout(sdh, declarations)
-        @test layout.ncelldofs == 12
-        @test layout.own_ranges == (u = 1:8, p = 13:16, A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
+        @test layout.field_ranges == (u = 1:8, p = 13:16)
+        @test layout.variable_ranges == (A = 9:11, e33 = 12:12, b = 17:19, γ = 20:20)
         # SymmetricTensor{2, 3} components: (1, 1), (2, 1), (3, 1), (2, 2), (3, 2), (3, 3)
         @test layout.attached_components == (A = (6, 5, 3), e33 = (1,), b = (1, 2, 3))
         @test keys(layout.standalone_values) == (:γ,)
         @test layout.standalone_values.γ isa AlgebraicValues
         @test FA.ndofs_per_item(sdh, layout) == 20
         @test dofrange == (u = 1:12, p = 13:19, γ = 20:20)
-        @test (@inferred FA._fieldnames(layout)) == (:u, :p)
-        @test (@inferred FA._spatial_fieldnames(keys(dofrange), layout)) == (:u, :p)
+        @test (@inferred FA._spatial_fieldnames(layout, keys(dofrange))) == (:u, :p)
         @test FA._variable_names(layout) == (:A, :e33, :b, :γ)
         # Attached to the last field only
         layout_p, dofrange_p = FA.setup_layout(sdh, (FA.AttachAlgebraic(:b => :p; indices = (3, 1)),))
@@ -172,11 +171,11 @@ end
 
         # Filling the local dofs
         d = FA.DofBuffer(sdh, declarations)
-        @test d.layout.own_ranges == layout.own_ranges
+        @test d.layout == layout
         @test d.dofrange == dofrange
         @test parent(d.field_dofs) === d.dofs
         @test parentindices(d.field_dofs) == ([1:8; 13:16],)
-        @test all(f -> parentindices(d.field_dofs)[1][dof_range(sdh, f)] == layout.own_ranges[f], (:u, :p))
+        @test all(f -> parentindices(d.field_dofs)[1][dof_range(sdh, f)] == layout.field_ranges[f], (:u, :p))
         d_γ = FA.DofBuffer(sdh, (:γ,))
         @test d_γ.field_dofs isa SubArray{Int, 1, Vector{Int}, Tuple{UnitRange{Int}}}
         @test parentindices(d_γ.field_dofs) == (1:12,)
@@ -228,7 +227,7 @@ end
             @test dof_range(buffer, :p) == 11:14
             @test dof_range(buffer, :γ) == 15:15
             @test_throws Exception dof_range(buffer, :H)
-            @test FA._scaling_ranges(buffer) == (u = 1:8, p = 11:14, γ = 15:15, H = 9:10)
+            @test FA._scaling_ranges(buffer) == (u = 1:8, p = 11:14, H = 9:10, γ = 15:15)
             @test_throws "attached to a field" FA.get_algebraic_values(buffer, :H)
             @test_throws "not a standalone" FA.get_algebraic_values(buffer, :S)
             @test (@inferred FA.get_algebraic_values(buffer, :γ)) isa AlgebraicValues
@@ -248,6 +247,15 @@ end
             alloc_scaling_ranges(b) = @allocated FA._scaling_ranges(b)
             alloc_scaling_ranges(buffer)
             @test alloc_scaling_ranges(buffer) == 0
+            alloc_update_scaling(s, b) = @allocated FA.update_scaling!(s, FA.get_re(b), b)
+            for scaling in (ElementResidualScaling(dh), ElementResidualScaling(dh, 1))
+                alloc_update_scaling(scaling, buffer)
+                @test alloc_update_scaling(scaling, buffer) == 0
+            end
+            # Names in the buffer without a factor are skipped
+            scaling_fields = ElementResidualScaling(dh_plain)
+            FA.update_scaling!(scaling_fields, ones(15), buffer)
+            @test scaling_fields.factors == Dict(:u => sqrt(8), :p => 2.0)
         end
         # Without layout
         buffer = FA.get_itembuffer(setup_domainbuffer(DomainSpec(dh_plain, nothing, (u = cv_u, p = cv_p))))

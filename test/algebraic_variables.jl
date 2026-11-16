@@ -263,13 +263,13 @@ end
         @test FA.setup_layout(sdh, ()) == (nothing, (u = 1:8, p = 9:12))
         # The cell dofs are not moved, and the variables follow in the given order
         layout, dofrange = FA.setup_layout(sdh, (:z, :λ))
-        @test layout.ncelldofs == 12
-        @test layout.own_ranges == (u = 1:8, p = 9:12, z = 13:14, λ = 15:15)
+        @test layout.field_ranges == (u = 1:8, p = 9:12)
+        @test layout.variable_ranges == (z = 13:14, λ = 15:15)
         @test isempty(layout.attached_components)
         @test keys(layout.standalone_values) == (:z, :λ)
         @test FA.ndofs_per_item(sdh, layout) == 15
         @test dofrange == (u = 1:8, p = 9:12, z = 13:14, λ = 15:15)
-        @test (@inferred FA._spatial_fieldnames((:u, :p, :z, :λ), layout)) == (:u, :p)
+        @test (@inferred FA._spatial_fieldnames(layout, (:u, :p, :z, :λ))) == (:u, :p)
     end
 
     @testset "Ferrite helpers" begin
