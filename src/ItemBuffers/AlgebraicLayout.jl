@@ -144,9 +144,18 @@ end
 ndofs_per_item(sdh::SubDofHandler, ::Nothing) = ndofs_per_cell(sdh)
 ndofs_per_item(::SubDofHandler, layout::AlgebraicLayout) = layout.ncelldofs + sum(length, layout.ranges)
 
-# Length of the scratch vector required by `fill_celldofs!`
-scratch_length(::Nothing) = 0
-scratch_length(layout::AlgebraicLayout) = layout.fields === nothing ? 0 : layout.ncelldofs
+# View (or identity if it can be) of the `dofs` that should be updated for each entity (e.g. cell)
+field_dofs_view(dofs::Vector{Int}, ::SubDofHandler, #=layout=#::Nothing) = dofs
+field_dofs_view(dofs::Vector{Int}, sdh::SubDofHandler, layout::AlgebraicLayout) = _field_dofs_view(dofs, sdh, layout.fields, layout.scaling_ranges)
+
+_field_dofs_view(dofs::Vector{Int}, ::SubDofHandler, #=attached_fields=#::Nothing) = view(dofs, 1:ndofs_per_cell(sdh))
+function _field_dofs_view(dofs::Vector{Int}, ::SubDofHandler, ::Tuple, base_field_ranges)
+    indices = Int[]
+    for (_, r) in base_field_ranges
+        push!(indices, collect(r))
+    end
+    return view(dofs, indices)
+end
 
 """
     create_dofrange(sdh::SubDofHandler, layout)
@@ -156,30 +165,6 @@ dofs), followed by the range for each standalone algebraic variable in `layout`.
 """
 create_dofrange(sdh::SubDofHandler, ::Nothing) = create_dofrange(sdh)
 create_dofrange(::SubDofHandler, layout::AlgebraicLayout) = merge(layout.field_ranges, layout.standalone_ranges)
-
-"""
-    fill_celldofs!(dofs::Vector{Int}, scratch::Vector{Int}, layout, dh, cellnum::Int)
-
-Update the part of the local dofs, `dofs`, that depends on the cell, i.e. the dofs given by
-`Ferrite.celldofs`. The dofs of the algebraic variables are not changed, see
-[`update_algebraic_dofs!`](@ref). If variables are attached to fields, `scratch` is used to
-get the cell dofs before copying each field's dofs to its local position.
-"""
-@inline fill_celldofs!(dofs::Vector{Int}, ::Vector{Int}, ::Nothing, dh, cellnum::Int) = celldofs!(dofs, dh, cellnum)
-@inline function fill_celldofs!(dofs::Vector{Int}, scratch::Vector{Int}, layout::AlgebraicLayout, dh, cellnum::Int)
-    return _fill_celldofs!(dofs, scratch, layout.fields, layout.ncelldofs, dh, cellnum)
-end
-@inline function _fill_celldofs!(dofs::Vector{Int}, ::Vector{Int}, ::Nothing, ncelldofs::Int, dh, cellnum::Int)
-    # Without attached variables, the dofs from `Ferrite.celldofs` are located first in the local layout
-    return celldofs!(view(dofs, 1:ncelldofs), dh, cellnum)
-end
-@inline function _fill_celldofs!(dofs::Vector{Int}, scratch::Vector{Int}, fields::Tuple, ::Int, dh, cellnum::Int)
-    celldofs!(scratch, dh, cellnum)
-    for (src, dst) in fields
-        copyto!(dofs, dst, scratch, first(src), length(src))
-    end
-    return dofs
-end
 
 """
     update_algebraic_dofs!(dofs::Vector{Int}, layout, dh)
