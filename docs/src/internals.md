@@ -31,7 +31,6 @@ FerriteAssembly._copydofs!
 FerriteAssembly.AlgebraicLayout
 FerriteAssembly.setup_layout
 FerriteAssembly.create_dofrange
-FerriteAssembly.fill_celldofs!
 FerriteAssembly.update_algebraic_dofs!
 ```
 

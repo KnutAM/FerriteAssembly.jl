@@ -94,7 +94,7 @@ close!(dh)
 domain = DomainSpec(dh, material, (u = cellvalues_u, p = cellvalues_p);
     algebraic_variables = (FerriteAssembly.AttachAlgebraic(:H => :u; indices = ((1, 2), (2, 1))), :λ))
 ```
-For each field, in the order of the `SubDofHandler`, the local degrees of freedom are the field's degrees of
+For each field, in the order of their degrees of freedom in `celldofs`, the local degrees of freedom are the field's degrees of
 freedom, followed by those of the variables attached to the field, in declaration order. Then the standalone
 variables follow. In the example above, with linear quadrilaterals, the local dof ranges are
 `u = 1:10`, `p = 11:14`, and `λ = 15:15`, where the two components of `H` are the dofs 9 and 10.

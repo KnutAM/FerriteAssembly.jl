@@ -158,7 +158,7 @@ end
         @test FA.ndofs_per_item(sdh, layout) == 20
         dofrange = FA.create_dofrange(sdh, layout)
         @test dofrange == (u = 1:12, p = 13:19, γ = 20:20)
-        @test layout.scaling_ranges == (u = 1:8, p = 13:16, A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
+        @test layout.own_ranges == (u = 1:8, p = 13:16, A = 9:11, γ = 20:20, e33 = 12:12, b = 17:19)
         @test (@inferred FA._spatial_fieldnames(keys(dofrange), layout)) == (:u, :p)
         # Attached to the last field only
         layout_p = FA.setup_layout(sdh, (FA.AttachAlgebraic(:b => :p; indices = (3, 1)),))
@@ -167,16 +167,24 @@ end
         @test layout_p.components == (b = (3, 1),)
         # Without attached variables
         layout_γ = FA.setup_layout(sdh, (:γ,))
-        @test layout_γ.fields === nothing
         @test FA.create_dofrange(sdh, layout_γ) == (u = 1:8, p = 9:12, γ = 13:13)
 
         # Filling the local dofs
         d = FA.DofBuffer(sdh, layout)
-        @test length(d.scratch) == 12
-        @test isempty(FA.DofBuffer(sdh, layout_γ).scratch)
-        @test isempty(FA.DofBuffer(sdh).scratch)
+        @test parent(d.field_dofs) === d.dofs
+        @test parentindices(d.field_dofs) == ([1:8; 13:16],)
+        @test all(f -> parentindices(d.field_dofs)[1][dof_range(sdh, f)] == layout.own_ranges[f], (:u, :p))
+        d_γ = FA.DofBuffer(sdh, layout_γ)
+        @test d_γ.field_dofs isa SubArray{Int, 1, Vector{Int}, Tuple{UnitRange{Int}}}
+        @test parentindices(d_γ.field_dofs) == (1:12,)
+        d_plain = FA.DofBuffer(sdh)
+        @test d_plain.field_dofs === d_plain.dofs
+        # The local copy of a task refers to its own dofs
+        d_local = FA.create_local(d)
+        @test parent(d_local.field_dofs) === d_local.dofs
+        @test d_local.dofs !== d.dofs
         for cellnr in 1:getncells(grid)
-            FA.set_dofs!(d, dh, cellnr)
+            celldofs!(d.field_dofs, dh, cellnr)
             cdofs = celldofs(dh, cellnr)
             @test d.dofs[1:8] == cdofs[dof_range(sdh, :u)]
             @test d.dofs[13:16] == cdofs[dof_range(sdh, :p)]
@@ -185,10 +193,20 @@ end
             @test d.dofs[17:19] == algebraic_dofs(dh, :b)
             @test d.dofs[20:20] == algebraic_dofs(dh, :γ)
         end
-        @test (@allocated FA.set_dofs!(d, dh, 1)) == 0
+        set_celldofs!(d, dh, cellnr) = celldofs!(d.field_dofs, dh, cellnr)
+        set_celldofs!(d, dh, 1)
+        @test (@allocated set_celldofs!(d, dh, 1)) == 0
         d_p = FA.DofBuffer(sdh, layout_p)
-        FA.set_dofs!(d_p, dh, 3)
+        celldofs!(d_p.field_dofs, dh, 3)
         @test d_p.dofs == vcat(celldofs(dh, 3), algebraic_dofs(dh, :b)[[3, 1]])
+        # A SubDofHandler without fields
+        dh_nofields = DofHandler(grid)
+        sdh_nofields = SubDofHandler(dh_nofields, Set(1:getncells(grid)))
+        add!(dh_nofields, :γ, AlgebraicVariable())
+        close!(dh_nofields)
+        d_nofields = FA.DofBuffer(sdh_nofields, FA.setup_layout(sdh_nofields, (:γ,)))
+        @test isempty(d_nofields.field_dofs)
+        @test d_nofields.dofs == algebraic_dofs(dh_nofields, :γ)
     end
 
     @testset "Item buffers" begin

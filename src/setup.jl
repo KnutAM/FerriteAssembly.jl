@@ -197,7 +197,6 @@ end
 # The values for fields with attached variables must have one shape function for each local dof
 check_attached_values(::Nothing, ::SubDofHandler, ::Any) = nothing
 function check_attached_values(layout::AlgebraicLayout, sdh::SubDofHandler, values)
-    layout.fields === nothing && return nothing
     fieldnames = keys(layout.field_ranges)
     for (field, range) in pairs(layout.field_ranges)
         length(range) == length(dof_range(sdh, field)) && continue # No attached dofs
