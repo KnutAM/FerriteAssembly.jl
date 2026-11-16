@@ -196,11 +196,13 @@ force_ps, _ = solve(domain_ps, dh_ps);
 
 # ## Results
 # The generalized plane stress solution is stiffer than the plane stress solution, since the out-of-plane strain is
-# constant and the out-of-plane stress is only zero on average. It is much closer to the plane stress solution than
-# the plane strain solution, though.
-using Test                                          #src
-@test force_ps[end] < force_gps[end] < force_pe[end] #src
-@test all(<(0), ϵ33_gps[2:end])                     #src
+# constant and the out-of-plane stress is only zero on average. We first check that this expectation holds
+using Test                                                        #src
+@test all(force_ps[2:end] .< force_gps[2:end] .< force_pe[2:end]) #src
+@test all(<(0), ϵ33_gps[2:end])                                   #src
+all(force_ps[2:end] .< force_gps[2:end] .< force_pe[2:end])
+
+# Before also plotting the response to see this graphically
 Δu_values = collect(range(0, 0.1, length(force_gps)))
 fig = CM.Figure()
 ax_f = CM.Axis(fig[1, 1]; xlabel = "Displacement [mm]", ylabel = "Force per thickness [N/mm]")
