@@ -108,6 +108,13 @@ additional base functions. This is checked when setting up the domain. An existi
 be used unchanged, as long as the domain has no standalone variables, see
 [Attached and standalone variables in the same domain](@ref).
 
+The attached variables of a domain, with their fields and components, are given by
+```@docs
+FerriteAssembly.attached_variables
+```
+For the example above, `FerriteAssembly.attached_variables(db)` gives `(H = (field = :u, components = (3, 2)),)`,
+where `db` is the domain buffer created with `setup_domainbuffer(domain)`.
+
 Note that the [`LoadHandler`](@ref) only adds contributions to the field's own degrees of freedom. If an
 external load does work on the attached base functions, this must be included in the element routine, or added to
 the global residual at `algebraic_dofs(dh, name)`.

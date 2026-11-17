@@ -15,6 +15,10 @@ The attached components are given as `indices`, in the order of the attached sha
 Each index is an `Int` for scalar and `Vec` variables, and a tuple, e.g. `(3, 3)`, for tensorial
 variables. For symmetric tensors, `(i, j)` and `(j, i)` refer to the same component. Components that
 are not attached in any domain don't get any contributions, and must be constrained.
+
+Several variables can be attached to the same field, but each variable can only be given once per
+domain, i.e. either attached to one field or as a standalone variable. The attached variables of a
+domain are given by [`attached_variables`](@ref FerriteAssembly.attached_variables).
 """
 struct AttachAlgebraic{I}
     name::Symbol
@@ -45,10 +49,10 @@ The item buffers of domains without algebraic variables store `nothing` instead.
 
 Internal type, set up by [`setup_layout`](@ref).
 """
-struct AlgebraicLayout{FR <: NamedTuple, VR <: NamedTuple, AC <: NamedTuple, SV <: NamedTuple}
+struct AlgebraicLayout{FR <: NamedTuple, VR <: NamedTuple, AT <: NamedTuple, SV <: NamedTuple}
     field_ranges::FR            # field => local range of the field's own dofs (those given by `celldofs`), in `celldofs` order
     variable_ranges::VR         # name => local range of each algebraic variable (attached and standalone)
-    attached_components::AC     # name => the attached components (indices into `algebraic_dofs(dh, name)`)
+    attached::AT                # name => (field, components), see `attached_variables`
     standalone_values::SV       # name => AlgebraicValues
 end
 
@@ -68,7 +72,6 @@ function setup_layout(sdh::SubDofHandler, declarations::Tuple)
     _check_declarations(sdh, fieldnames, declarations)
     attached = Tuple(decl for decl in declarations if decl isa AttachAlgebraic)
     standalone_names = Tuple(decl for decl in declarations if decl isa Symbol)
-    attached_components = NamedTuple{map(_declared_name, attached)}(map(decl -> _attached_components(dh, decl), attached))
     standalone_values = NamedTuple{standalone_names}(map(name -> AlgebraicValues(_algebraic_variable(dh, name)), standalone_names))
 
     # Local ranges, see the docstring of `AlgebraicLayout`
@@ -76,12 +79,16 @@ function setup_layout(sdh::SubDofHandler, declarations::Tuple)
     next_range(len) = (n += len; (n - len + 1):n)
     field_ranges = Pair{Symbol, UnitRange{Int}}[]
     variable_ranges = Pair{Symbol, UnitRange{Int}}[]
+    attached_entries = Pair{Symbol, NamedTuple}[]
     dofrange = Pair{Symbol, UnitRange{Int}}[]       # Fields including attached dofs, then standalone variables
     for field in fieldnames
         own = next_range(length(dof_range(sdh, field)))
         push!(field_ranges, field => own)
         for decl in attached
-            decl.field === field && push!(variable_ranges, decl.name => next_range(length(attached_components[decl.name])))
+            decl.field === field || continue
+            components = _attached_components(dh, decl)
+            push!(attached_entries, decl.name => (; field, components))
+            push!(variable_ranges, decl.name => next_range(length(components)))
         end
         push!(dofrange, field => first(own):n)
     end
@@ -90,7 +97,7 @@ function setup_layout(sdh::SubDofHandler, declarations::Tuple)
         push!(variable_ranges, name => range)
         push!(dofrange, name => range)
     end
-    layout = AlgebraicLayout(NamedTuple(field_ranges), NamedTuple(variable_ranges), attached_components, standalone_values)
+    layout = AlgebraicLayout(NamedTuple(field_ranges), NamedTuple(variable_ranges), NamedTuple(attached_entries), standalone_values)
     return layout, NamedTuple(dofrange)
 end
 
@@ -166,7 +173,7 @@ Nothing is done for a `layout` that is `nothing` (no algebraic variables).
 """
 update_algebraic_dofs!(::Vector{Int}, ::Nothing, dh) = nothing
 function update_algebraic_dofs!(dofs::Vector{Int}, layout::AlgebraicLayout, dh)
-    foreach(keys(layout.attached_components), values(layout.attached_components)) do name, components
+    foreach(keys(layout.attached), values(layout.attached)) do name, (; components)
         global_dofs = algebraic_dofs(dh, name)
         for (i, c) in enumerate(components)
             dofs[first(layout.variable_ranges[name]) + i - 1] = global_dofs[c]
@@ -192,7 +199,7 @@ end
 _get_algebraic_values(::Nothing, name::Symbol) = throw(ArgumentError(
     "No algebraic variables in the domain, cannot get the algebraic values for :$name"))
 @noinline function _throw_not_standalone(layout::AlgebraicLayout, name::Symbol)
-    if haskey(layout.attached_components, name)
+    if haskey(layout.attached, name)
         throw(ArgumentError(":$name is attached to a field, and can only be accessed via that field"))
     end
     throw(ArgumentError(":$name is not a standalone algebraic variable in the domain (standalone variables: $(keys(layout.standalone_values)))"))

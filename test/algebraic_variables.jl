@@ -265,7 +265,7 @@ end
         layout, dofrange = FA.setup_layout(sdh, (:z, :λ))
         @test layout.field_ranges == (u = 1:8, p = 9:12)
         @test layout.variable_ranges == (z = 13:14, λ = 15:15)
-        @test isempty(layout.attached_components)
+        @test isempty(layout.attached)
         @test keys(layout.standalone_values) == (:z, :λ)
         @test FA.ndofs_per_item(sdh, layout) == 15
         @test dofrange == (u = 1:8, p = 9:12, z = 13:14, λ = 15:15)

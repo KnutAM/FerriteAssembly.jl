@@ -318,6 +318,24 @@ get_state(b::StdDomainBuffer) = b.states.new
 get_old_state(b::StdDomainBuffer) = b.states.old
 get_material(b::StdDomainBuffer) = get_material(get_base(get_itembuffer(b)))
 
+"""
+    FerriteAssembly.attached_variables(db::AbstractDomainBuffer)
+    FerriteAssembly.attached_variables(dbs::FerriteAssembly.DomainBuffers, domain::String)
+    FerriteAssembly.attached_variables(sim::Simulation[, domain::String])
+
+**Experimental**. Get the algebraic variables that are attached to fields in the domain represented by
+`db` or `dbs[domain]`, see [`AttachAlgebraic`](@ref FerriteAssembly.AttachAlgebraic). This is a `NamedTuple`
+with an entry `name = (field = field, components = components)` for each attached variable, in the order of
+their local degrees of freedom. `components` are the attached components as indices into
+`algebraic_dofs(dh, name)`, in the order of the attached base functions, such that
+`algebraic_dofs(dh, name)[collect(components)]` are the attached global degrees of freedom.
+The `NamedTuple` is empty if no variables are attached to fields in the domain.
+"""
+attached_variables(dbs::DomainBuffers, domain::String) = attached_variables(dbs[domain])
+attached_variables(db::StdDomainBuffer) = _attached_variables(get_layout(get_base(get_itembuffer(db))))
+_attached_variables(::Nothing) = (;)
+_attached_variables(layout::AlgebraicLayout) = layout.attached
+
 # Update old_states = new_states after convergence
 update_states!(b::StdDomainBuffer; kwargs...) = update_states!(b.states; kwargs...)
 

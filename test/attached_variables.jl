@@ -152,7 +152,7 @@ end
         @test layout.field_ranges == (u = 1:8, p = 13:16)
         @test layout.variable_ranges == (A = 9:11, e33 = 12:12, b = 17:19, γ = 20:20)
         # SymmetricTensor{2, 3} components: (1, 1), (2, 1), (3, 1), (2, 2), (3, 2), (3, 3)
-        @test layout.attached_components == (A = (6, 5, 3), e33 = (1,), b = (1, 2, 3))
+        @test layout.attached == (A = (field = :u, components = (6, 5, 3)), e33 = (field = :u, components = (1,)), b = (field = :p, components = (1, 2, 3)))
         @test keys(layout.standalone_values) == (:γ,)
         @test layout.standalone_values.γ isa AlgebraicValues
         @test FA.ndofs_per_item(sdh, layout) == 20
@@ -163,11 +163,15 @@ end
         layout_p, dofrange_p = FA.setup_layout(sdh, (FA.AttachAlgebraic(:b => :p; indices = (3, 1)),))
         @test dofrange_p == (u = 1:8, p = 9:14)
         @test isempty(layout_p.standalone_values)
-        @test layout_p.attached_components == (b = (3, 1),)
+        @test layout_p.attached == (b = (field = :p, components = (3, 1)),)
+        # In local dof order, also when declared in another order
+        layout_pu, _ = FA.setup_layout(sdh, (FA.AttachAlgebraic(:b => :p; indices = (3, 1)), FA.AttachAlgebraic(:e33 => :u)))
+        @test keys(layout_pu.attached) == (:e33, :b)
+        @test layout_pu.variable_ranges == (e33 = 9:9, b = 14:15)
         # Without attached variables
         layout_γ, dofrange_γ = FA.setup_layout(sdh, (:γ,))
         @test dofrange_γ == (u = 1:8, p = 9:12, γ = 13:13)
-        @test isempty(layout_γ.attached_components)
+        @test isempty(layout_γ.attached)
 
         # Filling the local dofs
         d = FA.DofBuffer(sdh, declarations)
@@ -284,7 +288,7 @@ end
         @test_throws ArgumentError setup_domainbuffer(spec((FA.AttachAlgebraic(:γ => :u; indices = (2,)),)))
         # `indices` are required unless the variable has a single component
         sdh = only(dh.subdofhandlers)
-        @test FA.setup_layout(sdh, (FA.AttachAlgebraic(:γ => :u),))[1].attached_components == (γ = (1,),)
+        @test FA.setup_layout(sdh, (FA.AttachAlgebraic(:γ => :u),))[1].attached == (γ = (field = :u, components = (1,)),)
         @test_throws ArgumentError FA.setup_layout(sdh, (FA.AttachAlgebraic(:H => :u),))
         @test_throws ArgumentError FA.setup_layout(sdh, (FA.AttachAlgebraic(:S => :p),))
         # A variable once per domain (also across modes and fields)
@@ -445,6 +449,35 @@ end
         @test dof_range(buffer, :λ) == 11:11
     end
 
+    @testset "attached_variables" begin
+        H_indices = ((2, 1), (1, 1), (1, 2))
+        g_indices = (2,)
+        _, dh = setup_affine_dhs(; variables = (:H => AlgebraicVariable{Tensor{2, 2}}(), :g => AlgebraicVariable{Vec{2}}(), :λ => AlgebraicVariable()))
+        values = AffineCellValues(cv_u, xc, H_indices, g_indices)
+        declarations = (:λ, FA.AttachAlgebraic(:H => :u; indices = H_indices), FA.AttachAlgebraic(:g => :u; indices = g_indices))
+        # Tensor{2, 2} components: (1, 1), (2, 1), (1, 2), (2, 2)
+        expected = (H = (field = :u, components = (2, 1, 3)), g = (field = :u, components = (2,)))
+        for threading in (false, true)
+            db = setup_domainbuffer(DomainSpec(dh, nothing, values; algebraic_variables = declarations); threading)
+            @test (@inferred FA.attached_variables(db)) == expected
+            @test FA.attached_variables(Simulation(db)) == expected
+            # The attached global dofs follow the field's own dofs
+            buffer = FA.get_base(FA.get_itembuffer(db))
+            global_dofs = mapreduce(((name, v),) -> algebraic_dofs(dh, name)[collect(v.components)], vcat, pairs(FA.attached_variables(db)))
+            @test celldofs(buffer)[dof_range(buffer, :u)][9:end] == global_dofs
+        end
+        # Without attached variables
+        @test FA.attached_variables(setup_domainbuffer(DomainSpec(dh, nothing, cv_u; algebraic_variables = (:λ,)))) == (;)
+        @test FA.attached_variables(setup_domainbuffer(DomainSpec(dh, nothing, cv_u))) == (;)
+        # Multiple domains
+        dbs = setup_domainbuffers(Dict(
+            "attached" => DomainSpec(dh, nothing, values; set = 1:3, algebraic_variables = declarations),
+            "plain" => DomainSpec(dh, nothing, cv_u; set = 4:6)))
+        @test FA.attached_variables(dbs, "attached") == expected
+        @test FA.attached_variables(dbs, "plain") == (;)
+        @test FA.attached_variables(Simulation(dbs), "attached") == expected
+    end
+
     @testset "Integrators" begin
         H_indices = ((1, 2),)
         dh_plain, dh = setup_affine_dhs(; variables = (:H => AlgebraicVariable{Tensor{2, 2}}(),))
@@ -524,6 +557,7 @@ end
         buffer = FA.get_itembuffer(db)
         @test dof_range(buffer, :u) == 1:9
         @test Ferrite.getfieldnames(buffer) == (:u,)
+        @test FA.attached_variables(db) == (e33 = (field = :u, components = (1,)),)
         K = allocate_matrix(dh; algebraic_couplings = FA.algebraic_couplings(db))
         r = zeros(ndofs(dh))
         work!(KeReAssembler(K, r), db)
