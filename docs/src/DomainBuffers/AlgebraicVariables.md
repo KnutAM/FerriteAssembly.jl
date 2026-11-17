@@ -29,13 +29,14 @@ to a field, see [Attached variables](@ref).
 
 ## Local degrees of freedom
 For each item (cell or facet) in a domain with standalone algebraic variables, the degrees of freedom of
-each standalone variable are added after the cell's degrees of freedom, in the given order.
+each standalone variable are added after the degrees of freedom of all fields (including those of attached variables),
+in the given order.
 Consequently, the following have the size of, and are ordered according to, these local degrees of freedom:
 * `ae` and `get_aeold(buffer)`, including the current and old values of the algebraic variables
 * `re` and `Ke`, including the contributions to the equations for the algebraic variables
 * `celldofs(buffer)`, including the global degrees of freedom of the algebraic variables
 
-The local dof range for each field is not changed, and `dof_range(buffer, name)` also gives the
+Standalone variables don't change the local dof range of the fields, and `dof_range(buffer, name)` also gives the
 range for an algebraic variable with name `name`. Since `ae` contains more values than the number
 of shape functions, the element routine must pass the dof range when evaluating a field, e.g.
 `function_value(cellvalues, q_point, ae, dof_range(buffer, :u))`.

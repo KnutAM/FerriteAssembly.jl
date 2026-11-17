@@ -1,5 +1,7 @@
 # Values types with additional base functions, used to test variables attached to fields
 # (`AttachAlgebraic` in the `algebraic_variables` of a `DomainSpec`)
+# `OutOfPlaneCellValues` extends the version in the generalized plane stress tutorial (scalar fields, hessians),
+# so a fix in one should be carried over to the other.
 
 # Lift 2d tensors to 3d, padding with zeros
 lift3d(v::Number) = v
