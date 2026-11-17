@@ -27,6 +27,7 @@ include("load_handler.jl")
 include("scaling.jl")
 include("errors.jl")
 include("algebraic_variables.jl")
+include("attached_variables.jl")
 
 @testset "Miscellaneous" begin
     grid = generate_grid(Quadrilateral, (2,2))

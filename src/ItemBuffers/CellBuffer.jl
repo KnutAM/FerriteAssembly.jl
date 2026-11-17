@@ -9,8 +9,8 @@ Each worker that supports a cellbuffer should overload this function.
 """
 function work_single_cell! end
 
-mutable struct CellBuffer{T,CC,CV,DR,MT,ST,UD,UC,L} <: AbstractCellBuffer
-    const dofbuffer::DofBuffer{T,DR,L}# Local dofs, dof values, residual, and stiffness
+mutable struct CellBuffer{T,CC,CV,DB<:DofBuffer{T},MT,ST,UD,UC} <: AbstractCellBuffer
+    const dofbuffer::DB               # Local dofs, dof values, residual, and stiffness
     const coords::CC                  # cellcoords (or what is required to reinit cellvalues)
     const cellvalues::CV              # Can also be named tuple of cellvalues (will be updated to MultiCellValues later)
     Δt::T                             # Time step (updated at start of assembly loop)
@@ -56,7 +56,7 @@ set_time_increment!(cb::CellBuffer, Δt) = (cb.Δt=Δt)
 @inline get_material(cb::CellBuffer) = cb.material
 @inline get_values(cb::CellBuffer) = cb.cellvalues
 
-@inline Ferrite.getcoordinates(cb::CellBuffer) = cb.coords
+@inline Ferrite.getcoordinates(cb::CellBuffer) = routine_coordinates(cb.cellvalues, cb.coords)
 
 @inline Ferrite.cellid(cb::CellBuffer) = cb.cellid
 

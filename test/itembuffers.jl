@@ -24,7 +24,7 @@
         @test all(length(getfield(d, name)) == ndofs_per_cell(sdh) for name in (:ae_old, :ae, :re, :dofs))
         @test size(d.Ke) == (ndofs_per_cell(sdh), ndofs_per_cell(sdh))
 
-        FA.set_dofs!(d, dh, cellnum)
+        celldofs!(d.field_dofs, dh, cellnum)
         @test d.dofs == celldofs(dh, cellnum)
 
         db = setup_domainbuffer(DomainSpec(dh, nothing, cv))

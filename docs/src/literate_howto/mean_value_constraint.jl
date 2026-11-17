@@ -65,7 +65,7 @@ cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip);
 
 # When setting up the domain, we give the algebraic variables that are used in the domain
 material = MeanValueHeat(1.0, 0.5, 2.0)
-buffer = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)));
+buffer = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)));
 
 # The sparsity pattern must include the entries for $\lambda$. The required information
 # is created from the domain buffer and passed to `allocate_matrix`.
@@ -125,7 +125,7 @@ add!(lh, BodyLoad(:u, 2, Returns(material.f)))
 fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
 boundary_material = BoundaryMeanValue(1.0)
 facetbuffer = setup_domainbuffer(DomainSpec(dh, boundary_material, fv;
-    set = getfacetset(grid, "right"), algebraic_per_cell = (:λ,)));
+    set = getfacetset(grid, "right"), algebraic_variables = (:λ,)));
 
 # The sparsity pattern is now created based on the facet domain. If algebraic variables are used
 # in several domain buffers, all can be passed to `FerriteAssembly.algebraic_couplings`.

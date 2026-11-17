@@ -124,9 +124,9 @@ Defaults to returning `nothing`.
 
 Overload this function to create the state which should be passed into the 
 `element_routine!`/`element_residual!` for the given `material` and `cellvalues`. 
-`x` is the cell's coordinates, `ae` the element degree of freedom values, and 
+`x` is the cell's coordinates (see [`FerriteAssembly.routine_coordinates`](@ref)), `ae` the element degree of freedom values, and 
 `dofrange::NamedTuple` containing the local dof range for each field
-(and for each algebraic variable given as `algebraic_per_cell` to [`DomainSpec`](@ref)). 
+(and for each standalone algebraic variable given as `algebraic_variables` to [`DomainSpec`](@ref)). 
 As for the element routines, `ae`, is filled with `NaN` unless the global degree 
 of freedom vector is given to the [`setup_domainbuffer`](@ref) function.
 """
@@ -146,9 +146,9 @@ function _create_cell_state(dofbuffer::DofBuffer, coords, material, cellvalues, 
     grid = _getgrid(sdh)
     getcoordinates!(coords, grid, cellnr)
     reinit!(cellvalues, getcells(grid, cellnr), coords)
-    set_dofs!(dofbuffer, sdh.dh, cellnr)
+    celldofs!(dofbuffer.field_dofs, sdh.dh, cellnr)
     _copydofs!(dofbuffer.ae, a, dofbuffer.dofs)
-    return create_cell_state(material, cellvalues, coords, dofbuffer.ae, dofbuffer.dofrange)
+    return create_cell_state(material, cellvalues, routine_coordinates(cellvalues, coords), dofbuffer.ae, dofbuffer.dofrange)
 end
 
 """

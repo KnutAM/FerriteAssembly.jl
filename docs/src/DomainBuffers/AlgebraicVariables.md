@@ -17,21 +17,26 @@ dh = DofHandler(grid)
 add!(dh, :u, ip)
 add!(dh, :λ, AlgebraicVariable())
 close!(dh)
-domain = DomainSpec(dh, material, cellvalues; algebraic_per_cell = (:λ,))
+domain = DomainSpec(dh, material, cellvalues; algebraic_variables = (:λ,))
 ```
 The same keyword is used for facet domains, and the same variable can be used in several domains,
 including both cell and facet domains. The contributions from the different domains are then added
 during assembly. See [Mean value constraints](@ref) for a complete example.
 
+Each element in `algebraic_variables` is either the name of a *standalone* variable, as above, or
+an [`AttachAlgebraic`](@ref FerriteAssembly.AttachAlgebraic) declaration of a variable *attached*
+to a field, see [Attached variables](@ref).
+
 ## Local degrees of freedom
-For each item (cell or facet) in a domain with algebraic variables, the degrees of freedom of
-each variable in `algebraic_per_cell` are added after the cell's degrees of freedom, in the given order.
+For each item (cell or facet) in a domain with standalone algebraic variables, the degrees of freedom of
+each standalone variable are added after the degrees of freedom of all fields (including those of attached variables),
+in the given order.
 Consequently, the following have the size of, and are ordered according to, these local degrees of freedom:
 * `ae` and `get_aeold(buffer)`, including the current and old values of the algebraic variables
 * `re` and `Ke`, including the contributions to the equations for the algebraic variables
 * `celldofs(buffer)`, including the global degrees of freedom of the algebraic variables
 
-The local dof range for each field is not changed, and `dof_range(buffer, name)` also gives the
+Standalone variables don't change the local dof range of the fields, and `dof_range(buffer, name)` also gives the
 range for an algebraic variable with name `name`. Since `ae` contains more values than the number
 of shape functions, the element routine must pass the dof range when evaluating a field, e.g.
 `function_value(cellvalues, q_point, ae, dof_range(buffer, :u))`.
@@ -42,7 +47,7 @@ av = FerriteAssembly.get_algebraic_values(buffer, :λ)
 ```
 which, e.g., gives a tensor for an `AlgebraicVariable{SymmetricTensor{2, 3}}`.
 `Ferrite.getfieldnames(buffer)` and the `dofrange` given to [`create_cell_state`](@ref) contain the fields,
-followed by the algebraic variables.
+followed by the standalone algebraic variables. Attached variables are not included, see [Attached variables](@ref).
 
 ```@docs
 FerriteAssembly.get_algebraic_values
@@ -65,6 +70,91 @@ isn't used in any element, must be constrained to avoid a singular system matrix
 Multithreaded assembly of domains with algebraic variables requires an atomic assembler, e.g.
 `KeReAssembler(K, r; atomic = true)`. Otherwise, such domains are assembled sequentially.
 
+## Attached variables
+An algebraic variable can also be *attached* to a field. The degrees of freedom of the variable then act
+as additional degrees of freedom of the field, which is useful when the field contains a global contribution,
+for example
+* the constant out-of-plane strain, ``\varepsilon_{33}``, in generalized plane strain, see
+  [Generalized plane stress](@ref);
+* the macroscopic displacement gradient, ``\boldsymbol{H}``, in computational homogenization with
+  ``\boldsymbol{u} = \boldsymbol{H}\cdot[\boldsymbol{x} - \boldsymbol{x}_\mathrm{c}] + \tilde{\boldsymbol{u}}``;
+* rigid body modes or global enrichment modes.
+
+The attachment is declared with
+```@docs
+FerriteAssembly.AttachAlgebraic
+```
+for example,
+```julia
+dh = DofHandler(grid)
+add!(dh, :u, ip^2)
+add!(dh, :p, ip)
+add!(dh, :H, AlgebraicVariable{Tensor{2, 2}}())
+add!(dh, :λ, AlgebraicVariable())
+close!(dh)
+domain = DomainSpec(dh, material, (u = cellvalues_u, p = cellvalues_p);
+    algebraic_variables = (FerriteAssembly.AttachAlgebraic(:H => :u; indices = ((1, 2), (2, 1))), :λ))
+```
+For each field, in the order of their degrees of freedom in `celldofs`, the local degrees of freedom are the field's degrees of
+freedom, followed by those of the variables attached to the field, in declaration order. Then the standalone
+variables follow. In the example above, with linear quadrilaterals, the local dof ranges are
+`u = 1:10`, `p = 11:14`, and `λ = 15:15`, where the two components of `H` are the dofs 9 and 10.
+Hence, `dof_range(buffer, :u)` includes the attached
+degrees of freedom, such that the values for `:u` (`cellvalues_u`) must provide 10 base functions, where
+the last two correspond to the attached components of `H`. The attached variable is only seen through the
+extended field: `H` is not available in the buffer, e.g. for `dof_range` and `get_algebraic_values`, nor in
+the `dofrange` given to [`create_cell_state`](@ref). An attached variable therefore doesn't change the
+element routine: the field just has more degrees of freedom, and the values for the field must provide the
+additional base functions. This is checked when setting up the domain. An existing element routine can thus
+be used unchanged, as long as the domain has no standalone variables, see
+[Attached and standalone variables in the same domain](@ref).
+
+The attached variables of a domain, with their fields and components, are given by
+```@docs
+FerriteAssembly.attached_variables
+```
+For the example above, `FerriteAssembly.attached_variables(db)` gives `(H = (field = :u, components = (3, 2)),)`,
+where `db` is the domain buffer created with `setup_domainbuffer(domain)`.
+
+Note that the [`LoadHandler`](@ref) only adds contributions to the field's own degrees of freedom. If an
+external load does work on the attached base functions, this must be included in the element routine, or added to
+the global residual at `algebraic_dofs(dh, name)`.
+
+### Values for attached variables
+`FerriteAssembly` does not provide values types with additional base functions; these are problem specific.
+A custom values type for a cell domain should subtype `Ferrite.AbstractCellValues` and define
+* `getnbasefunctions`, including the attached base functions;
+* `getnquadpoints` and `getdetJdV`;
+* `shape_value` and `shape_gradient` for all base functions. These must return the same type for all
+  base functions, and should not allocate. The value and the gradient are independent, i.e. the gradient of
+  an attached base function need not be the gradient of its value (e.g. a zero value with a non-zero
+  out-of-plane gradient);
+* `getngeobasefunctions` and `geometric_value` (or `spatial_coordinate`);
+* `reinit!(values, cell::Union{Nothing, Ferrite.AbstractCell}, x::AbstractVector{<:Vec})`, where data
+  depending on the cell can be updated (e.g. the position of the quadrature points). `deepcopy` must give
+  an independent copy, as used for multithreading;
+* optionally `shape_hessian`, if used by the element routine.
+`Ferrite`'s generic methods then give the remaining accessors, e.g. `shape_symmetric_gradient`,
+`shape_divergence`, `function_value`, and `function_gradient`. For a facet domain, the values type should
+subtype `Ferrite.AbstractFacetValues` and define `reinit!(values, cell, x, facetnr)` instead.
+A custom cell values type can be checked with
+```@docs
+FerriteAssembly.check_values_interface
+```
+If the values type lifts a problem to a higher dimension, e.g. to use a 3d element routine for a 2d grid,
+the coordinates given to the element routine can be lifted as well, by overloading
+```@docs
+FerriteAssembly.routine_coordinates
+```
+
+### Attached and standalone variables in the same domain
+A standalone variable is an additional entry in the local degrees of freedom, placed after all fields
+(including their attached degrees of freedom). The element routine must therefore use
+`dof_range(buffer, name)` for each field and each standalone variable, as for any multi-field problem.
+In the example above, the routine evaluates `:u` (including the attached components of `H`) with
+`dof_range(buffer, :u)`, `:p` with `dof_range(buffer, :p)`, and gets the value of `:λ` with
+`dof_range(buffer, :λ)`, see [Local degrees of freedom](@ref).
+
 ## Further details
 * **Automatic differentiation**: Defining only `element_residual!` works as for other cell domains,
   and the stiffness then includes the coupling to the algebraic variables.
@@ -73,9 +163,11 @@ Multithreaded assembly of domains with algebraic variables requires an atomic as
   when starting to work a domain, such that renumbering the dofhandler after
   setting up the domain buffer is supported.
 * **Residual scaling**: [`ElementResidualScaling`](@ref) calculates one factor for each algebraic variable,
-  in addition to the factor for each field.
+  in addition to the factor for each field. The factor for a field only includes the field's own degrees
+  of freedom, and the factor for an attached variable includes its attached components.
 * **Workers evaluating fields**: The [`SimpleIntegrator`](@ref) and [`QuadPointEvaluator`](@ref) pass the
-  values and gradients of the fields. The values of the algebraic variables are not passed.
+  values and gradients of the fields, including the contributions from attached variables. The values of
+  the standalone algebraic variables are not passed.
 * **Loads**: The contributions added by the [`LoadHandler`](@ref) cannot depend on algebraic variables.
   Such contributions can be implemented with `facet_routine!` or `element_routine!`.
 * **Coupled simulations**: A coupled buffer, see [`get_coupled_buffer`](@ref), gives access to the

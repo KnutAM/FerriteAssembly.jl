@@ -23,6 +23,7 @@ get_set(sim::AbstractSimulation, args::Vararg{Any, N}) where N = get_set(get_dom
 update_states!(sim::AbstractSimulation; kwargs...) = update_states!(get_domainbuffer(sim); kwargs...)
 set_time_increment!(sim::AbstractSimulation, Δt) = set_time_increment!(get_domainbuffer(sim), Δt)
 revert_states!(sim::AbstractSimulation) = revert_states!(get_domainbuffer(sim))
+attached_variables(sim::AbstractSimulation, args::Vararg{Any, N}) where N = attached_variables(get_domainbuffer(sim), args...)
 
 # Forwarding for internal API
 get_num_tasks(sim::AbstractSimulation) = get_num_tasks(get_domainbuffer(sim))

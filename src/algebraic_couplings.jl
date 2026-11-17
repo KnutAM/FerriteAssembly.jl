@@ -2,7 +2,7 @@
     algebraic_couplings(buffers...)
 
 Create a `Vector` of coupling descriptors for the domains with algebraic variables (see the
-`algebraic_per_cell` keyword of [`DomainSpec`](@ref)) in `buffers`.
+`algebraic_variables` keyword of [`DomainSpec`](@ref)) in `buffers`.
 Each element in `buffers` can be a domain buffer, a [`DomainBuffers`](@ref FerriteAssembly.DomainBuffers),
 or a [`Simulation`](@ref). The output can be passed to Ferrite's `allocate_matrix`, to allocate the
 entries required for the algebraic variables in the sparsity pattern, i.e.
@@ -30,7 +30,7 @@ function add_algebraic_couplings!(couplings, db::StdDomainBuffer)
     layout = get_layout(get_base(get_itembuffer(db)))
     set = get_set(db)
     (layout === nothing || isempty(set)) && return couplings
-    names = keys(layout.ranges)
+    names = _variable_names(layout)
     pairs = Tuple{Symbol, Symbol}[]
     for fieldname in Ferrite.getfieldnames(db.sdh), name in names
         push!(pairs, (fieldname, name))

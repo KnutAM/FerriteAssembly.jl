@@ -25,7 +25,7 @@ or all threaded; mixing the two in the same dictionary is not supported.
 spawned tasks are not cancelled, but all of them are finished (not left running in the
 background) before the exception propagates out of `work!`.
 
-**Algebraic variables:** A threaded domain with algebraic variables (see the `algebraic_per_cell`
+**Algebraic variables:** A threaded domain with algebraic variables (see the `algebraic_variables`
 keyword of [`DomainSpec`](@ref)) is only worked multithreaded if the `worker` supports this, see
 [`FerriteAssembly.can_thread_shared_dofs`](@ref). Otherwise, that domain is worked sequentially.
 """
@@ -140,7 +140,7 @@ can_thread(::Any) = false
 
 Does the `worker` support multithreaded work on a domain with degrees of freedom that are shared
 between all items in the domain? This is the case for domains with algebraic variables
-(see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)). Coloring does not prevent race
+(see the `algebraic_variables` keyword of [`DomainSpec`](@ref)). Coloring does not prevent race
 conditions for such degrees of freedom. Defaults to `false`. Only used if `can_thread(worker)`,
 and if `false`, domains with algebraic variables are worked sequentially.
 

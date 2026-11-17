@@ -24,7 +24,8 @@ tutorials = [
     "incompressible_elasticity.jl", 
     "mixed_materials.jl", 
     "iga.jl",
-    "phasefield_fracture.jl"
+    "phasefield_fracture.jl",
+    "generalized_plane_stress.jl",
     ]
 generated_tutorials = build_examples(tutorials; type="tutorials")
 howto = [

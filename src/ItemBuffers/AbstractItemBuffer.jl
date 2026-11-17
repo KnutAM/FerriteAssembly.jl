@@ -87,8 +87,8 @@ item buffer, e.g. by calling `get_state(coupled_buffer)`.
 
 Get the degree of freedom indices for the current cell referred to 
 by the current item. For a domain with algebraic variables 
-(see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)), these 
-are followed by the degree of freedom indices for the algebraic variables.
+(see the `algebraic_variables` keyword of [`DomainSpec`](@ref)), these 
+include the degree of freedom indices for the algebraic variables, see [Algebraic variables](@ref).
 """
 @inline Ferrite.celldofs(b::AbstractItemBuffer) = get_dofbuffer(b).dofs
 
@@ -96,8 +96,23 @@ are followed by the degree of freedom indices for the algebraic variables.
     Ferrite.getcoordinates(::AbstractItemBuffer)
 
 Get the **cell** coordinates for the current item. 
+These are the grid's coordinates, unless modified for the values type by 
+[`FerriteAssembly.routine_coordinates`](@ref).
 """
 Ferrite.getcoordinates(::AbstractItemBuffer) = error("Not implemented") # Implemented for specific buffers
+
+"""
+    FerriteAssembly.routine_coordinates(values, x)
+
+**Experimental**. Return the cell coordinates given to the element (or facet) routines and to
+[`create_cell_state`](@ref), via `getcoordinates(buffer)`, for the grid's coordinates `x` and the values
+object `values` (as given to [`DomainSpec`](@ref)). Defaults to `x`, but can be overloaded for a values type,
+e.g. to give 3d coordinates for values that lift a 2d problem to a 3d element routine, see
+[Values for attached variables](@ref). This function is called after `reinit!(values, cell, x)`, and should
+not allocate. A typical implementation therefore returns coordinates stored in the values object, which
+are updated in `reinit!`.
+"""
+routine_coordinates(::Any, x) = x
 
 """
     Ferrite.cellid(::AbstractItemBuffer)
@@ -112,10 +127,19 @@ Ferrite.cellid(::AbstractItemBuffer) = error("Not implemented") # Implemented fo
 Get the `dof_range` for a specific field, same as 
 `Ferrite.dof_range(::SubDofHandler, ::Symbol)`, 
 but fully type-stable. For a domain with algebraic variables 
-(see the `algebraic_per_cell` keyword of [`DomainSpec`](@ref)),
-the name of an algebraic variable gives the local dof range for that variable.
+(see the `algebraic_variables` keyword of [`DomainSpec`](@ref)),
+the name of a standalone algebraic variable gives the local dof range for that variable,
+and the range of a field includes the dofs of variables attached to that field.
+The names of attached variables are not available.
 """
 @inline Ferrite.dof_range(b::AbstractItemBuffer, name::Symbol) = get_dofbuffer(b).dofrange[name]
+
+# NamedTuple with the local dof ranges for which separate residual scaling factors are calculated:
+# Each field's own dofs (excluding attached dofs), followed by the dofs of each algebraic variable
+@inline function _scaling_ranges(b::AbstractItemBuffer)
+    dofbuffer = get_dofbuffer(b)
+    return _scaling_ranges(dofbuffer.layout, dofbuffer.dofrange)
+end
 
 # Internal overload for now
 Ferrite.getfieldnames(b::AbstractItemBuffer) = keys(get_dofbuffer(b).dofrange)
@@ -129,14 +153,14 @@ has_algebraic_dofs(b::AbstractItemBuffer) = get_layout(b) !== nothing
     get_algebraic_values(itembuffer::AbstractItemBuffer, name::Symbol)
 
 Get the `Ferrite.AlgebraicValues` for the algebraic variable `name`, which must be one of the
-variables given as `algebraic_per_cell` to the [`DomainSpec`](@ref). Together with
+standalone variables given as `algebraic_variables` to the [`DomainSpec`](@ref). Together with
 `dof_range(itembuffer, name)`, the value of the variable is then
 `algebraic_value(get_algebraic_values(itembuffer, name), ae, dof_range(itembuffer, name))`.
 """
 @inline get_algebraic_values(b::AbstractItemBuffer, name::Symbol) = _get_algebraic_values(get_layout(b), name)
 
 # The names of the spatial fields (i.e. excluding the algebraic variables in `getfieldnames`)
-_spatial_fieldnames(b::AbstractItemBuffer) = _spatial_fieldnames(Ferrite.getfieldnames(b), get_layout(b))
+_spatial_fieldnames(b::AbstractItemBuffer) = _spatial_fieldnames(get_layout(b), Ferrite.getfieldnames(b))
 
 # Write the current global dofs of the algebraic variables to the local dofs of the buffer
 update_algebraic_dofs!(b::AbstractItemBuffer, dh) = update_algebraic_dofs!(b, get_layout(b), dh)
