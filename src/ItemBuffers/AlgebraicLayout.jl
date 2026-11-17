@@ -85,10 +85,11 @@ function setup_layout(sdh::SubDofHandler, declarations::Tuple)
         own = next_range(length(dof_range(sdh, field)))
         push!(field_ranges, field => own)
         for decl in attached
-            decl.field === field || continue
-            components = _attached_components(dh, decl)
-            push!(attached_entries, decl.name => (; field, components))
-            push!(variable_ranges, decl.name => next_range(length(components)))
+            if decl.field === field
+                components = _attached_components(dh, decl)
+                push!(attached_entries, decl.name => (; field, components))
+                push!(variable_ranges, decl.name => next_range(length(components)))
+            end
         end
         push!(dofrange, field => first(own):n)
     end
