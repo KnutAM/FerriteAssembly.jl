@@ -40,7 +40,7 @@ close!(dh)
 cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip);
 
 material = MeanValueHeat(1.0, 0.5, 2.0)
-buffer = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_per_cell = (:λ,)));
+buffer = setup_domainbuffer(DomainSpec(dh, material, cv; algebraic_variables = (:λ,)));
 
 K = allocate_matrix(dh; algebraic_couplings = FerriteAssembly.algebraic_couplings(buffer))
 r = zeros(ndofs(dh))
@@ -84,7 +84,7 @@ add!(lh, BodyLoad(:u, 2, Returns(material.f)))
 fv = FacetValues(FacetQuadratureRule{RefQuadrilateral}(2), ip)
 boundary_material = BoundaryMeanValue(1.0)
 facetbuffer = setup_domainbuffer(DomainSpec(dh, boundary_material, fv;
-    set = getfacetset(grid, "right"), algebraic_per_cell = (:λ,)));
+    set = getfacetset(grid, "right"), algebraic_variables = (:λ,)));
 
 K = allocate_matrix(dh; algebraic_couplings = FerriteAssembly.algebraic_couplings(cellbuffer, facetbuffer))
 fill!(a, 0)
